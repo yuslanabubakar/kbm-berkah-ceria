@@ -1,6 +1,7 @@
 import { ExpenseForm } from "@/components/ExpenseForm";
 import { ExpenseList } from "@/components/ExpenseList";
 import { HostControls } from "@/components/HostControls";
+import { PaymentMethodsDisplay } from "@/components/PaymentMethodsDisplay";
 import { VehicleManager } from "@/components/VehicleManager";
 import { formatRupiah } from "@/lib/formatCurrency";
 import { fetchTripDetail } from "@/lib/tripQueries";
@@ -25,8 +26,8 @@ export default async function PerjalananDetailPage({ params }: { params: { id: s
     notFound();
   }
 
-  // TODO: ganti dengan pengecekan Supabase Auth ketika siap
-  const isHost = true;
+  const isOwner = detail.permissions.isOwner;
+  const canEdit = detail.permissions.canEdit;
 
   const total = detail.expenses.reduce((sum, expense) => sum + expense.amountIdr, 0);
   const lastUpdate = detail.expenses[0]?.date ? format(new Date(detail.expenses[0]?.date), "d MMM HH:mm", { locale: id }) : "-";
@@ -89,6 +90,10 @@ export default async function PerjalananDetailPage({ params }: { params: { id: s
             </ul>
           </div>
 
+          {detail.hostAccounts.length > 0 && (
+            <PaymentMethodsDisplay accounts={detail.hostAccounts} />
+          )}
+
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-semibold">Daftar pengeluaran</h2>
@@ -99,7 +104,7 @@ export default async function PerjalananDetailPage({ params }: { params: { id: s
               expenses={detail.expenses}
               participants={detail.participants}
               legs={detail.legs}
-              canEdit={isHost}
+              canEdit={canEdit}
             />
           </div>
         </div>
@@ -108,12 +113,18 @@ export default async function PerjalananDetailPage({ params }: { params: { id: s
           <h2 className="text-xl font-semibold">Tambah pengeluaran</h2>
           <p className="text-sm text-slate-500">Semua angka otomatis disimpan dalam Rupiah.</p>
           <div className="mt-4">
-            <ExpenseForm tripId={detail.trip.id} participants={detail.participants} legs={detail.legs} />
+            {canEdit ? (
+              <ExpenseForm tripId={detail.trip.id} participants={detail.participants} legs={detail.legs} />
+            ) : (
+              <div className="rounded-2xl border border-dashed border-slate-200 bg-white/60 p-5 text-sm text-slate-600">
+                Pengeluaran hanya bisa ditambahkan oleh pembuat perjalanan.
+              </div>
+            )}
           </div>
         </div>
       </div>
 
-      {isHost && (
+      {isOwner && (
         <HostControls
           tripId={detail.trip.id}
           participants={detail.participants}
@@ -122,7 +133,7 @@ export default async function PerjalananDetailPage({ params }: { params: { id: s
         />
       )}
 
-      {isHost && (
+      {isOwner && (
         <VehicleManager
           tripId={detail.trip.id}
           legs={detail.legs}

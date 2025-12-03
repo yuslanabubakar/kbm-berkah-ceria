@@ -1,5 +1,5 @@
-import { getSupabaseServer } from "@/lib/supabaseClient";
-import { Trip, Expense, ExpenseSplit, HostPaymentAccount } from "@/types/expense";
+import { getSupabaseServer } from "@/lib/supabaseServer";
+import { Trip, Expense, ExpenseSplit, HostPaymentAccount, TripShare } from "@/types/expense";
 
 export type TripSummary = Trip;
 
@@ -63,6 +63,10 @@ export type TripDetail = {
   adjustments: BalanceAdjustment[];
   fleetVehicles: FleetVehicle[];
   hostAccounts: HostPaymentAccount[];
+  permissions: {
+    isOwner: boolean;
+    canEdit: boolean;
+  };
 };
 
 export type BalanceAdjustment = {
@@ -78,6 +82,7 @@ export type BalanceAdjustment = {
 
 type TripRow = {
   id: string;
+  owner_id: string;
   name: string;
   origin_city: string | null;
   destination_city: string | null;
@@ -227,9 +232,13 @@ function mapHostAccount(row: HostAccountRow): HostPaymentAccount {
 
 export async function fetchTripsSummary(): Promise<TripSummary[]> {
   const supabase = getSupabaseServer();
+  const { data: authData } = await supabase.auth.getUser();
+  const currentUser = authData.user ?? null;
+  const currentUserId = currentUser?.id ?? null;
+  const currentUserEmail = currentUser?.email?.toLowerCase() ?? null;
   const { data: tripsRaw, error } = await supabase
     .from("trips")
-    .select("id, name, origin_city, destination_city, start_date, end_date")
+    .select("id, owner_id, name, origin_city, destination_city, start_date, end_date")
     .order("start_date", { ascending: false });
 
   if (error) {
@@ -238,8 +247,10 @@ export async function fetchTripsSummary(): Promise<TripSummary[]> {
 
   const trips = (tripsRaw ?? []) as TripRow[];
   const ids = trips.map((trip) => trip.id);
-  let totalsMap = new Map<string, number>();
+  const totalsMap = new Map<string, number>();
   const hostAccountsMap = new Map<string, HostPaymentAccount[]>();
+  const sharesMap = new Map<string, TripShare[]>();
+  const editAccessMap = new Map<string, boolean>();
 
   if (ids.length) {
     const { data: totalsRaw, error: totalsError } = await supabase
@@ -272,6 +283,47 @@ export async function fetchTripsSummary(): Promise<TripSummary[]> {
       list.push(mapHostAccount(row));
       hostAccountsMap.set(row.trip_id, list);
     });
+
+    const { data: sharesRaw, error: sharesError } = await supabase
+      .from("trip_shares")
+      .select("id, trip_id, shared_with_email, shared_with_user_id, can_edit, created_at")
+      .in("trip_id", ids)
+      .order("created_at", { ascending: false });
+
+    if (!sharesError && sharesRaw) {
+      (sharesRaw as Array<{
+        id: string;
+        trip_id: string;
+        shared_with_email: string;
+        shared_with_user_id: string | null;
+        can_edit: boolean;
+        created_at: string;
+      }>).forEach((share) => {
+        const list = sharesMap.get(share.trip_id) ?? [];
+        list.push({
+          id: share.id,
+          shared_with_email: share.shared_with_email,
+          can_edit: share.can_edit,
+          created_at: share.created_at
+        });
+        sharesMap.set(share.trip_id, list);
+
+        const normalizedShareEmail = share.shared_with_email?.toLowerCase?.() ?? null;
+        if (currentUserId && share.shared_with_user_id === currentUserId) {
+          if (share.can_edit) {
+            editAccessMap.set(share.trip_id, true);
+          } else if (!editAccessMap.has(share.trip_id)) {
+            editAccessMap.set(share.trip_id, false);
+          }
+        } else if (!share.shared_with_user_id && currentUserEmail && normalizedShareEmail === currentUserEmail) {
+          if (share.can_edit) {
+            editAccessMap.set(share.trip_id, true);
+          } else if (!editAccessMap.has(share.trip_id)) {
+            editAccessMap.set(share.trip_id, false);
+          }
+        }
+      });
+    }
   }
 
   return trips.map<TripSummary>((trip) => ({
@@ -284,15 +336,22 @@ export async function fetchTripsSummary(): Promise<TripSummary[]> {
     tanggalSelesai: trip.end_date ?? undefined,
     totalPengeluaran: totalsMap.get(trip.id) ?? 0,
     expenses: [],
-    hostAccounts: hostAccountsMap.get(trip.id) ?? []
+    hostAccounts: hostAccountsMap.get(trip.id) ?? [],
+    isOwner: trip.owner_id === currentUserId,
+    canEdit: trip.owner_id === currentUserId || editAccessMap.get(trip.id) === true,
+    shares: sharesMap.get(trip.id) ?? []
   }));
 }
 
 export async function fetchTripDetail(tripId: string): Promise<TripDetail | null> {
   const supabase = getSupabaseServer();
+  const { data: authData } = await supabase.auth.getUser();
+  const currentUser = authData.user ?? null;
+  const currentUserId = currentUser?.id ?? null;
+  const currentUserEmail = currentUser?.email ?? null;
   const { data: tripRaw, error: tripError } = await supabase
     .from("trips")
-    .select("id, name, origin_city, destination_city, start_date, end_date, notes")
+    .select("id, owner_id, name, origin_city, destination_city, start_date, end_date, notes")
     .eq("id", tripId)
     .maybeSingle();
 
@@ -304,6 +363,30 @@ export async function fetchTripDetail(tripId: string): Promise<TripDetail | null
 
   if (!trip) {
     return null;
+  }
+
+  const isOwner = trip.owner_id === currentUserId;
+  let shareAllowsEdit = false;
+
+  if (!isOwner && (currentUserId || currentUserEmail)) {
+    const orConditions: string[] = [];
+    if (currentUserId) {
+      orConditions.push(`shared_with_user_id.eq.${currentUserId}`);
+    }
+    if (currentUserEmail) {
+      orConditions.push(`shared_with_email.eq.${currentUserEmail}`);
+    }
+
+    if (orConditions.length) {
+      const { data: shareRow } = await supabase
+        .from("trip_shares")
+        .select("can_edit")
+        .eq("trip_id", tripId)
+        .or(orConditions.join(","))
+        .maybeSingle();
+
+      shareAllowsEdit = Boolean(shareRow?.can_edit);
+    }
   }
 
   const [
@@ -571,6 +654,10 @@ export async function fetchTripDetail(tripId: string): Promise<TripDetail | null
     legs: mappedLegs,
     adjustments: mappedAdjustments,
     fleetVehicles,
-    hostAccounts: hostAccounts.map(mapHostAccount)
+    hostAccounts: hostAccounts.map(mapHostAccount),
+    permissions: {
+      isOwner,
+      canEdit: isOwner || shareAllowsEdit
+    }
   };
 }

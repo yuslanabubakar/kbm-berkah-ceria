@@ -1,45 +1,66 @@
 import Link from "next/link";
-import { TripCard } from "@/components/TripCard";
-import { fetchTripsSummary } from "@/lib/tripQueries";
 
-export const revalidate = 0;
-
-export default async function HomePage() {
-  const trips = await fetchTripsSummary();
-
+export default function PublicHomePage() {
   return (
-    <section className="space-y-10">
-      <div className="rounded-3xl bg-gradient-to-r from-brand-blue to-brand-coral px-8 py-12 text-white shadow-lg">
+    <section className="space-y-12">
+      <div className="rounded-3xl bg-gradient-to-r from-brand-blue to-brand-coral px-8 py-16 text-white shadow-lg">
         <p className="text-sm uppercase tracking-[0.2em] text-white/80">KBM Berkah Ceria</p>
-        <h1 className="mt-2 text-4xl font-bold">Bagi biaya trip jadi gampang</h1>
-        <p className="mt-4 max-w-2xl text-lg text-white/90">
-          Catat setiap pengeluaran, ajak teman gabung cukup pakai link, dan lihat siapa perlu ganti siapa dalam hitungan detik.
+        <h1 className="mt-2 text-5xl font-bold">Bagi biaya trip jadi gampang</h1>
+        <p className="mt-6 max-w-2xl text-xl text-white/90">
+          Catat setiap pengeluaran, ajak teman gabung cukup pakai link, dan lihat siapa perlu ganti siapa dalam hitungan
+          detik.
         </p>
-        <div className="mt-8 flex flex-wrap gap-4">
+        <div className="mt-10 flex flex-wrap gap-4">
           <Link
-            href="/perjalanan/baru"
-            className="rounded-2xl bg-white/90 px-6 py-3 text-base font-semibold text-brand-blue shadow"
+            href="/login"
+            className="rounded-2xl bg-white/90 px-8 py-4 text-lg font-semibold text-brand-blue shadow-lg hover:bg-white"
           >
-            + Buat perjalanan
+            Mulai Sekarang
           </Link>
-          <button className="rounded-2xl border border-white/60 px-6 py-3 text-base font-semibold text-white">
-            Lihat demo
-          </button>
         </div>
       </div>
 
-      <div>
-        <div className="flex items-center justify-between">
-          <h2 className="text-2xl font-semibold text-slate-900">Perjalanan aktif</h2>
-          <p className="text-sm text-slate-500">Format Rupiah otomatis, realtime.</p>
+      <div className="grid gap-8 md:grid-cols-3">
+        <div className="space-y-3 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-brand-blue/10">
+            <span className="text-2xl">💸</span>
+          </div>
+          <h3 className="text-lg font-semibold text-slate-900">Split otomatis</h3>
+          <p className="text-sm text-slate-600">
+            Sistem menghitung pembagian biaya secara adil untuk semua peserta berdasarkan leg dan kendaraan yang dipakai.
+          </p>
         </div>
-        <div className="mt-6 grid gap-6 md:grid-cols-2">
-          {trips.length ? (
-            trips.map((trip) => <TripCard key={trip.id} trip={trip} />)
-          ) : (
-            <p className="text-sm text-slate-500">Belum ada perjalanan. Yuk buat yang pertama!</p>
-          )}
+
+        <div className="space-y-3 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-brand-coral/10">
+            <span className="text-2xl">🚗</span>
+          </div>
+          <h3 className="text-lg font-semibold text-slate-900">Kelola kendaraan</h3>
+          <p className="text-sm text-slate-600">
+            Atur siapa duduk di mobil mana, supir mana, dan biaya otomatis dibagi per penumpang atau per leg.
+          </p>
         </div>
+
+        <div className="space-y-3 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-brand-blue/10">
+            <span className="text-2xl">💰</span>
+          </div>
+          <h3 className="text-lg font-semibold text-slate-900">Rupiah & realtime</h3>
+          <p className="text-sm text-slate-600">
+            Format Rupiah otomatis, mendukung angka desimal, dan saldo langsung update setiap ada pengeluaran baru.
+          </p>
+        </div>
+      </div>
+
+      <div className="rounded-2xl bg-slate-50 px-8 py-10 text-center">
+        <h2 className="text-2xl font-semibold text-slate-900">Siap mulai perjalanan berikutnya?</h2>
+        <p className="mt-2 text-slate-600">Login dengan Google dan buat trip pertamamu dalam hitungan detik.</p>
+        <Link
+          href="/login"
+          className="mt-6 inline-block rounded-2xl bg-brand-blue px-8 py-3 text-base font-semibold text-white hover:bg-brand-blue/90"
+        >
+          Masuk Sekarang
+        </Link>
       </div>
     </section>
   );

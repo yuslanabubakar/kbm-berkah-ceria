@@ -1,28 +1,30 @@
 # KBM Berkah Ceria
 
-Aplikasi berbagi biaya perjalanan untuk tim KBM Berkah Ceria. Dibangun dengan Next.js 14 (App Router) dan Supabase sehingga tim bisa mencatat pengeluaran, membagi biaya dengan Rupiah, serta memantau saldo akhir secara real time.
+Aplikasi berbagi biaya perjalanan untuk tim KBM Berkah Ceria. Menggunakan Next.js 14 (App Router) dan Supabase agar tim bisa mencatat pengeluaran, membagi biaya dalam Rupiah, mengatur armada, serta memantau saldo akhir secara real time.
 
-## Fitur Utama
+## Kapabilitas Saat Ini
 
-- **Beranda ringkas** menampilkan perjalanan aktif beserta CTA membuat perjalanan baru.
-- **Halaman Perjalanan** berisi daftar peserta, form tambah pengeluaran berbasis Rupiah (mendukung desimal), dan saldo otomatis per orang.
-- **Leg & kendaraan** lengkap dengan assignment supir/penumpang sehingga pembagian biaya bisa per leg ataupun per kendaraan.
-- **Host payment accounts**: pemilik trip dapat menambahkan banyak rekening/e-wallet via API `/api/trips/[tripId]/host-accounts` agar peserta tahu kemana membayar.
-- **Halaman Ringkasan** menyoroti siapa bayar paling banyak, rekomendasi pelunasan, serta ekspor ringan.
-- Bahasa default **Indonesia kasual** dengan format mata uang Rupiah memakai `Intl.NumberFormat('id-ID', { currency: 'IDR' })`.
+- Dashboard pemilik menampilkan daftar trip aktif, total pengeluaran, tombol bikin trip, modul berbagi trip via email, dan manajer metode pembayaran host.
+- Form pembuatan trip instan membuat leg pertama, kendaraan utama, dan peserta awal lengkap dengan penandaan supir & jadwal default.
+- Halaman detail perjalanan menyajikan saldo per peserta (dengan badge supir), daftar pengeluaran editable, dan kartu metode pembayaran yang siap disalin peserta.
+- Pencatatan pengeluaran mendukung scope leg/kendaraan, edit & hapus, pengecualian dari perhitungan, format Rupiah otomatis, serta validasi dengan Zod.
+- Mode host menyediakan kontrol split manual per expense, toggle pengecualian, penyesuaian saldo (draft/applied/void), dan histori penyesuaian.
+- Manajemen armada meliputi tambah leg, hubungkan kendaraan ke leg, atur jadwal keberangkatan, assign peserta massal, pindah penumpang, serta ubah supir/penumpang.
+- Berbagi trip memungkinkan host mengundang email (akses read-only) via `trip_shares`, menjaga RLS Supabase; halaman Ringkasan komunitas tersedia sebagai preview statis.
 
 ## Tech Stack
 
-- Next.js 14 + TypeScript + App Router
-- Tailwind CSS untuk styling
-- Supabase (Postgres + Auth + Storage)
+- Next.js 14 (App Router, Server Components) + React 18 + TypeScript
+- Supabase Postgres + Auth + Storage via `@supabase/ssr`
+- Tailwind CSS 3, clsx untuk styling
+- Zod untuk validasi form, date-fns dan Intl untuk format tanggal & Rupiah
 - ESLint, Prettier, Husky, lint-staged, pnpm
 
 ## Prasyarat
 
 - Node.js >= 18.18
 - pnpm `npm install -g pnpm`
-- Akun Supabase dan project baru
+- Akun Supabase beserta project baru
 
 ## Cara Jalanin
 
@@ -42,44 +44,47 @@ SUPABASE_SERVICE_ROLE_KEY=
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 ```
 
-`SUPABASE_SERVICE_ROLE_KEY` hanya dipakai di sisi server (API route) untuk perhitungan saldo, jadi jangan disebar ke klien.
+`SUPABASE_SERVICE_ROLE_KEY` hanya dipakai di sisi server (API route) untuk perhitungan saldo, jadi jangan dibagikan ke klien.
+
+### Login Google Supabase
+
+1. Di dashboard Supabase → **Authentication → Providers**, aktifkan Google dan isi Client ID/Secret dari Google Cloud Console.
+2. Di Google Cloud Console tambahkan seluruh redirect berikut pada OAuth client kamu:
+   - `https://<project>.supabase.co/auth/v1/callback`
+   - `http://localhost:3000/auth/callback`
+   - `https://<domain-vercel>/auth/callback`
+3. Pastikan `.env.local` memiliki `NEXT_PUBLIC_APP_URL` yang menunjuk ke origin saat ini (lokal atau Vercel). Nilai ini dipakai ketika memanggil `signInWithOAuth`.
+4. Tombol "Masuk dengan Google" tersedia di header aplikasi; setelah login pengguna diarahkan kembali ke halaman sebelumnya.
 
 ## Integrasi Supabase
 
-1. Jalankan `pnpm supabase login` jika memakai Supabase CLI (opsional).
-2. Buat tabel berikut (skema ringkas):
-   - `trips` (id ulid, nama, tanggal_mulai, tanggal_selesai)
-   - `participants` (id, trip_id, nama, kontak)
-   - `expenses` (id, trip_id, judul, deskripsi, amount_idr numeric, paid_by uuid, split_with uuid[])
-3. Aktifkan Row Level Security dan tulis policy sesuai kebutuhan akses.
+1. Opsional: `pnpm supabase login` untuk memakai Supabase CLI.
+2. Jalankan migrasi ke project Supabase kamu (lihat bagian berikut) agar skema dan RLS sinkron.
+3. Isi `.env.local` dengan kredensial Supabase sebelum menjalankan aplikasi.
 
 ### Skema & Migrasi
 
-- File SQL utama berada di `supabase/migrations/0001_init.sql` dan mencakup:
-  - `trips` → metadata perjalanan Bandung ⇄ Jakarta (atau kota lain).
-  - `trip_legs` → tiap arah perjalanan (pergi/pulang) dengan tanggal berangkat/pulang.
-  - `trip_vehicles` → daftar mobil per leg (Avanza, Xenia, dll.) beserta kapasitas.
-  - `vehicle_assignments` → siapa duduk di mobil mana pada leg tertentu + role supir/penumpang.
-  - `expenses` → pengeluaran wajib memilih leg & (opsional) kendaraan + kolom `share_scope` untuk menentukan dibagi ke seluruh leg atau hanya kendaraan tertentu.
-  - `expense_splits` → opsi override pembagian biaya jika tidak ingin memakai perhitungan otomatis.
-  - View `expense_share_resolved` + `trip_balances` → menghitung share default sesuai aturan KBM (default dibagi rata ke seluruh penumpang leg; jika `share_scope = 'vehicle'` maka hanya penumpang kendaraan tersebut yang dihitung).
-  - `trip_balances`, `settlements`, `trip_invites` + seluruh kebijakan RLS.
-- Terapkan migrasi ke proyek Supabase kamu dengan:
+Seluruh SQL berada di `supabase/migrations`. Sorotan penting:
+
+- `0001_init.sql` mendefinisikan trips, participants, trip_legs, trip_vehicles, expense_splits, view `trip_balances`, dan seluruh RLS dasar.
+- `0002_host_controls.sql` menambah flag pengecualian pengeluaran, tabel `balance_adjustments`, enum status, dan refresh view penyeimbang.
+- `0005_vehicle_departure_schedule.sql` (dan lanjutan) memperkenalkan `leg_vehicle_links` beserta jadwal keberangkatan kendaraan.
+- `0008_host_payment_accounts.sql` menambah tabel & RLS untuk daftar rekening host yang ditampilkan di UI.
+- `0010_trip_sharing.sql` menyediakan `trip_shares`, helper function anti-recursive, dan kebijakan akses berbasis email untuk akses read-only.
+
+Terapkan seluruh migrasi dengan:
 
 ```bash
-supabase db reset --local    # jika memakai Supabase CLI + docker lokal
-# atau untuk deploy langsung
-supabase db push --file supabase/migrations/0001_init.sql
+supabase db reset --local
+# atau deploy ke project langsung
+supabase db push
 ```
 
-Pastikan environment sudah login (`supabase login`) dan `.env.local` terisi sebelum menjalankan perintah di atas.
-
-> **Catatan aturan biaya:** setiap expense harus punya leg. Default-nya, sistem akan membagi biaya secara rata ke semua penumpang yang tercatat pada leg tersebut (`share_scope = 'leg'`). Jika kamu memilih opsi "Penumpang kendaraan ini" saat membuat expense, maka hanya penumpang di kendaraan terkait yang ikut menanggung. Override manual tetap bisa dilakukan via `expense_splits` jika perlu pembagian khusus (mis. supir hanya mengganti sebagian, makan siang ditanggung 3 orang saja, dll.).
+Pastikan sudah login ke Supabase CLI dan environment berisi kredensial yang benar.
 
 ### Contoh Seed Data
 
-- File `supabase/seed.sql` menyediakan contoh trip Bandung ⇄ Jakarta (24–28 Nov 2025) lengkap dengan peserta, leg, kendaraan, assignment, dan beberapa pengeluaran.
-- Jalankan lewat CLI:
+File `supabase/seed.sql` menyediakan contoh trip Bandung <-> Jakarta (24-28 Nov 2025) lengkap dengan peserta, leg, kendaraan, assignment, dan beberapa pengeluaran.
 
 ```bash
 supabase db seed --file supabase/seed.sql
@@ -89,35 +94,47 @@ Gunakan seed ini untuk uji tampilan sebelum data produksi siap.
 
 ## API Ringkas
 
-- `POST /api/trips/[tripId]/host-accounts` → tambah metode pembayaran baru (label, channel `bank|ewallet|cash|other`, nomor rekening, instruksi opsional, prioritas).
-- `PATCH /api/trips/[tripId]/host-accounts/[accountId]` → perbarui sebagian/seluruh field di atas.
-- `DELETE /api/trips/[tripId]/host-accounts/[accountId]` → hapus rekening. Semua endpoint otomatis menjalankan `revalidatePath` pada beranda dan halaman perjalanan.
+### Trips
+- `POST /api/trips` membuat perjalanan baru beserta leg & kendaraan awal.
+- `GET /api/trips/:tripId` mengambil metadata trip dan akun pembayaran host.
+- `PATCH /api/trips/:tripId` memperbarui nama, kota, tanggal mulai/selesai.
+- `DELETE /api/trips/:tripId` menghapus perjalanan dan dependensinya.
 
-Endpoint lain mengikuti pola REST di folder `app/api/trips`, mencakup peserta, kendaraan, leg, dan penyesuaian saldo.
+### Peserta & Armada
+- `POST /api/trips/:tripId/participants` menambah peserta; `PATCH`/`DELETE` pada `/participants/:participantId` untuk ubah/hapus.
+- `POST /api/trips/:tripId/legs` membuat leg baru; `/legs/:legId/vehicles` untuk hubungkan kendaraan atau atur jadwal keberangkatan.
+- `POST /api/trips/:tripId/vehicles` menambah kendaraan; `/vehicles/:vehicleId/assignments` mengatur penempatan peserta.
 
-## Komit Konvensi
+### Pengeluaran & Host Controls
+- `POST /api/expenses` mencatat pengeluaran dengan scope leg/kendaraan.
+- `PATCH`/`DELETE /api/expenses/:expenseId` untuk edit/hapus; `/splits` mengatur bobot manual; `/exclude` toggle pengecualian.
+- `POST /api/trips/:tripId/adjustments` mencatat penyesuaian saldo; `PATCH /adjustments/:adjustmentId` menandai apply/void.
 
-- Gunakan format commit `feat: ...`, `fix: ...`, dll.
-- Husky otomatis menjalankan lint-staged saat commit.
+### Metode Pembayaran & Sharing
+- `POST /api/trips/:tripId/host-accounts` menambah rekening/e-wallet host; `PATCH` dan `DELETE` tersedia per `accountId`.
+- `POST /api/trips/:tripId/shares` mengundang email; `GET` menampilkan daftar share; `DELETE /shares/:shareId` mencabut akses.
 
 ## Struktur Folder
 
 ```
 app/
-  page.tsx          -> Beranda
-  perjalanan/[id]/  -> Detail perjalanan + form
-  ringkasan/        -> Halaman ringkasan global
+  page.tsx              -> Beranda publik
+  dashboard/            -> Dashboard setelah login
+  perjalanan/[id]/      -> Detail perjalanan, host controls, armada
+  ringkasan/            -> Preview ringkasan komunitas
 src/
-  components/       -> UI modular (form, kartu, dsb)
-  lib/              -> Helper Supabase & utilitas
-  types/            -> Definisi TypeScript
+  components/           -> Form trip, pengeluaran, host controls, armada, sharing
+  hooks/                -> Supabase session hook
+  lib/                  -> Klien Supabase + query trip
+  types/                -> Definisi TypeScript
+supabase/
+  migrations/           -> Skema Postgres + RLS
+  seed.sql              -> Data contoh
 ```
 
 ## Next Steps
 
-- Hubungkan proyek Supabase sungguhan + migrasi SQL.
-- Tambahkan autentikasi (magic link atau OTP) agar peserta bisa login.
-- Implementasi realtime channel untuk update saldo instan.
-- Bangun UI pengelolaan Host Payment agar tidak perlu memanggil API manual.
-
-Selamat membangun dan semoga setiap perjalanan makin berkah dan ceria! 🎒✨
+- Tambahkan opsi akses edit pada sharing serta UI untuk mencabut/upgrade hak akses tamu.
+- Sambungkan halaman Ringkasan ke agregasi Supabase agar tidak bergantung pada data statis.
+- Integrasikan channel realtime Supabase untuk update saldo dan pengeluaran instan.
+- Siapkan pengujian (unit/integration) untuk API routes kritikal sebelum rilis produksi.

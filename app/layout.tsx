@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import Link from "next/link";
+import { AuthToolbar } from "@/components/AuthToolbar";
 
 export const metadata: Metadata = {
   title: "KBM Berkah Ceria",
@@ -16,18 +17,21 @@ export default function RootLayout({
     <html lang="id">
       <body className="antialiased text-slate-900">
         <header className="sticky top-0 z-10 border-b bg-white/90 backdrop-blur">
-          <nav className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
-            <Link href="/" className="text-lg font-semibold text-brand-blue">
-              KBM Berkah Ceria
-            </Link>
-            <div className="flex gap-4 text-sm font-medium">
-              <Link href="/" className="hover:text-brand-coral">
-                Beranda
+          <nav className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-6 py-4">
+            <div className="flex items-center gap-8">
+              <Link href="/" className="text-lg font-semibold text-brand-blue">
+                KBM Berkah Ceria
               </Link>
-              <Link href="/ringkasan" className="hover:text-brand-coral">
-                Ringkasan
-              </Link>
+              <div className="flex gap-4 text-sm font-medium">
+                <Link href="/dashboard" className="hover:text-brand-coral">
+                  Dashboard
+                </Link>
+                <Link href="/ringkasan" className="hover:text-brand-coral">
+                  Ringkasan
+                </Link>
+              </div>
             </div>
+            <AuthToolbar />
           </nav>
         </header>
         <main className="mx-auto max-w-5xl px-6 py-10">{children}</main>

@@ -1,7 +1,7 @@
 import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getSupabaseServer } from "@/lib/supabaseClient";
+import { getSupabaseServer } from "@/lib/supabaseServer";
 
 const participantSchema = z.object({
   name: z.string().min(1, "Nama peserta wajib diisi"),
@@ -46,6 +46,14 @@ export async function POST(request: Request) {
   }
 
   const supabase = getSupabaseServer();
+  
+  // Get the authenticated user
+  const { data: { user }, error: userError } = await supabase.auth.getUser();
+  
+  if (userError || !user) {
+    return NextResponse.json({ message: "Tidak terautentikasi" }, { status: 401 });
+  }
+
   const {
     name,
     originCity,
@@ -64,6 +72,7 @@ export async function POST(request: Request) {
   const { data: trip, error: tripError } = await supabase
     .from("trips")
     .insert({
+      owner_id: user.id,
       name,
       origin_city: originCity ?? null,
       destination_city: destinationCity ?? null,

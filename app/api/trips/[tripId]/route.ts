@@ -1,7 +1,55 @@
 import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getSupabaseServer } from "@/lib/supabaseClient";
+import { getSupabaseServer } from "@/lib/supabaseServer";
+
+export async function GET(request: Request, { params }: { params: { tripId: string } }) {
+  const { tripId } = params;
+  if (!tripId) {
+    return NextResponse.json({ message: "Perjalanan tidak ditemukan" }, { status: 404 });
+  }
+
+  try {
+    const supabase = getSupabaseServer();
+    
+    const [tripResult, accountsResult] = await Promise.all([
+      supabase
+        .from("trips")
+        .select("id, name, origin_city, destination_city, start_date, end_date")
+        .eq("id", tripId)
+        .single(),
+      supabase
+        .from("host_payment_accounts")
+        .select("id, label, channel, provider, account_name, account_number, instructions, priority")
+        .eq("trip_id", tripId)
+        .order("priority", { ascending: false })
+        .order("created_at", { ascending: true })
+    ]);
+
+    if (tripResult.error || !tripResult.data) {
+      return NextResponse.json({ message: "Perjalanan tidak ditemukan" }, { status: 404 });
+    }
+
+    const hostAccounts = (accountsResult.data || []).map((row: any) => ({
+      id: row.id,
+      label: row.label,
+      channel: row.channel,
+      provider: row.provider,
+      accountName: row.account_name,
+      accountNumber: row.account_number,
+      instructions: row.instructions ?? undefined,
+      priority: row.priority ?? 0
+    }));
+
+    return NextResponse.json({
+      trip: tripResult.data,
+      hostAccounts
+    });
+  } catch (error) {
+    console.error("GET trip error:", error);
+    return NextResponse.json({ message: "Server error" }, { status: 500 });
+  }
+}
 
 const updateTripSchema = z.object({
   name: z

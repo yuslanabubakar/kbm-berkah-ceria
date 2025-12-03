@@ -41,6 +41,13 @@ export type Expense = {
   isExcluded?: boolean;
 };
 
+export type TripShare = {
+  id: string;
+  shared_with_email: string;
+  can_edit: boolean;
+  created_at: string;
+};
+
 export type Trip = {
   id: string;
   nama: string;
@@ -52,4 +59,7 @@ export type Trip = {
   totalPengeluaran: number;
   expenses: Expense[];
   hostAccounts: HostPaymentAccount[];
+  isOwner: boolean;
+  canEdit: boolean;
+  shares: TripShare[];
 };

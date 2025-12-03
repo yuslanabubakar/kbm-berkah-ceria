@@ -69,73 +69,82 @@ export function TripCard({ trip }: { trip: Trip }) {
   return (
     <>
       <article className="relative flex flex-col rounded-2xl border border-slate-200 bg-white/80 p-5 shadow-sm transition hover:-translate-y-1 hover:border-brand-blue">
-        <div className="absolute right-4 top-4" ref={menuRef}>
-          <button
-            type="button"
-            aria-haspopup="menu"
-            aria-expanded={menuOpen}
-            onClick={(event) => {
-              event.stopPropagation();
-              setMenuOpen((prev) => !prev);
-            }}
-            className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-lg font-semibold text-slate-500 shadow-sm hover:text-slate-900"
-          >
-            ⋯
-          </button>
-          {menuOpen && (
-            <div className="mt-2 w-48 rounded-2xl border border-slate-100 bg-white p-2 text-sm text-slate-600 shadow-xl">
-              <button
-                type="button"
-                className="flex w-full items-center justify-between rounded-xl px-3 py-2 hover:bg-slate-50"
-                onClick={() => {
-                  setMenuOpen(false);
-                  setEditStatus(null);
-                  setShowEditModal(true);
-                }}
-              >
-                Edit perjalanan
-                <span className="text-xs text-slate-400">⌘E</span>
-              </button>
-              <button
-                type="button"
-                className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-rose-600 hover:bg-rose-50"
-                onClick={async () => {
-                  if (isDeleting) return;
-                  if (typeof window !== "undefined") {
-                    const confirmed = window.confirm(`Hapus perjalanan ${trip.nama}?`);
-                    if (!confirmed) {
-                      setMenuOpen(false);
+        {trip.canEdit && (
+          <div className="absolute right-4 top-4" ref={menuRef}>
+            <button
+              type="button"
+              aria-haspopup="menu"
+              aria-expanded={menuOpen}
+              onClick={(event) => {
+                event.stopPropagation();
+                setMenuOpen((prev) => !prev);
+              }}
+              className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-lg font-semibold text-slate-500 shadow-sm hover:text-slate-900"
+            >
+              ⋯
+            </button>
+            {menuOpen && (
+              <div className="mt-2 w-48 rounded-2xl border border-slate-100 bg-white p-2 text-sm text-slate-600 shadow-xl">
+                <button
+                  type="button"
+                  className="flex w-full items-center justify-between rounded-xl px-3 py-2 hover:bg-slate-50"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    setEditStatus(null);
+                    setShowEditModal(true);
+                  }}
+                >
+                  Edit perjalanan
+                  <span className="text-xs text-slate-400">⌘E</span>
+                </button>
+                <button
+                  type="button"
+                  className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-rose-600 hover:bg-rose-50"
+                  onClick={async () => {
+                    if (isDeleting) return;
+                    if (typeof window !== "undefined") {
+                      const confirmed = window.confirm(`Hapus perjalanan ${trip.nama}?`);
+                      if (!confirmed) {
+                        setMenuOpen(false);
+                        return;
+                      }
+                    }
+                    setMenuOpen(false);
+                    setActionMessage(null);
+                    setIsDeleting(true);
+                    const response = await fetch(`/api/trips/${trip.id}`, {
+                      method: "DELETE"
+                    });
+                    setIsDeleting(false);
+                    if (!response.ok) {
+                      const error = await response.json().catch(() => ({}));
+                      setActionMessage(error.message || "Gagal menghapus perjalanan.");
                       return;
                     }
-                  }
-                  setMenuOpen(false);
-                  setActionMessage(null);
-                  setIsDeleting(true);
-                  const response = await fetch(`/api/trips/${trip.id}`, {
-                    method: "DELETE"
-                  });
-                  setIsDeleting(false);
-                  if (!response.ok) {
-                    const error = await response.json().catch(() => ({}));
-                    setActionMessage(error.message || "Gagal menghapus perjalanan.");
-                    return;
-                  }
-                  router.refresh();
-                }}
-                disabled={isDeleting}
-              >
-                {isDeleting ? "Menghapus..." : "Hapus perjalanan"}
-              </button>
-            </div>
-          )}
-        </div>
+                    router.refresh();
+                  }}
+                  disabled={isDeleting}
+                >
+                  {isDeleting ? "Menghapus..." : "Hapus perjalanan"}
+                </button>
+              </div>
+            )}
+          </div>
+        )}
         <Link href={`/perjalanan/${trip.id}`} className="block space-y-3 pr-4">
           <div className="flex items-center justify-between">
             <div className="pr-4">
               <p className="text-sm uppercase tracking-wide text-slate-500">{trip.lokasi}</p>
               <h3 className="text-xl font-semibold text-slate-900">{trip.nama}</h3>
             </div>
-            <span className="rounded-full border px-3 py-1 text-xs text-slate-500">{durasi} hari</span>
+            <div className="flex flex-col items-end gap-2">
+              <span className="rounded-full border px-3 py-1 text-xs text-slate-500">{durasi} hari</span>
+              {!trip.canEdit && (
+                <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                  Hanya lihat
+                </span>
+              )}
+            </div>
           </div>
           <p className="text-sm text-slate-600">
             {format(new Date(trip.tanggalMulai), "d MMM", { locale: id })} -
