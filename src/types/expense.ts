@@ -17,6 +17,7 @@ export type HostPaymentChannel = "bank" | "ewallet" | "cash" | "other";
 
 export type HostPaymentAccount = {
   id: string;
+  paymentAccountId?: string;
   label: string;
   channel: HostPaymentChannel;
   provider?: string | null;
@@ -24,6 +25,28 @@ export type HostPaymentAccount = {
   accountNumber: string;
   instructions?: string | null;
   priority: number;
+};
+
+export type UserPaymentAccount = {
+  id: string;
+  label: string;
+  channel: HostPaymentChannel;
+  provider?: string | null;
+  accountName: string;
+  accountNumber: string;
+  instructions?: string | null;
+  priority: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type TripPaymentAccountAttachment = HostPaymentAccount & {
+  paymentAccountId: string;
+  customLabel?: string | null;
+  customInstructions?: string | null;
+  customPriority?: number | null;
+  attachedAt: string;
+  updatedAt: string;
 };
 
 export type Expense = {

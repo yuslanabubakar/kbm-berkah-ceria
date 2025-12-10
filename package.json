@@ -9,6 +9,7 @@
     "start": "next start",
     "lint": "next lint",
     "format": "prettier --write .",
+    "prettier:write": "cross-env PRETTIER_NO_GLOB=1 prettier --ignore-unknown --no-error-on-unmatched-pattern --write",
     "typecheck": "tsc --noEmit",
     "prepare": "husky install"
   },
@@ -17,18 +18,23 @@
     "@supabase/supabase-js": "2.86.0",
     "clsx": "2.1.1",
     "date-fns": "3.6.0",
+    "iconv-lite": "0.6.3",
     "next": "14.2.4",
+    "pdfkit": "0.15.0",
     "react": "18.2.0",
     "react-dom": "18.2.0",
     "zod": "3.23.8"
   },
   "devDependencies": {
     "@types/node": "20.14.7",
+    "@types/pdfkit": "0.13.4",
     "@types/react": "18.3.3",
     "@types/react-dom": "18.3.0",
     "autoprefixer": "10.4.19",
+    "cross-env": "7.0.3",
     "eslint": "8.57.0",
     "eslint-config-next": "14.2.4",
+    "eslint-plugin-prettier": "5.1.3",
     "husky": "9.0.11",
     "lint-staged": "15.2.2",
     "postcss": "8.4.38",
@@ -38,10 +44,10 @@
   },
   "lint-staged": {
     "*.{ts,tsx,js,jsx}": [
-      "eslint --fix"
+      "next lint --fix --file"
     ],
     "*.{ts,tsx,js,jsx,css,md,mdx,json}": [
-      "prettier --write"
+      "pnpm run prettier:write --"
     ]
   },
   "engines": {

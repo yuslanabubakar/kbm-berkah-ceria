@@ -1,16 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import type { HostPaymentAccount } from "@/types/expense";
+import type { UserPaymentAccount } from "@/types/expense";
 
 type Props = {
-  tripId: string;
-  accounts: HostPaymentAccount[];
-  onUpdate: () => void;
-  onEdit: (account: HostPaymentAccount) => void;
+  accounts: UserPaymentAccount[];
+  onDelete: (accountId: string) => void;
+  onEdit: (account: UserPaymentAccount) => void;
 };
 
-export function PaymentAccountsList({ tripId, accounts, onUpdate, onEdit }: Props) {
+export function PaymentAccountsList({ accounts, onDelete, onEdit }: Props) {
   const [deleting, setDeleting] = useState<string | null>(null);
 
   async function handleDelete(accountId: string) {
@@ -20,15 +19,15 @@ export function PaymentAccountsList({ tripId, accounts, onUpdate, onEdit }: Prop
 
     setDeleting(accountId);
     try {
-      const response = await fetch(`/api/trips/${tripId}/host-accounts/${accountId}`, {
-        method: "DELETE"
+      const response = await fetch(`/api/payment-accounts/${accountId}`, {
+        method: "DELETE",
       });
 
       if (!response.ok) {
         throw new Error("Gagal menghapus");
       }
 
-      onUpdate();
+      onDelete(accountId);
     } catch (err) {
       alert(err instanceof Error ? err.message : "Terjadi kesalahan");
     } finally {
@@ -41,7 +40,7 @@ export function PaymentAccountsList({ tripId, accounts, onUpdate, onEdit }: Prop
       bank: "Bank",
       ewallet: "E-Wallet",
       cash: "Tunai",
-      other: "Lainnya"
+      other: "Lainnya",
     };
     return labels[channel] || channel;
   }
@@ -51,7 +50,7 @@ export function PaymentAccountsList({ tripId, accounts, onUpdate, onEdit }: Prop
       bank: "🏦",
       ewallet: "💳",
       cash: "💵",
-      other: "📱"
+      other: "📱",
     };
     return icons[channel] || "💰";
   }
@@ -59,7 +58,9 @@ export function PaymentAccountsList({ tripId, accounts, onUpdate, onEdit }: Prop
   if (accounts.length === 0) {
     return (
       <div className="rounded-lg border border-slate-200 bg-slate-50 p-6 text-center">
-        <p className="text-sm text-slate-500">Belum ada metode pembayaran. Tambahkan yang pertama di atas.</p>
+        <p className="text-sm text-slate-500">
+          Belum ada metode pembayaran. Tambahkan yang pertama di atas.
+        </p>
       </div>
     );
   }
@@ -73,10 +74,14 @@ export function PaymentAccountsList({ tripId, accounts, onUpdate, onEdit }: Prop
         >
           <div className="flex items-start justify-between">
             <div className="flex items-start gap-3">
-              <span className="text-2xl">{getChannelIcon(account.channel)}</span>
+              <span className="text-2xl">
+                {getChannelIcon(account.channel)}
+              </span>
               <div className="flex-1">
                 <div className="flex items-center gap-2">
-                  <h3 className="font-semibold text-slate-900">{account.label}</h3>
+                  <h3 className="font-semibold text-slate-900">
+                    {account.label}
+                  </h3>
                   <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">
                     {getChannelLabel(account.channel)}
                   </span>
@@ -87,13 +92,18 @@ export function PaymentAccountsList({ tripId, accounts, onUpdate, onEdit }: Prop
                   )}
                 </div>
                 {account.provider && (
-                  <p className="mt-1 text-xs text-slate-500">{account.provider}</p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    {account.provider}
+                  </p>
                 )}
                 <div className="mt-2 space-y-1">
                   <p className="text-sm text-slate-700">
-                    <span className="font-medium">A/n:</span> {account.accountName}
+                    <span className="font-medium">A/n:</span>{" "}
+                    {account.accountName}
                   </p>
-                  <p className="text-sm font-mono text-slate-900">{account.accountNumber}</p>
+                  <p className="text-sm font-mono text-slate-900">
+                    {account.accountNumber}
+                  </p>
                 </div>
                 {account.instructions && (
                   <p className="mt-2 text-xs text-slate-600 italic">

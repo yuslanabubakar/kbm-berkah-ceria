@@ -1,10 +1,12 @@
 import { ExpenseForm } from "@/components/ExpenseForm";
 import { ExpenseList } from "@/components/ExpenseList";
-import { HostControls } from "@/components/HostControls";
 import { PaymentMethodsDisplay } from "@/components/PaymentMethodsDisplay";
+import { TripPaymentManager } from "@/components/TripPaymentManager";
 import { VehicleManager } from "@/components/VehicleManager";
+import { GenerateReportButton } from "@/components/GenerateReportButton";
 import { formatRupiah } from "@/lib/formatCurrency";
 import { fetchTripDetail } from "@/lib/tripQueries";
+import { fetchUserPaymentAccounts } from "@/lib/paymentAccounts";
 import { format } from "date-fns";
 import { id } from "date-fns/locale";
 import { notFound } from "next/navigation";
@@ -19,7 +21,11 @@ function formatRange(start?: string, end?: string) {
   return `${startText} - ${endText}`;
 }
 
-export default async function PerjalananDetailPage({ params }: { params: { id: string } }) {
+export default async function PerjalananDetailPage({
+  params,
+}: {
+  params: { id: string };
+}) {
   const detail = await fetchTripDetail(params.id);
 
   if (!detail) {
@@ -28,19 +34,36 @@ export default async function PerjalananDetailPage({ params }: { params: { id: s
 
   const isOwner = detail.permissions.isOwner;
   const canEdit = detail.permissions.canEdit;
+  const userAccounts = isOwner ? await fetchUserPaymentAccounts() : [];
 
-  const total = detail.expenses.reduce((sum, expense) => sum + expense.amountIdr, 0);
-  const lastUpdate = detail.expenses[0]?.date ? format(new Date(detail.expenses[0]?.date), "d MMM HH:mm", { locale: id }) : "-";
+  const total = detail.expenses.reduce(
+    (sum, expense) => sum + expense.amountIdr,
+    0,
+  );
+  const lastUpdate = detail.expenses[0]?.date
+    ? format(new Date(detail.expenses[0]?.date), "d MMM HH:mm", { locale: id })
+    : "-";
 
   return (
     <section className="space-y-10">
-      <div>
-        <p className="text-sm text-slate-500">ID perjalanan: {detail.trip.id}</p>
-        <h1 className="text-3xl font-bold text-slate-900">{detail.trip.nama}</h1>
-        <p className="text-slate-600">
-          {formatRange(detail.trip.tanggalMulai, detail.trip.tanggalSelesai)} · {formatRupiah(total)} · {detail.expenses.length} transaksi
-        </p>
-        <p className="text-sm text-slate-500">{detail.trip.lokasi}</p>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <p className="text-sm text-slate-500">
+            ID perjalanan: {detail.trip.id}
+          </p>
+          <h1 className="text-3xl font-bold text-slate-900">
+            {detail.trip.nama}
+          </h1>
+          <p className="text-slate-600">
+            {formatRange(detail.trip.tanggalMulai, detail.trip.tanggalSelesai)}{" "}
+            · {formatRupiah(total)} · {detail.expenses.length} transaksi
+          </p>
+          <p className="text-sm text-slate-500">{detail.trip.lokasi}</p>
+        </div>
+        <GenerateReportButton
+          tripId={detail.trip.id}
+          tripName={detail.trip.nama}
+        />
       </div>
 
       <div className="grid gap-8 lg:grid-cols-[1.2fr_0.8fr]">
@@ -48,18 +71,29 @@ export default async function PerjalananDetailPage({ params }: { params: { id: s
           <div className="rounded-2xl border bg-white/90 p-6 shadow-sm">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm uppercase tracking-wide text-slate-400">Rincian peserta</p>
-                <h2 className="text-xl font-semibold text-slate-900">Siapa menanggung berapa</h2>
+                <p className="text-sm uppercase tracking-wide text-slate-400">
+                  Rincian peserta
+                </p>
+                <h2 className="text-xl font-semibold text-slate-900">
+                  Siapa menanggung berapa
+                </h2>
               </div>
-              <span className="text-sm text-slate-500">Saldo = Dibayar - Tanggungan</span>
+              <span className="text-sm text-slate-500">
+                Saldo = Dibayar - Tanggungan
+              </span>
             </div>
             <ul className="mt-4 space-y-3">
               {detail.balances.length ? (
                 detail.balances.map((saldo) => {
-                  const participant = detail.participants.find((p) => p.id === saldo.participantId);
+                  const participant = detail.participants.find(
+                    (p) => p.id === saldo.participantId,
+                  );
                   const isDriver = participant?.isDriver;
                   return (
-                    <li key={saldo.participantId} className="flex items-center justify-between">
+                    <li
+                      key={saldo.participantId}
+                      className="flex items-center justify-between"
+                    >
                       <p className="font-medium">
                         {saldo.nama}
                         {isDriver && (
@@ -69,15 +103,26 @@ export default async function PerjalananDetailPage({ params }: { params: { id: s
                         )}
                       </p>
                       <div className="text-right text-sm">
-                        <p className={saldo.balance >= 0 ? "text-emerald-600" : "text-rose-600"}>
-                          {saldo.balance >= 0 ? "Menanggung sebesar" : "Perlu bayar"} {formatRupiah(Math.abs(saldo.balance))}
+                        <p
+                          className={
+                            saldo.balance >= 0
+                              ? "text-emerald-600"
+                              : "text-rose-600"
+                          }
+                        >
+                          {saldo.balance >= 0
+                            ? "Menanggung sebesar"
+                            : "Perlu bayar"}{" "}
+                          {formatRupiah(Math.abs(saldo.balance))}
                         </p>
                         <p className="text-xs text-slate-500">
-                          Dibayar {formatRupiah(saldo.totalPaid)} · Porsi {formatRupiah(saldo.totalShare)}
+                          Dibayar {formatRupiah(saldo.totalPaid)} · Porsi{" "}
+                          {formatRupiah(saldo.totalShare)}
                         </p>
                         {saldo.adjustments !== 0 && (
                           <p className="text-xs text-indigo-500">
-                            Penyesuaian {saldo.adjustments > 0 ? "+" : "-"} {formatRupiah(Math.abs(saldo.adjustments))}
+                            Penyesuaian {saldo.adjustments > 0 ? "+" : "-"}{" "}
+                            {formatRupiah(Math.abs(saldo.adjustments))}
                           </p>
                         )}
                       </div>
@@ -85,10 +130,21 @@ export default async function PerjalananDetailPage({ params }: { params: { id: s
                   );
                 })
               ) : (
-                <li className="text-sm text-slate-500">Belum ada saldo dihitung.</li>
+                <li className="text-sm text-slate-500">
+                  Belum ada saldo dihitung.
+                </li>
               )}
             </ul>
           </div>
+
+          {isOwner && (
+            <TripPaymentManager
+              tripId={detail.trip.id}
+              tripName={detail.trip.nama}
+              attachments={detail.paymentAttachments}
+              userAccounts={userAccounts}
+            />
+          )}
 
           {detail.hostAccounts.length > 0 && (
             <PaymentMethodsDisplay accounts={detail.hostAccounts} />
@@ -97,7 +153,9 @@ export default async function PerjalananDetailPage({ params }: { params: { id: s
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-semibold">Daftar pengeluaran</h2>
-              <span className="text-sm text-slate-500">Terakhir diupdate {lastUpdate}</span>
+              <span className="text-sm text-slate-500">
+                Terakhir diupdate {lastUpdate}
+              </span>
             </div>
             <ExpenseList
               tripId={detail.trip.id}
@@ -111,10 +169,16 @@ export default async function PerjalananDetailPage({ params }: { params: { id: s
 
         <div>
           <h2 className="text-xl font-semibold">Tambah pengeluaran</h2>
-          <p className="text-sm text-slate-500">Semua angka otomatis disimpan dalam Rupiah.</p>
+          <p className="text-sm text-slate-500">
+            Semua angka otomatis disimpan dalam Rupiah.
+          </p>
           <div className="mt-4">
             {canEdit ? (
-              <ExpenseForm tripId={detail.trip.id} participants={detail.participants} legs={detail.legs} />
+              <ExpenseForm
+                tripId={detail.trip.id}
+                participants={detail.participants}
+                legs={detail.legs}
+              />
             ) : (
               <div className="rounded-2xl border border-dashed border-slate-200 bg-white/60 p-5 text-sm text-slate-600">
                 Pengeluaran hanya bisa ditambahkan oleh pembuat perjalanan.
@@ -123,15 +187,6 @@ export default async function PerjalananDetailPage({ params }: { params: { id: s
           </div>
         </div>
       </div>
-
-      {isOwner && (
-        <HostControls
-          tripId={detail.trip.id}
-          participants={detail.participants}
-          expenses={detail.expenses}
-          adjustments={detail.adjustments}
-        />
-      )}
 
       {isOwner && (
         <VehicleManager

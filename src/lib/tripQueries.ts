@@ -1,5 +1,12 @@
 import { getSupabaseServer } from "@/lib/supabaseServer";
-import { Trip, Expense, ExpenseSplit, HostPaymentAccount, TripShare } from "@/types/expense";
+import {
+  Trip,
+  Expense,
+  ExpenseSplit,
+  HostPaymentAccount,
+  TripShare,
+  TripPaymentAccountAttachment,
+} from "@/types/expense";
 
 export type TripSummary = Trip;
 
@@ -63,6 +70,7 @@ export type TripDetail = {
   adjustments: BalanceAdjustment[];
   fleetVehicles: FleetVehicle[];
   hostAccounts: HostPaymentAccount[];
+  paymentAttachments: TripPaymentAccountAttachment[];
   permissions: {
     isOwner: boolean;
     canEdit: boolean;
@@ -163,16 +171,28 @@ type LegVehicleLinkRow = {
   departure_at: string | null;
 };
 
-type HostAccountRow = {
+type PaymentAccountRow = {
   id: string;
-  trip_id: string;
   label: string;
   channel: "bank" | "ewallet" | "cash" | "other";
   provider: string | null;
   account_name: string;
   account_number: string;
   instructions: string | null;
-  priority: number | null;
+  priority: string | number | null;
+  created_at: string;
+  updated_at: string;
+};
+
+type TripPaymentAccountRow = {
+  id: string;
+  trip_id: string;
+  custom_label: string | null;
+  custom_instructions: string | null;
+  custom_priority: string | number | null;
+  created_at: string;
+  updated_at: string;
+  payment_account: PaymentAccountRow | PaymentAccountRow[] | null;
 };
 
 type ExpenseSplitRow = {
@@ -217,16 +237,39 @@ function formatLocation(origin?: string | null, destination?: string | null) {
   return origin ?? destination ?? "Tanpa lokasi";
 }
 
-function mapHostAccount(row: HostAccountRow): HostPaymentAccount {
+function mapTripPaymentAttachment(
+  row: TripPaymentAccountRow,
+): TripPaymentAccountAttachment | null {
+  const baseRelation = row.payment_account;
+  const base = Array.isArray(baseRelation)
+    ? baseRelation[0] ?? null
+    : baseRelation;
+  if (!base) {
+    return null;
+  }
+
+  const finalPriority =
+    row.custom_priority != null
+      ? toNumber(row.custom_priority)
+      : toNumber(base.priority);
+  const finalInstructions =
+    row.custom_instructions ?? base.instructions ?? undefined;
+
   return {
     id: row.id,
-    label: row.label,
-    channel: row.channel,
-    provider: row.provider,
-    accountName: row.account_name,
-    accountNumber: row.account_number,
-    instructions: row.instructions ?? undefined,
-    priority: row.priority ?? 0
+    paymentAccountId: base.id,
+    label: row.custom_label ?? base.label,
+    channel: base.channel,
+    provider: base.provider,
+    accountName: base.account_name,
+    accountNumber: base.account_number,
+    instructions: finalInstructions,
+    priority: finalPriority,
+    customLabel: row.custom_label ?? undefined,
+    customInstructions: row.custom_instructions ?? undefined,
+    customPriority: row.custom_priority != null ? finalPriority : undefined,
+    attachedAt: row.created_at,
+    updatedAt: row.updated_at,
   };
 }
 
@@ -238,7 +281,9 @@ export async function fetchTripsSummary(): Promise<TripSummary[]> {
   const currentUserEmail = currentUser?.email?.toLowerCase() ?? null;
   const { data: tripsRaw, error } = await supabase
     .from("trips")
-    .select("id, owner_id, name, origin_city, destination_city, start_date, end_date")
+    .select(
+      "id, owner_id, name, origin_city, destination_city, start_date, end_date",
+    )
     .order("start_date", { ascending: false });
 
   if (error) {
@@ -248,7 +293,7 @@ export async function fetchTripsSummary(): Promise<TripSummary[]> {
   const trips = (tripsRaw ?? []) as TripRow[];
   const ids = trips.map((trip) => trip.id);
   const totalsMap = new Map<string, number>();
-  const hostAccountsMap = new Map<string, HostPaymentAccount[]>();
+  const hostAccountsMap = new Map<string, TripPaymentAccountAttachment[]>();
   const sharesMap = new Map<string, TripShare[]>();
   const editAccessMap = new Map<string, boolean>();
 
@@ -268,54 +313,95 @@ export async function fetchTripsSummary(): Promise<TripSummary[]> {
     });
 
     const { data: hostRaw, error: hostError } = await supabase
-      .from("host_payment_accounts")
-      .select("id, trip_id, label, channel, provider, account_name, account_number, instructions, priority, created_at")
-      .in("trip_id", ids)
-      .order("priority", { ascending: true })
-      .order("created_at", { ascending: true });
+      .from("trip_payment_accounts")
+      .select(
+        `
+          id,
+          trip_id,
+          custom_label,
+          custom_instructions,
+          custom_priority,
+          created_at,
+          updated_at,
+          payment_account:user_payment_accounts!inner (
+            id,
+            label,
+            channel,
+            provider,
+            account_name,
+            account_number,
+            instructions,
+            priority,
+            created_at,
+            updated_at
+          )
+        `,
+      )
+      .in("trip_id", ids);
 
     if (hostError) {
       throw hostError;
     }
 
-    ((hostRaw ?? []) as HostAccountRow[]).forEach((row) => {
+    ((hostRaw ?? []) as TripPaymentAccountRow[]).forEach((row) => {
+      const mapped = mapTripPaymentAttachment(row);
+      if (!mapped) return;
       const list = hostAccountsMap.get(row.trip_id) ?? [];
-      list.push(mapHostAccount(row));
+      list.push(mapped);
       hostAccountsMap.set(row.trip_id, list);
+    });
+
+    hostAccountsMap.forEach((list, key) => {
+      list.sort((a, b) => {
+        if (a.priority !== b.priority) {
+          return a.priority - b.priority;
+        }
+        return a.attachedAt.localeCompare(b.attachedAt);
+      });
+      hostAccountsMap.set(key, list);
     });
 
     const { data: sharesRaw, error: sharesError } = await supabase
       .from("trip_shares")
-      .select("id, trip_id, shared_with_email, shared_with_user_id, can_edit, created_at")
+      .select(
+        "id, trip_id, shared_with_email, shared_with_user_id, can_edit, created_at",
+      )
       .in("trip_id", ids)
       .order("created_at", { ascending: false });
 
     if (!sharesError && sharesRaw) {
-      (sharesRaw as Array<{
-        id: string;
-        trip_id: string;
-        shared_with_email: string;
-        shared_with_user_id: string | null;
-        can_edit: boolean;
-        created_at: string;
-      }>).forEach((share) => {
+      (
+        sharesRaw as Array<{
+          id: string;
+          trip_id: string;
+          shared_with_email: string;
+          shared_with_user_id: string | null;
+          can_edit: boolean;
+          created_at: string;
+        }>
+      ).forEach((share) => {
         const list = sharesMap.get(share.trip_id) ?? [];
         list.push({
           id: share.id,
           shared_with_email: share.shared_with_email,
           can_edit: share.can_edit,
-          created_at: share.created_at
+          created_at: share.created_at,
         });
         sharesMap.set(share.trip_id, list);
 
-        const normalizedShareEmail = share.shared_with_email?.toLowerCase?.() ?? null;
+        const normalizedShareEmail =
+          share.shared_with_email?.toLowerCase?.() ?? null;
         if (currentUserId && share.shared_with_user_id === currentUserId) {
           if (share.can_edit) {
             editAccessMap.set(share.trip_id, true);
           } else if (!editAccessMap.has(share.trip_id)) {
             editAccessMap.set(share.trip_id, false);
           }
-        } else if (!share.shared_with_user_id && currentUserEmail && normalizedShareEmail === currentUserEmail) {
+        } else if (
+          !share.shared_with_user_id &&
+          currentUserEmail &&
+          normalizedShareEmail === currentUserEmail
+        ) {
           if (share.can_edit) {
             editAccessMap.set(share.trip_id, true);
           } else if (!editAccessMap.has(share.trip_id)) {
@@ -338,12 +424,15 @@ export async function fetchTripsSummary(): Promise<TripSummary[]> {
     expenses: [],
     hostAccounts: hostAccountsMap.get(trip.id) ?? [],
     isOwner: trip.owner_id === currentUserId,
-    canEdit: trip.owner_id === currentUserId || editAccessMap.get(trip.id) === true,
-    shares: sharesMap.get(trip.id) ?? []
+    canEdit:
+      trip.owner_id === currentUserId || editAccessMap.get(trip.id) === true,
+    shares: sharesMap.get(trip.id) ?? [],
   }));
 }
 
-export async function fetchTripDetail(tripId: string): Promise<TripDetail | null> {
+export async function fetchTripDetail(
+  tripId: string,
+): Promise<TripDetail | null> {
   const supabase = getSupabaseServer();
   const { data: authData } = await supabase.auth.getUser();
   const currentUser = authData.user ?? null;
@@ -351,7 +440,9 @@ export async function fetchTripDetail(tripId: string): Promise<TripDetail | null
   const currentUserEmail = currentUser?.email ?? null;
   const { data: tripRaw, error: tripError } = await supabase
     .from("trips")
-    .select("id, owner_id, name, origin_city, destination_city, start_date, end_date, notes")
+    .select(
+      "id, owner_id, name, origin_city, destination_city, start_date, end_date, notes",
+    )
     .eq("id", tripId)
     .maybeSingle();
 
@@ -397,7 +488,7 @@ export async function fetchTripDetail(tripId: string): Promise<TripDetail | null
     { data: vehiclesRaw, error: vehiclesError },
     { data: legVehicleLinksRaw, error: legVehicleLinksError },
     { data: adjustmentsRaw, error: adjustmentsError },
-    { data: hostAccountsRaw, error: hostAccountsError }
+    { data: hostAttachmentsRaw, error: hostAttachmentsError },
   ] = await Promise.all([
     supabase
       .from("expenses")
@@ -412,14 +503,16 @@ export async function fetchTripDetail(tripId: string): Promise<TripDetail | null
         share_scope,
          is_excluded,
          participants:participants!expenses_paid_by_fkey (id, display_name),
-         expense_splits (participant_id, share_weight, share_amount_override, participants (id, display_name))`
+         expense_splits (participant_id, share_weight, share_amount_override, participants (id, display_name))`,
       )
       .eq("trip_id", tripId)
       .order("issued_at", { ascending: false })
       .returns<ExpenseRow[]>(),
     supabase
       .from("trip_balances")
-      .select("participant_id, display_name, total_paid, total_share, balance_idr")
+      .select(
+        "participant_id, display_name, total_paid, total_share, balance_idr",
+      )
       .eq("trip_id", tripId)
       .order("balance_idr", { ascending: false })
       .returns<BalanceViewRow[]>(),
@@ -431,7 +524,9 @@ export async function fetchTripDetail(tripId: string): Promise<TripDetail | null
       .returns<ParticipantRow[]>(),
     supabase
       .from("trip_legs")
-      .select("id, leg_order, leg_type, origin, destination, start_datetime, end_datetime")
+      .select(
+        "id, leg_order, leg_type, origin, destination, start_datetime, end_datetime",
+      )
       .eq("trip_id", tripId)
       .order("leg_order", { ascending: true })
       .returns<LegRow[]>(),
@@ -448,17 +543,41 @@ export async function fetchTripDetail(tripId: string): Promise<TripDetail | null
       .returns<LegVehicleLinkRow[]>(),
     supabase
       .from("balance_adjustments")
-      .select("id, participant_id, amount_idr, reason, status, created_at, applied_at")
+      .select(
+        "id, participant_id, amount_idr, reason, status, created_at, applied_at",
+      )
       .eq("trip_id", tripId)
       .order("created_at", { ascending: false })
       .returns<AdjustmentRow[]>(),
     supabase
-      .from("host_payment_accounts")
-      .select("id, trip_id, label, channel, provider, account_name, account_number, instructions, priority, created_at")
+      .from("trip_payment_accounts")
+      .select(
+        `
+          id,
+          trip_id,
+          custom_label,
+          custom_instructions,
+          custom_priority,
+          created_at,
+          updated_at,
+          payment_account:user_payment_accounts!inner (
+            id,
+            label,
+            channel,
+            provider,
+            account_name,
+            account_number,
+            instructions,
+            priority,
+            created_at,
+            updated_at
+          )
+        `,
+      )
       .eq("trip_id", tripId)
-      .order("priority", { ascending: true })
+      .order("custom_priority", { ascending: true, nullsFirst: false })
       .order("created_at", { ascending: true })
-      .returns<HostAccountRow[]>()
+      .returns<TripPaymentAccountRow[]>(),
   ]);
 
   if (expenseError) {
@@ -489,8 +608,8 @@ export async function fetchTripDetail(tripId: string): Promise<TripDetail | null
     throw adjustmentsError;
   }
 
-  if (hostAccountsError) {
-    throw hostAccountsError;
+  if (hostAttachmentsError) {
+    throw hostAttachmentsError;
   }
 
   const expenses = expensesRaw ?? [];
@@ -500,7 +619,16 @@ export async function fetchTripDetail(tripId: string): Promise<TripDetail | null
   const vehicles = (vehiclesRaw ?? []) as VehicleRow[];
   const legVehicleLinks = (legVehicleLinksRaw ?? []) as LegVehicleLinkRow[];
   const adjustments = (adjustmentsRaw ?? []) as AdjustmentRow[];
-  const hostAccounts = (hostAccountsRaw ?? []) as HostAccountRow[];
+  const attachmentRows = (hostAttachmentsRaw ?? []) as TripPaymentAccountRow[];
+  const attachmentList: TripPaymentAccountAttachment[] = attachmentRows
+    .map((row) => mapTripPaymentAttachment(row))
+    .filter((row): row is TripPaymentAccountAttachment => Boolean(row))
+    .sort((a, b) => {
+      if (a.priority !== b.priority) {
+        return a.priority - b.priority;
+      }
+      return a.attachedAt.localeCompare(b.attachedAt);
+    });
 
   const driverParticipantIds = new Set<string>();
   let assignments: AssignmentRow[] = [];
@@ -509,7 +637,9 @@ export async function fetchTripDetail(tripId: string): Promise<TripDetail | null
   if (legIds.length) {
     const { data: assignmentsRaw, error: assignmentsError } = await supabase
       .from("vehicle_assignments")
-      .select("participant_id, leg_id, vehicle_id, role, participants(id, display_name)")
+      .select(
+        "participant_id, leg_id, vehicle_id, role, participants(id, display_name)",
+      )
       .in("leg_id", legIds)
       .returns<AssignmentRow[]>();
 
@@ -530,20 +660,24 @@ export async function fetchTripDetail(tripId: string): Promise<TripDetail | null
     const paidByRaw = Array.isArray(expense.participants)
       ? expense.participants[0]
       : expense.participants;
-    const splits: ExpenseSplit[] = (expense.expense_splits ?? []).map((split) => ({
-      participantId: split.participant_id,
-      participantName: split.participants?.display_name ?? "Tanpa nama",
-      shareWeight: toNumber(split.share_weight),
-      shareAmountOverride:
-        split.share_amount_override != null ? toNumber(split.share_amount_override) : undefined
-    }));
+    const splits: ExpenseSplit[] = (expense.expense_splits ?? []).map(
+      (split) => ({
+        participantId: split.participant_id,
+        participantName: split.participants?.display_name ?? "Tanpa nama",
+        shareWeight: toNumber(split.share_weight),
+        shareAmountOverride:
+          split.share_amount_override != null
+            ? toNumber(split.share_amount_override)
+            : undefined,
+      }),
+    );
     return {
       id: expense.id,
       judul: expense.title,
       amountIdr: toNumber(expense.amount_idr),
       paidBy: {
         id: paidByRaw?.id ?? "unknown",
-        nama: paidByRaw?.display_name ?? "Tanpa nama"
+        nama: paidByRaw?.display_name ?? "Tanpa nama",
       },
       date: expense.issued_at,
       notes: expense.notes ?? undefined,
@@ -552,7 +686,7 @@ export async function fetchTripDetail(tripId: string): Promise<TripDetail | null
       shareScope: expense.share_scope,
       splitWith: [],
       isExcluded: expense.is_excluded,
-      splits
+      splits,
     };
   });
 
@@ -562,27 +696,33 @@ export async function fetchTripDetail(tripId: string): Promise<TripDetail | null
     totalPaid: toNumber(row.total_paid),
     totalShare: toNumber(row.total_share),
     balance: toNumber(row.balance_idr),
-    adjustments: toNumber(row.adjustment_idr)
+    adjustments: toNumber(row.adjustment_idr),
   }));
 
-  const mappedParticipants: TripParticipant[] = participants.map((participant) => ({
-    id: participant.id,
-    nama: participant.display_name,
-    role: participant.role,
-    isDriver: driverParticipantIds.has(participant.id)
-  }));
+  const mappedParticipants: TripParticipant[] = participants.map(
+    (participant) => ({
+      id: participant.id,
+      nama: participant.display_name,
+      role: participant.role,
+      isDriver: driverParticipantIds.has(participant.id),
+    }),
+  );
 
   const fleetVehicles: FleetVehicle[] = vehicles.map((vehicle) => ({
     id: vehicle.id,
     label: vehicle.label,
     plateNumber: vehicle.plate_number,
     seatCapacity: vehicle.seat_capacity,
-    notes: vehicle.notes ?? undefined
+    notes: vehicle.notes ?? undefined,
   }));
 
-  const fleetMap = new Map(fleetVehicles.map((vehicle) => [vehicle.id, vehicle]));
+  const fleetMap = new Map(
+    fleetVehicles.map((vehicle) => [vehicle.id, vehicle]),
+  );
 
-  const assignmentsByLegVehicle = assignments.reduce<Record<string, TripVehicleAssignment[]>>((acc, assignment) => {
+  const assignmentsByLegVehicle = assignments.reduce<
+    Record<string, TripVehicleAssignment[]>
+  >((acc, assignment) => {
     const key = `${assignment.leg_id}:${assignment.vehicle_id}`;
     if (!acc[key]) {
       acc[key] = [];
@@ -590,7 +730,7 @@ export async function fetchTripDetail(tripId: string): Promise<TripDetail | null
     acc[key].push({
       participantId: assignment.participant_id,
       participantName: assignment.participants?.display_name ?? "Tanpa nama",
-      role: assignment.role
+      role: assignment.role,
     });
     return acc;
   }, {});
@@ -601,7 +741,10 @@ export async function fetchTripDetail(tripId: string): Promise<TripDetail | null
     if (!acc[link.leg_id]) {
       acc[link.leg_id] = [];
     }
-    acc[link.leg_id].push({ vehicleId: link.vehicle_id, departureAt: link.departure_at });
+    acc[link.leg_id].push({
+      vehicleId: link.vehicle_id,
+      departureAt: link.departure_at,
+    });
     return acc;
   }, {});
 
@@ -621,13 +764,15 @@ export async function fetchTripDetail(tripId: string): Promise<TripDetail | null
         return {
           ...base,
           assignments: assignmentsByLegVehicle[key] ?? [],
-          departureTime: link.departureAt
+          departureTime: link.departureAt,
         } as TripLegVehicle;
       })
-      .filter(Boolean) as TripLegVehicle[]
+      .filter(Boolean) as TripLegVehicle[],
   }));
 
-  const participantNameMap = new Map(mappedParticipants.map((p) => [p.id, p.nama]));
+  const participantNameMap = new Map(
+    mappedParticipants.map((p) => [p.id, p.nama]),
+  );
   const mappedAdjustments: BalanceAdjustment[] = adjustments.map((adj) => ({
     id: adj.id,
     participantId: adj.participant_id,
@@ -636,7 +781,7 @@ export async function fetchTripDetail(tripId: string): Promise<TripDetail | null
     reason: adj.reason,
     status: adj.status,
     createdAt: adj.created_at,
-    appliedAt: adj.applied_at
+    appliedAt: adj.applied_at,
   }));
 
   return {
@@ -646,7 +791,7 @@ export async function fetchTripDetail(tripId: string): Promise<TripDetail | null
       lokasi: formatLocation(trip.origin_city, trip.destination_city),
       tanggalMulai: trip.start_date ?? "",
       tanggalSelesai: trip.end_date ?? undefined,
-      catatan: trip.notes
+      catatan: trip.notes,
     },
     expenses: mappedExpenses,
     balances: mappedBalances,
@@ -654,10 +799,11 @@ export async function fetchTripDetail(tripId: string): Promise<TripDetail | null
     legs: mappedLegs,
     adjustments: mappedAdjustments,
     fleetVehicles,
-    hostAccounts: hostAccounts.map(mapHostAccount),
+    hostAccounts: attachmentList,
+    paymentAttachments: attachmentList,
     permissions: {
       isOwner,
-      canEdit: isOwner || shareAllowsEdit
-    }
+      canEdit: isOwner || shareAllowsEdit,
+    },
   };
 }

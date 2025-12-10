@@ -4,13 +4,14 @@ Aplikasi berbagi biaya perjalanan untuk tim KBM Berkah Ceria. Menggunakan Next.j
 
 ## Kapabilitas Saat Ini
 
-- Dashboard pemilik menampilkan daftar trip aktif, total pengeluaran, tombol bikin trip, modul berbagi trip via email, dan manajer metode pembayaran host.
-- Form pembuatan trip instan membuat leg pertama, kendaraan utama, dan peserta awal lengkap dengan penandaan supir & jadwal default.
-- Halaman detail perjalanan menyajikan saldo per peserta (dengan badge supir), daftar pengeluaran editable, dan kartu metode pembayaran yang siap disalin peserta.
-- Pencatatan pengeluaran mendukung scope leg/kendaraan, edit & hapus, pengecualian dari perhitungan, format Rupiah otomatis, serta validasi dengan Zod.
-- Mode host menyediakan kontrol split manual per expense, toggle pengecualian, penyesuaian saldo (draft/applied/void), dan histori penyesuaian.
-- Manajemen armada meliputi tambah leg, hubungkan kendaraan ke leg, atur jadwal keberangkatan, assign peserta massal, pindah penumpang, serta ubah supir/penumpang.
-- Berbagi trip memungkinkan host mengundang email (akses read-only) via `trip_shares`, menjaga RLS Supabase; halaman Ringkasan komunitas tersedia sebagai preview statis.
+- Dashboard host menampilkan daftar trip aktif, total pengeluaran, tombol bikin trip, modul berbagi trip via email, dan manajer metode pembayaran pribadi/host.
+- Form pembuatan trip membuat leg awal, kendaraan default, peserta perdana beserta status supir, dan jadwal keberangkatan dasar agar perjalanan siap dipakai instan.
+- Halaman detail perjalanan menyajikan saldo peserta (dengan badge supir & host-only badge saat relevan), daftar pengeluaran lengkap, serta kartu metode pembayaran siap salin.
+- Pencatatan pengeluaran mendukung scope leg/kendaraan, edit & hapus, pengecualian dari perhitungan, format Rupiah otomatis, validasi Zod, dan lampiran bukti opsional.
+- Mode host menyediakan kontrol split manual per expense, toggle pengecualian, penyesuaian saldo (draft/applied/void), histori penyesuaian, serta laporan status peserta real time.
+- Manajemen armada/penumpang digabung dalam satu panel: tambah leg, hubungkan kendaraan, atur jadwal, assign peserta massal, pindah penumpang, ubah supir/penumpang, tambah/edit peserta.
+- Fitur berbagi trip mengundang email read-only via `trip_shares`, menjaga RLS Supabase; halaman ringkasan komunitas menampilkan agregat perjalanan.
+- Generator laporan PDF (`GET /api/trips/:tripId/report`) menyusun Metode Pembayaran, Ringkasan Peserta, dan Daftar Pengeluaran ke dalam tiga halaman terpisah dengan format Rupiah dan highlight kewajiban bayar.
 
 ## Tech Stack
 
@@ -95,24 +96,33 @@ Gunakan seed ini untuk uji tampilan sebelum data produksi siap.
 ## API Ringkas
 
 ### Trips
+
 - `POST /api/trips` membuat perjalanan baru beserta leg & kendaraan awal.
 - `GET /api/trips/:tripId` mengambil metadata trip dan akun pembayaran host.
 - `PATCH /api/trips/:tripId` memperbarui nama, kota, tanggal mulai/selesai.
 - `DELETE /api/trips/:tripId` menghapus perjalanan dan dependensinya.
 
 ### Peserta & Armada
+
 - `POST /api/trips/:tripId/participants` menambah peserta; `PATCH`/`DELETE` pada `/participants/:participantId` untuk ubah/hapus.
 - `POST /api/trips/:tripId/legs` membuat leg baru; `/legs/:legId/vehicles` untuk hubungkan kendaraan atau atur jadwal keberangkatan.
 - `POST /api/trips/:tripId/vehicles` menambah kendaraan; `/vehicles/:vehicleId/assignments` mengatur penempatan peserta.
 
 ### Pengeluaran & Host Controls
+
 - `POST /api/expenses` mencatat pengeluaran dengan scope leg/kendaraan.
 - `PATCH`/`DELETE /api/expenses/:expenseId` untuk edit/hapus; `/splits` mengatur bobot manual; `/exclude` toggle pengecualian.
 - `POST /api/trips/:tripId/adjustments` mencatat penyesuaian saldo; `PATCH /adjustments/:adjustmentId` menandai apply/void.
 
 ### Metode Pembayaran & Sharing
+
 - `POST /api/trips/:tripId/host-accounts` menambah rekening/e-wallet host; `PATCH` dan `DELETE` tersedia per `accountId`.
 - `POST /api/trips/:tripId/shares` mengundang email; `GET` menampilkan daftar share; `DELETE /shares/:shareId` mencabut akses.
+- `GET /api/trips/:tripId/report` menghasilkan laporan PDF tiga halaman (metode pembayaran, ringkasan peserta, daftar pengeluaran).
+
+## Panduan Penggunaan
+
+Dokumentasi langkah demi langkah (buat trip, kelola peserta/kendaraan, catat pengeluaran, undang tamu, terbitkan laporan) tersedia di `docs/how-to-use.md`.
 
 ## Struktur Folder
 

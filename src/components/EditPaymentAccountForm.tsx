@@ -2,18 +2,21 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import type { HostPaymentAccount } from "@/types/expense";
+import type { UserPaymentAccount } from "@/types/expense";
 
 type PaymentChannel = "bank" | "ewallet" | "cash" | "other";
 
 type Props = {
-  tripId: string;
-  account: HostPaymentAccount;
-  onSuccess?: () => void;
+  account: UserPaymentAccount;
+  onSuccess?: (account: UserPaymentAccount) => void;
   onCancel?: () => void;
 };
 
-export function EditPaymentAccountForm({ tripId, account, onSuccess, onCancel }: Props) {
+export function EditPaymentAccountForm({
+  account,
+  onSuccess,
+  onCancel,
+}: Props) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -25,7 +28,7 @@ export function EditPaymentAccountForm({ tripId, account, onSuccess, onCancel }:
     accountName: account.accountName,
     accountNumber: account.accountNumber,
     instructions: account.instructions || "",
-    priority: account.priority
+    priority: account.priority,
   });
 
   async function handleSubmit(e: React.FormEvent) {
@@ -34,19 +37,23 @@ export function EditPaymentAccountForm({ tripId, account, onSuccess, onCancel }:
     setError("");
 
     try {
-      const response = await fetch(`/api/trips/${tripId}/host-accounts/${account.id}`, {
+      const response = await fetch(`/api/payment-accounts/${account.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData)
+        body: JSON.stringify(formData),
       });
 
       if (!response.ok) {
-        const data = await response.json();
+        const data = await response.json().catch(() => ({}));
         throw new Error(data.message || "Gagal memperbarui akun");
       }
 
-      if (onSuccess) {
-        onSuccess();
+      const result = (await response.json().catch(() => null)) as {
+        data?: UserPaymentAccount;
+      } | null;
+
+      if (onSuccess && result?.data) {
+        onSuccess(result.data);
       } else {
         router.refresh();
       }
@@ -86,7 +93,12 @@ export function EditPaymentAccountForm({ tripId, account, onSuccess, onCancel }:
         </label>
         <select
           value={formData.channel}
-          onChange={(e) => setFormData({ ...formData, channel: e.target.value as PaymentChannel })}
+          onChange={(e) =>
+            setFormData({
+              ...formData,
+              channel: e.target.value as PaymentChannel,
+            })
+          }
           className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-brand-blue focus:outline-none"
         >
           <option value="bank">Bank Transfer</option>
@@ -105,7 +117,9 @@ export function EditPaymentAccountForm({ tripId, account, onSuccess, onCancel }:
             type="text"
             maxLength={80}
             value={formData.provider}
-            onChange={(e) => setFormData({ ...formData, provider: e.target.value })}
+            onChange={(e) =>
+              setFormData({ ...formData, provider: e.target.value })
+            }
             placeholder="BCA, Mandiri, GoPay, OVO, dll"
             className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-brand-blue focus:outline-none"
           />
@@ -121,7 +135,9 @@ export function EditPaymentAccountForm({ tripId, account, onSuccess, onCancel }:
           required
           minLength={3}
           value={formData.accountName}
-          onChange={(e) => setFormData({ ...formData, accountName: e.target.value })}
+          onChange={(e) =>
+            setFormData({ ...formData, accountName: e.target.value })
+          }
           placeholder="Nama sesuai rekening"
           className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-brand-blue focus:outline-none"
         />
@@ -136,7 +152,9 @@ export function EditPaymentAccountForm({ tripId, account, onSuccess, onCancel }:
           required
           minLength={3}
           value={formData.accountNumber}
-          onChange={(e) => setFormData({ ...formData, accountNumber: e.target.value })}
+          onChange={(e) =>
+            setFormData({ ...formData, accountNumber: e.target.value })
+          }
           placeholder="1234567890"
           className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-brand-blue focus:outline-none"
         />
@@ -149,12 +167,16 @@ export function EditPaymentAccountForm({ tripId, account, onSuccess, onCancel }:
         <textarea
           maxLength={280}
           value={formData.instructions}
-          onChange={(e) => setFormData({ ...formData, instructions: e.target.value })}
+          onChange={(e) =>
+            setFormData({ ...formData, instructions: e.target.value })
+          }
           placeholder="Misal: Transfer sebelum H-1, tambahkan kode unik, dll"
           rows={2}
           className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-brand-blue focus:outline-none"
         />
-        <p className="mt-1 text-xs text-slate-500">{formData.instructions.length}/280 karakter</p>
+        <p className="mt-1 text-xs text-slate-500">
+          {formData.instructions.length}/280 karakter
+        </p>
       </div>
 
       <div>
@@ -166,10 +188,17 @@ export function EditPaymentAccountForm({ tripId, account, onSuccess, onCancel }:
           min={0}
           max={100}
           value={formData.priority}
-          onChange={(e) => setFormData({ ...formData, priority: parseInt(e.target.value) || 0 })}
+          onChange={(e) =>
+            setFormData({
+              ...formData,
+              priority: parseInt(e.target.value) || 0,
+            })
+          }
           className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-brand-blue focus:outline-none"
         />
-        <p className="mt-1 text-xs text-slate-500">Semakin tinggi, semakin diutamakan</p>
+        <p className="mt-1 text-xs text-slate-500">
+          Semakin tinggi, semakin diutamakan
+        </p>
       </div>
 
       <div className="flex gap-2">
