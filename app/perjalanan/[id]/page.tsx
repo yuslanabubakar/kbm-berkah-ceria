@@ -4,6 +4,7 @@ import { PaymentMethodsDisplay } from "@/components/PaymentMethodsDisplay";
 import { TripPaymentManager } from "@/components/TripPaymentManager";
 import { VehicleManager } from "@/components/VehicleManager";
 import { GenerateReportButton } from "@/components/GenerateReportButton";
+import { LegVehicleOverview } from "@/components/LegVehicleOverview";
 import { formatRupiah } from "@/lib/formatCurrency";
 import { fetchTripDetail } from "@/lib/tripQueries";
 import { fetchUserPaymentAccounts } from "@/lib/paymentAccounts";
@@ -149,6 +150,8 @@ export default async function PerjalananDetailPage({
           {detail.hostAccounts.length > 0 && (
             <PaymentMethodsDisplay accounts={detail.hostAccounts} />
           )}
+
+          <LegVehicleOverview legs={detail.legs} />
 
           <div className="space-y-4">
             <div className="flex items-center justify-between">

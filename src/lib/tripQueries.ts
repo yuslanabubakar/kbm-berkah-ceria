@@ -1,4 +1,7 @@
-import { getSupabaseServer } from "@/lib/supabaseServer";
+import {
+  getSupabaseServer,
+  getSupabaseServiceRole,
+} from "@/lib/supabaseServer";
 import {
   Trip,
   Expense,
@@ -458,6 +461,7 @@ export async function fetchTripDetail(
 
   const isOwner = trip.owner_id === currentUserId;
   let shareAllowsEdit = false;
+  let hasShareAccess = false;
 
   if (!isOwner && (currentUserId || currentUserEmail)) {
     const orConditions: string[] = [];
@@ -477,8 +481,12 @@ export async function fetchTripDetail(
         .maybeSingle();
 
       shareAllowsEdit = Boolean(shareRow?.can_edit);
+      hasShareAccess = Boolean(shareRow);
     }
   }
+
+  const dataClient =
+    !isOwner && hasShareAccess ? getSupabaseServiceRole() : supabase;
 
   const [
     { data: expensesRaw, error: expenseError },
@@ -490,7 +498,7 @@ export async function fetchTripDetail(
     { data: adjustmentsRaw, error: adjustmentsError },
     { data: hostAttachmentsRaw, error: hostAttachmentsError },
   ] = await Promise.all([
-    supabase
+    dataClient
       .from("expenses")
       .select(
         `id,
@@ -508,7 +516,7 @@ export async function fetchTripDetail(
       .eq("trip_id", tripId)
       .order("issued_at", { ascending: false })
       .returns<ExpenseRow[]>(),
-    supabase
+    dataClient
       .from("trip_balances")
       .select(
         "participant_id, display_name, total_paid, total_share, balance_idr",
@@ -516,13 +524,13 @@ export async function fetchTripDetail(
       .eq("trip_id", tripId)
       .order("balance_idr", { ascending: false })
       .returns<BalanceViewRow[]>(),
-    supabase
+    dataClient
       .from("participants")
       .select("id, display_name, role")
       .eq("trip_id", tripId)
       .order("display_name", { ascending: true })
       .returns<ParticipantRow[]>(),
-    supabase
+    dataClient
       .from("trip_legs")
       .select(
         "id, leg_order, leg_type, origin, destination, start_datetime, end_datetime",
@@ -530,18 +538,18 @@ export async function fetchTripDetail(
       .eq("trip_id", tripId)
       .order("leg_order", { ascending: true })
       .returns<LegRow[]>(),
-    supabase
+    dataClient
       .from("trip_vehicles")
       .select("id, trip_id, label, plate_number, seat_capacity, notes")
       .eq("trip_id", tripId)
       .order("label", { ascending: true })
       .returns<VehicleRow[]>(),
-    supabase
+    dataClient
       .from("leg_vehicle_links")
       .select("leg_id, vehicle_id, departure_at")
       .eq("trip_id", tripId)
       .returns<LegVehicleLinkRow[]>(),
-    supabase
+    dataClient
       .from("balance_adjustments")
       .select(
         "id, participant_id, amount_idr, reason, status, created_at, applied_at",
@@ -549,7 +557,7 @@ export async function fetchTripDetail(
       .eq("trip_id", tripId)
       .order("created_at", { ascending: false })
       .returns<AdjustmentRow[]>(),
-    supabase
+    dataClient
       .from("trip_payment_accounts")
       .select(
         `

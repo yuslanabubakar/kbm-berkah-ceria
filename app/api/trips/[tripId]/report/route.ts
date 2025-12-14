@@ -608,6 +608,86 @@ async function createPdfBytes(detail: TripDetail) {
 
   drawTable(doc, participantsColumns, participantRows);
 
+  drawSectionTitle(
+    doc,
+    "Rincian Leg & Kendaraan",
+    "Daftar leg perjalanan beserta kendaraan dan penumpang",
+  );
+
+  if (!detail.legs.length) {
+    doc
+      .fillColor(COLOR_SUBTLE)
+      .font(FONT_REGULAR)
+      .fontSize(10)
+      .text("Belum ada leg yang tercatat untuk perjalanan ini.");
+    doc.fillColor(COLOR_TEXT).moveDown();
+  } else {
+    const legVehicleColumns: TableColumn[] = [];
+    legVehicleColumns.push(
+      { header: "Leg", width: availableWidth * 0.25 },
+      { header: "Jadwal", width: availableWidth * 0.2 },
+      { header: "Kendaraan", width: availableWidth * 0.23 },
+      { header: "Penumpang", width: availableWidth * 0.32 },
+    );
+
+    const legVehicleRows: TableRow[] = [];
+
+    detail.legs.forEach((leg) => {
+      const legLabelLines = [`Leg ${leg.order}`, leg.label]
+        .filter(Boolean)
+        .join("\n");
+      const scheduleLines = [
+        leg.start ? `Mulai: ${formatDateTime(leg.start)}` : undefined,
+        leg.end ? `Selesai: ${formatDateTime(leg.end)}` : undefined,
+      ]
+        .filter(Boolean)
+        .join("\n");
+      const scheduleText = scheduleLines || "-";
+
+      if (!leg.vehicles.length) {
+        legVehicleRows.push([
+          legLabelLines,
+          scheduleText,
+          "Belum ada kendaraan",
+          "-",
+        ]);
+        return;
+      }
+
+      leg.vehicles.forEach((vehicle) => {
+        const vehicleLines = [
+          vehicle.label,
+          vehicle.plateNumber ? `Plat: ${vehicle.plateNumber}` : undefined,
+          vehicle.seatCapacity ? `${vehicle.seatCapacity} kursi` : undefined,
+          vehicle.departureTime
+            ? `Berangkat: ${formatDateTime(vehicle.departureTime)}`
+            : undefined,
+          vehicle.notes ? `Catatan: ${vehicle.notes}` : undefined,
+        ]
+          .filter(Boolean)
+          .join("\n");
+
+        const passengerLines = vehicle.assignments.length
+          ? vehicle.assignments
+              .map(
+                (assignment) =>
+                  `${assignment.participantName}${assignment.role === "driver" ? " (Supir)" : ""}`,
+              )
+              .join("\n")
+          : "Belum ada penumpang";
+
+        legVehicleRows.push([
+          legLabelLines,
+          scheduleText,
+          vehicleLines,
+          passengerLines,
+        ]);
+      });
+    });
+
+    drawTable(doc, legVehicleColumns, legVehicleRows);
+  }
+
   doc.addPage();
 
   drawSectionTitle(
