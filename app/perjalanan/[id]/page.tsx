@@ -4,6 +4,7 @@ import { PaymentMethodsDisplay } from "@/components/PaymentMethodsDisplay";
 import { TripPaymentManager } from "@/components/TripPaymentManager";
 import { VehicleManager } from "@/components/VehicleManager";
 import { GenerateReportButton } from "@/components/GenerateReportButton";
+import { GenerateWhatsappButton } from "@/components/GenerateWhatsappButton";
 import { LegVehicleOverview } from "@/components/LegVehicleOverview";
 import { formatRupiah } from "@/lib/formatCurrency";
 import { fetchTripDetail } from "@/lib/tripQueries";
@@ -61,10 +62,19 @@ export default async function PerjalananDetailPage({
           </p>
           <p className="text-sm text-slate-500">{detail.trip.lokasi}</p>
         </div>
-        <GenerateReportButton
-          tripId={detail.trip.id}
-          tripName={detail.trip.nama}
-        />
+        <div className="flex gap-2">
+          <GenerateWhatsappButton
+            tripName={detail.trip.nama}
+            startDate={detail.trip.tanggalMulai}
+            endDate={detail.trip.tanggalSelesai}
+            balances={detail.balances}
+            accounts={detail.paymentAttachments}
+          />
+          <GenerateReportButton
+            tripId={detail.trip.id}
+            tripName={detail.trip.nama}
+          />
+        </div>
       </div>
 
       <div className="grid gap-8 lg:grid-cols-[1.2fr_0.8fr]">

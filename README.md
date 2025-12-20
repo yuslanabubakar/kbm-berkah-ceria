@@ -12,6 +12,7 @@ Aplikasi berbagi biaya perjalanan untuk tim KBM Berkah Ceria. Menggunakan Next.j
 - Manajemen armada/penumpang digabung dalam satu panel: tambah leg, hubungkan kendaraan, atur jadwal, assign peserta massal, pindah penumpang, ubah supir/penumpang, tambah/edit peserta.
 - Fitur berbagi trip mengundang email read-only via `trip_shares`, menjaga RLS Supabase; halaman ringkasan komunitas menampilkan agregat perjalanan.
 - Generator laporan PDF (`GET /api/trips/:tripId/report`) menyusun Metode Pembayaran, Ringkasan Peserta, dan Daftar Pengeluaran ke dalam tiga halaman terpisah dengan format Rupiah dan highlight kewajiban bayar.
+- Fitur "Salin Tagihan WA" menghasilkan template pesan WhatsApp otomatis yang mencakup ringkasan tagihan ("Siapa bayar berapa" dan "Siapa terima berapa") beserta metode pembayaran host untuk kemudahan penagihan.
 
 ## Tech Stack
 
