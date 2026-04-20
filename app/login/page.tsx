@@ -4,6 +4,8 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useSupabaseSession } from "@/hooks/useSupabaseSession";
 
+export const dynamic = "force-dynamic";
+
 export default function LoginPage() {
   const router = useRouter();
   const { user, loading } = useSupabaseSession();
@@ -28,13 +30,17 @@ export default function LoginPage() {
 
   return (
     <section className="mx-auto max-w-lg space-y-6 rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
-      <h1 className="text-2xl font-semibold text-slate-900">Masuk ke KBM Berkah Ceria</h1>
+      <h1 className="text-2xl font-semibold text-slate-900">
+        Masuk ke KBM Berkah Ceria
+      </h1>
       <p className="text-sm text-slate-600">
-        Klik tombol &quot;Masuk dengan Google&quot; di pojok kanan atas untuk mulai menggunakan aplikasi. Jika belum bisa, pastikan
-        kamu sudah diundang oleh host trip.
+        Klik tombol &quot;Masuk dengan Google&quot; di pojok kanan atas untuk
+        mulai menggunakan aplikasi. Jika belum bisa, pastikan kamu sudah
+        diundang oleh host trip.
       </p>
       <p className="text-sm text-slate-500">
-        Setelah login, kamu akan diarahkan ke dashboard untuk melihat dan mengelola perjalanan.
+        Setelah login, kamu akan diarahkan ke dashboard untuk melihat dan
+        mengelola perjalanan.
       </p>
     </section>
   );

@@ -5,6 +5,8 @@ import type { Route } from "next";
 import { useRouter, useSearchParams } from "next/navigation";
 import { getSupabaseBrowser } from "@/lib/supabaseClient";
 
+export const dynamic = "force-dynamic";
+
 function AuthCallbackContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -15,7 +17,7 @@ function AuthCallbackContent() {
     async function completeSignIn() {
       const error = searchParams.get("error");
       const errorDescription = searchParams.get("error_description");
-      
+
       if (error) {
         console.error("Google sign-in error:", error, errorDescription);
         router.replace("/login");
@@ -24,19 +26,22 @@ function AuthCallbackContent() {
 
       try {
         const { data, error: sessionError } = await supabase.auth.getSession();
-        
+
         if (sessionError || !data.session) {
           console.error("Session error:", sessionError);
           router.replace("/login");
           return;
         }
 
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await new Promise((resolve) => setTimeout(resolve, 100));
 
-        const storedPath = sessionStorage.getItem("kbm-return-path") ?? "/dashboard";
+        const storedPath =
+          sessionStorage.getItem("kbm-return-path") ?? "/dashboard";
         sessionStorage.removeItem("kbm-return-path");
-        const safePath: Route = storedPath.startsWith("/") ? (storedPath as Route) : "/dashboard";
-        
+        const safePath: Route = storedPath.startsWith("/")
+          ? (storedPath as Route)
+          : "/dashboard";
+
         window.location.href = safePath;
       } catch (err) {
         console.error("Auth callback error:", err);
