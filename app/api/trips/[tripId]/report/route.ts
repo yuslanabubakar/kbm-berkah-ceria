@@ -15,7 +15,7 @@
  * (Replace the existing file entirely)
  */
 
-import { createClient } from "@supabase/supabase-js";
+import { getSupabaseServiceRole } from "@/lib/supabaseServer";
 import { NextRequest, NextResponse } from "next/server";
 
 export const runtime = "edge";
@@ -76,10 +76,7 @@ export async function GET(
   request: NextRequest,
   { params }: { params: { tripId: string } },
 ) {
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  );
+  const supabase = getSupabaseServiceRole();
 
   const { tripId } = params;
 
