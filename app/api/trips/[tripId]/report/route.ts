@@ -88,7 +88,18 @@ export async function GET(
     .single();
 
   if (tripError || !trip) {
-    return new NextResponse("Trip tidak ditemukan", { status: 404 });
+    return NextResponse.json(
+      {
+        message: "Trip tidak ditemukan",
+        tripId,
+        error: tripError?.message,
+        code: tripError?.code,
+        hint: tripError?.hint,
+        hasUrl: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
+        hasKey: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+      },
+      { status: 404 },
+    );
   }
 
   // ── Fetch participants with balances ────────────────────────────────────────
