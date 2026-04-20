@@ -5,7 +5,12 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
 export const getSupabaseBrowser = () => {
   if (!supabaseUrl || !supabaseAnonKey) {
-    throw new Error("Supabase browser env belum lengkap");
+    // During build/SSR env vars are not available in client components.
+    // Return a dummy client that won't be used (component won't render on server).
+    return createBrowserClient(
+      "https://placeholder.supabase.co",
+      "placeholder-anon-key",
+    );
   }
 
   return createBrowserClient(supabaseUrl, supabaseAnonKey);
