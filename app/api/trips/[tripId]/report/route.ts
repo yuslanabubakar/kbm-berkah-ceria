@@ -142,227 +142,209 @@ export async function GET(
   const willReceive = participantList.filter((p) => p.balance_idr > 0);
 
   // ── Build HTML ──────────────────────────────────────────────────────────────
+  const perPersonShare =
+    participantList.length > 0 ? totalExpenses / participantList.length : 0;
+
   const html = `<!DOCTYPE html>
 <html lang="id">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Laporan Perjalanan — ${trip.name}</title>
+  <title>Laporan — ${trip.name}</title>
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
-      font-family: 'Segoe UI', Arial, sans-serif;
-      font-size: 13px;
-      color: #1a1a1a;
+      font-family: -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      font-size: 12px;
+      line-height: 1.5;
+      color: #1f2937;
       background: #fff;
-      padding: 32px 40px;
-      max-width: 800px;
+      padding: 24px 32px;
+      max-width: 780px;
       margin: 0 auto;
     }
 
-    /* ── Print button (hidden when printing) ── */
-    .print-btn {
-      display: flex;
-      justify-content: flex-end;
-      margin-bottom: 24px;
+    /* ── No-print ── */
+    .no-print { margin-bottom: 20px; display: flex; justify-content: flex-end; gap: 8px; }
+    .no-print button {
+      background: #2563eb; color: #fff; border: none;
+      padding: 8px 20px; border-radius: 6px; font-size: 13px;
+      cursor: pointer; font-weight: 600;
     }
-    .print-btn button {
-      background: #2563eb;
-      color: white;
-      border: none;
-      padding: 10px 24px;
-      border-radius: 6px;
-      font-size: 14px;
-      cursor: pointer;
-      font-weight: 600;
-    }
-    .print-btn button:hover { background: #1d4ed8; }
-
-    @media print {
-      .print-btn { display: none; }
-      body { padding: 0; }
-    }
+    .no-print button:hover { background: #1d4ed8; }
+    @media print { .no-print { display: none !important; } body { padding: 0; font-size: 11px; } }
 
     /* ── Header ── */
-    .header { margin-bottom: 28px; border-bottom: 2px solid #2563eb; padding-bottom: 16px; }
-    .header h1 { font-size: 22px; font-weight: 700; color: #2563eb; }
-    .header .meta { color: #555; margin-top: 6px; font-size: 12px; }
-    .header .meta span { margin-right: 16px; }
+    .report-header {
+      display: flex; justify-content: space-between; align-items: flex-start;
+      border-bottom: 3px solid #2563eb; padding-bottom: 14px; margin-bottom: 20px;
+    }
+    .report-header h1 { font-size: 20px; font-weight: 800; color: #111827; margin-bottom: 4px; }
+    .report-header .route { font-size: 13px; color: #2563eb; font-weight: 600; }
+    .report-header .dates { font-size: 11px; color: #6b7280; margin-top: 2px; }
+    .report-header .brand { text-align: right; font-size: 10px; color: #9ca3af; }
+    .report-header .brand strong { color: #2563eb; font-size: 11px; }
+
+    /* ── Stats row ── */
+    .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 20px; }
+    .stat {
+      background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px;
+      padding: 12px 14px; text-align: center;
+    }
+    .stat .label { font-size: 9px; text-transform: uppercase; letter-spacing: 0.06em; color: #6b7280; font-weight: 600; }
+    .stat .val { font-size: 17px; font-weight: 800; color: #111827; margin-top: 2px; }
+    .stat .val.blue { color: #2563eb; }
 
     /* ── Section ── */
-    .section { margin-bottom: 32px; }
+    .section { margin-bottom: 18px; }
     .section-title {
-      font-size: 14px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      color: #2563eb;
-      border-bottom: 1px solid #e5e7eb;
-      padding-bottom: 6px;
-      margin-bottom: 14px;
+      font-size: 11px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.08em; color: #2563eb; margin-bottom: 8px;
+      padding-bottom: 4px; border-bottom: 1px solid #e5e7eb;
     }
 
     /* ── Table ── */
-    table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+    table { width: 100%; border-collapse: collapse; font-size: 11.5px; }
     th {
-      text-align: left;
-      padding: 8px 10px;
-      background: #f1f5f9;
-      font-weight: 600;
-      color: #374151;
-      border-bottom: 1px solid #e5e7eb;
+      text-align: left; padding: 6px 8px; background: #f1f5f9;
+      font-weight: 700; color: #374151; font-size: 10px;
+      text-transform: uppercase; letter-spacing: 0.04em;
+      border-bottom: 2px solid #e2e8f0;
     }
-    td {
-      padding: 8px 10px;
-      border-bottom: 1px solid #f3f4f6;
-      vertical-align: top;
-    }
+    td { padding: 5px 8px; border-bottom: 1px solid #f1f5f9; }
     tr:last-child td { border-bottom: none; }
     .text-right { text-align: right; }
     .text-center { text-align: center; }
 
-    /* ── Balance colors ── */
-    .pay   { color: #dc2626; font-weight: 600; }
-    .recv  { color: #16a34a; font-weight: 600; }
-    .zero  { color: #6b7280; }
+    .pay { color: #dc2626; font-weight: 700; }
+    .recv { color: #059669; font-weight: 700; }
+    .zero { color: #9ca3af; }
 
-    /* ── Summary cards ── */
-    .summary-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-    .card {
-      border: 1px solid #e5e7eb;
-      border-radius: 8px;
-      padding: 14px 16px;
+    /* ── Payment accounts ── */
+    .accounts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .acc-card {
+      border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px 12px;
+      display: flex; flex-direction: column; gap: 2px;
     }
-    .card .label { font-size: 11px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.04em; }
-    .card .value { font-size: 18px; font-weight: 700; margin-top: 4px; color: #111; }
+    .acc-card .provider { font-weight: 700; font-size: 11px; color: #374151; }
+    .acc-card .accnum { font-family: 'SF Mono', 'Cascadia Code', monospace; font-size: 13px; color: #1d4ed8; font-weight: 600; letter-spacing: 0.02em; }
+    .acc-card .holder { font-size: 10px; color: #6b7280; }
 
-    /* ── Accounts ── */
-    .account-item {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 10px 12px;
-      border: 1px solid #e5e7eb;
-      border-radius: 6px;
-      margin-bottom: 8px;
-    }
-    .account-item .bank { font-weight: 700; min-width: 100px; }
-    .account-item .number { font-family: monospace; font-size: 14px; color: #1d4ed8; }
-    .account-item .holder { color: #6b7280; font-size: 12px; }
+    /* ── Settlement grid ── */
+    .settle-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .settle-col h4 { font-size: 11px; font-weight: 700; margin-bottom: 6px; }
+    .settle-col h4.red { color: #dc2626; }
+    .settle-col h4.green { color: #059669; }
+    .settle-item { display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid #f3f4f6; font-size: 11.5px; }
+    .settle-item:last-child { border-bottom: none; }
 
-    /* ── Badge ── */
-    .badge {
-      display: inline-block;
-      font-size: 10px;
-      padding: 2px 7px;
-      border-radius: 99px;
-      font-weight: 600;
-      margin-left: 6px;
+    /* ── Status pill ── */
+    .pill {
+      display: inline-block; font-size: 9px; font-weight: 700;
+      padding: 2px 8px; border-radius: 99px; text-transform: uppercase; letter-spacing: 0.03em;
     }
-    .badge-driver { background: #dbeafe; color: #1e40af; }
+    .pill-red { background: #fef2f2; color: #dc2626; }
+    .pill-green { background: #f0fdf4; color: #059669; }
+    .pill-gray { background: #f3f4f6; color: #6b7280; }
 
     /* ── Footer ── */
-    .footer {
-      margin-top: 40px;
-      border-top: 1px solid #e5e7eb;
-      padding-top: 12px;
-      font-size: 11px;
-      color: #9ca3af;
-      text-align: center;
-    }
+    .footer { margin-top: 24px; border-top: 1px solid #e5e7eb; padding-top: 8px; font-size: 10px; color: #9ca3af; text-align: center; }
 
+    /* ── Print ── */
     @media print {
       .section { page-break-inside: avoid; }
-      .section:nth-child(2) { page-break-before: always; }
-      .section:nth-child(4) { page-break-before: always; }
+      .stat { background: #f8fafc !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .pill { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      th { background: #f1f5f9 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     }
   </style>
 </head>
 <body>
 
-  <div class="print-btn">
-    <button onclick="window.print()">🖨️ Simpan sebagai PDF</button>
+  <div class="no-print">
+    <button onclick="window.print()">Simpan sebagai PDF</button>
   </div>
 
   <!-- Header -->
-  <div class="header">
-    <h1>${trip.name}</h1>
-    <div class="meta">
-      <span>📍 ${trip.origin_city ?? ""} → ${trip.destination_city ?? ""}</span>
-      <span>📅 ${formatDate(trip.start_date)} – ${formatDate(trip.end_date)}</span>
-      <span>🖨️ Dicetak: ${formatDate(new Date().toISOString())}</span>
+  <div class="report-header">
+    <div>
+      <h1>${trip.name}</h1>
+      ${trip.origin_city || trip.destination_city ? `<div class="route">${trip.origin_city ?? ""}  →  ${trip.destination_city ?? ""}</div>` : ""}
+      <div class="dates">${formatDate(trip.start_date)}${trip.end_date ? ` – ${formatDate(trip.end_date)}` : ""}</div>
+    </div>
+    <div class="brand">
+      <strong>KBM Berkah Ceria</strong><br/>
+      Dicetak ${formatDate(new Date().toISOString())}
     </div>
   </div>
 
-  <!-- Summary Cards -->
-  <div class="section">
-    <div class="section-title">Ringkasan</div>
-    <div class="summary-cards">
-      <div class="card">
-        <div class="label">Total Pengeluaran</div>
-        <div class="value">${formatRupiah(totalExpenses)}</div>
-      </div>
-      <div class="card">
-        <div class="label">Jumlah Peserta</div>
-        <div class="value">${participantList.length} orang</div>
-      </div>
+  <!-- Stats -->
+  <div class="stats">
+    <div class="stat">
+      <div class="label">Total Pengeluaran</div>
+      <div class="val blue">${formatRupiah(totalExpenses)}</div>
+    </div>
+    <div class="stat">
+      <div class="label">Per Orang (rata-rata)</div>
+      <div class="val">${formatRupiah(perPersonShare)}</div>
+    </div>
+    <div class="stat">
+      <div class="label">Peserta</div>
+      <div class="val">${participantList.length}</div>
     </div>
   </div>
 
-  <!-- Payment Methods -->
   ${
     accountList.length > 0
       ? `
+  <!-- Payment Methods -->
   <div class="section">
-    <div class="section-title">Metode Pembayaran Host</div>
-    ${accountList
-      .map(
-        (acc) => `
-      <div class="account-item">
-        <div class="bank">${acc.provider ?? acc.label}</div>
-        <div class="number">${acc.account_number}</div>
-        <div class="holder">${acc.account_name}</div>
-      </div>
-    `,
-      )
-      .join("")}
+    <div class="section-title">Metode Pembayaran</div>
+    <div class="accounts-grid">
+      ${accountList
+        .map(
+          (acc) => `
+        <div class="acc-card">
+          <div class="provider">${acc.provider ?? acc.label}</div>
+          <div class="accnum">${acc.account_number}</div>
+          <div class="holder">a.n. ${acc.account_name}</div>
+        </div>
+      `,
+        )
+        .join("")}
+    </div>
   </div>
   `
       : ""
   }
 
-  <!-- Participant Summary -->
+  <!-- Participant Balances -->
   <div class="section">
-    <div class="section-title">Ringkasan Peserta</div>
+    <div class="section-title">Saldo Peserta</div>
     <table>
       <thead>
-        <tr>
-          <th>Nama</th>
-          <th class="text-right">Saldo</th>
-          <th class="text-center">Status</th>
-        </tr>
+        <tr><th style="width:40%">Nama</th><th class="text-right" style="width:35%">Saldo</th><th class="text-center" style="width:25%">Status</th></tr>
       </thead>
       <tbody>
         ${participantList
           .map((p) => {
-            const balanceClass =
-              p.balance_idr < 0 ? "pay" : p.balance_idr > 0 ? "recv" : "zero";
-            const balanceLabel =
-              p.balance_idr < 0
-                ? `Bayar ${formatRupiah(Math.abs(p.balance_idr))}`
-                : p.balance_idr > 0
-                  ? `Terima ${formatRupiah(p.balance_idr)}`
-                  : "Lunas";
-            return `
-          <tr>
-            <td>
-              ${p.display_name}
-            </td>
-            <td class="text-right ${balanceClass}">${balanceLabel}</td>
-            <td class="text-center">
-              ${p.balance_idr < 0 ? "🔴 Harus Bayar" : p.balance_idr > 0 ? "🟢 Menerima" : "✅ Lunas"}
-            </td>
+            const bal = Number(p.balance_idr);
+            const cls = bal < 0 ? "pay" : bal > 0 ? "recv" : "zero";
+            const label =
+              bal < 0
+                ? formatRupiah(Math.abs(bal))
+                : bal > 0
+                  ? formatRupiah(bal)
+                  : "–";
+            const prefix = bal < 0 ? "−" : bal > 0 ? "+" : "";
+            const pillCls =
+              bal < 0 ? "pill-red" : bal > 0 ? "pill-green" : "pill-gray";
+            const pillText = bal < 0 ? "Bayar" : bal > 0 ? "Terima" : "Lunas";
+            return `<tr>
+            <td>${p.display_name}</td>
+            <td class="text-right ${cls}">${prefix} ${label}</td>
+            <td class="text-center"><span class="pill ${pillCls}">${pillText}</span></td>
           </tr>`;
           })
           .join("")}
@@ -370,32 +352,34 @@ export async function GET(
     </table>
   </div>
 
-  <!-- Siapa Bayar Siapa -->
   ${
     mustPay.length > 0 || willReceive.length > 0
       ? `
+  <!-- Settlement -->
   <div class="section">
     <div class="section-title">Siapa Bayar ke Siapa</div>
-    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
-      <div>
-        <div style="font-weight:600; margin-bottom:8px; color:#dc2626;">🔴 Harus Membayar</div>
+    <div class="settle-grid">
+      <div class="settle-col">
+        <h4 class="red">Harus Membayar</h4>
         ${mustPay
           .map(
             (p) => `
-          <div style="padding: 6px 0; border-bottom: 1px solid #f3f4f6;">
-            ${p.display_name}: <span class="pay">${formatRupiah(Math.abs(p.balance_idr))}</span>
+          <div class="settle-item">
+            <span>${p.display_name}</span>
+            <span class="pay">${formatRupiah(Math.abs(Number(p.balance_idr)))}</span>
           </div>
         `,
           )
           .join("")}
       </div>
-      <div>
-        <div style="font-weight:600; margin-bottom:8px; color:#16a34a;">🟢 Akan Menerima</div>
+      <div class="settle-col">
+        <h4 class="green">Akan Menerima</h4>
         ${willReceive
           .map(
             (p) => `
-          <div style="padding: 6px 0; border-bottom: 1px solid #f3f4f6;">
-            ${p.display_name}: <span class="recv">${formatRupiah(p.balance_idr)}</span>
+          <div class="settle-item">
+            <span>${p.display_name}</span>
+            <span class="recv">${formatRupiah(Number(p.balance_idr))}</span>
           </div>
         `,
           )
@@ -407,24 +391,19 @@ export async function GET(
       : ""
   }
 
-  <!-- Expense List -->
+  <!-- Expenses -->
   <div class="section">
     <div class="section-title">Daftar Pengeluaran (${expenseList.filter((e) => !e.is_excluded).length} item)</div>
     <table>
       <thead>
-        <tr>
-          <th>Keterangan</th>
-          <th>Dibayar oleh</th>
-          <th>Tanggal</th>
-          <th class="text-right">Jumlah</th>
-        </tr>
+        <tr><th>Keterangan</th><th>Dibayar oleh</th><th>Tanggal</th><th class="text-right">Jumlah</th></tr>
       </thead>
       <tbody>
         ${expenseList
           .map(
             (e) => `
-          <tr style="${e.is_excluded ? "opacity:0.4; text-decoration:line-through;" : ""}">
-            <td>${e.title}${e.is_excluded ? " <em style='font-size:11px;color:#9ca3af'>(dikecualikan)</em>" : ""}</td>
+          <tr${e.is_excluded ? ' style="opacity:0.35;text-decoration:line-through"' : ""}>
+            <td>${e.title}${e.is_excluded ? ' <span style="font-size:9px;color:#9ca3af">(dikecualikan)</span>' : ""}</td>
             <td>${e.paid_by_name}</td>
             <td>${formatDate(e.created_at)}</td>
             <td class="text-right">${formatRupiah(e.amount_idr)}</td>
@@ -434,17 +413,15 @@ export async function GET(
           .join("")}
       </tbody>
       <tfoot>
-        <tr>
-          <td colspan="3" style="font-weight:700; padding: 10px 10px 2px; text-align:right;">Total</td>
-          <td class="text-right" style="font-weight:700; padding: 10px 10px 2px;">${formatRupiah(totalExpenses)}</td>
+        <tr style="border-top:2px solid #e2e8f0">
+          <td colspan="3" style="font-weight:800;text-align:right;padding:8px">Total</td>
+          <td class="text-right" style="font-weight:800;padding:8px;color:#2563eb">${formatRupiah(totalExpenses)}</td>
         </tr>
       </tfoot>
     </table>
   </div>
 
-  <div class="footer">
-    Laporan dibuat otomatis oleh KBM Berkah Ceria • ${new Date().getFullYear()}
-  </div>
+  <div class="footer">KBM Berkah Ceria • Laporan otomatis • ${new Date().getFullYear()}</div>
 
 </body>
 </html>`;
