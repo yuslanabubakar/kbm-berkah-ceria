@@ -42,30 +42,30 @@ function formatDate(dateStr: string | null): string {
 // ─── Types (minimal — adjust to match your actual DB schema) ─────────────────
 
 interface Participant {
-  name: string;
-  is_driver: boolean;
-  balance: number; // positive = receive, negative = must pay
+  display_name: string;
+  balance_idr: number;
 }
 
 interface Expense {
-  description: string;
-  amount: number;
-  paid_by: string;
+  title: string;
+  amount_idr: number;
+  is_excluded: boolean;
   created_at: string;
-  excluded: boolean;
+  paid_by_name: string;
 }
 
-interface HostAccount {
-  bank_name: string;
+interface PaymentAccount {
+  label: string;
+  provider: string | null;
+  account_name: string;
   account_number: string;
-  account_holder: string;
 }
 
 interface Trip {
   id: string;
   name: string;
-  start_city: string;
-  end_city: string;
+  origin_city: string | null;
+  destination_city: string | null;
   start_date: string | null;
   end_date: string | null;
 }
@@ -83,7 +83,7 @@ export async function GET(
   // ── Fetch trip ──────────────────────────────────────────────────────────────
   const { data: trip, error: tripError } = await supabase
     .from("trips")
-    .select("id, name, start_city, end_city, start_date, end_date")
+    .select("id, name, origin_city, destination_city, start_date, end_date")
     .eq("id", tripId)
     .single();
 
@@ -93,46 +93,53 @@ export async function GET(
         message: "Trip tidak ditemukan",
         tripId,
         error: tripError?.message,
-        code: tripError?.code,
-        hint: tripError?.hint,
-        hasUrl: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
-        hasKey: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
       },
       { status: 404 },
     );
   }
 
   // ── Fetch participants with balances ────────────────────────────────────────
-  // Adjust query to match your actual view/table name
   const { data: participants } = await supabase
-    .from("trip_balances") // your view from 0001_init.sql
-    .select("name, is_driver, balance")
+    .from("trip_balances")
+    .select("display_name, balance_idr")
     .eq("trip_id", tripId)
-    .order("balance");
+    .order("balance_idr");
 
-  // ── Fetch expenses ──────────────────────────────────────────────────────────
+  // ── Fetch expenses with paid_by participant name ────────────────────────────
   const { data: expenses } = await supabase
     .from("expenses")
-    .select("description, amount, paid_by, created_at, excluded")
+    .select(
+      "title, amount_idr, is_excluded, created_at, paid_by:participants!paid_by(display_name)",
+    )
     .eq("trip_id", tripId)
     .order("created_at");
 
-  // ── Fetch host accounts ─────────────────────────────────────────────────────
-  const { data: hostAccounts } = await supabase
-    .from("host_payment_accounts")
-    .select("bank_name, account_number, account_holder")
+  // ── Fetch payment accounts attached to trip ─────────────────────────────────
+  const { data: paymentAccounts } = await supabase
+    .from("trip_payment_accounts")
+    .select(
+      "payment_account:user_payment_accounts(label, provider, account_name, account_number)",
+    )
     .eq("trip_id", tripId);
 
   const participantList: Participant[] = participants ?? [];
-  const expenseList: Expense[] = expenses ?? [];
-  const accountList: HostAccount[] = hostAccounts ?? [];
+  const expenseList = (expenses ?? []).map((e: any) => ({
+    title: e.title,
+    amount_idr: Number(e.amount_idr),
+    is_excluded: e.is_excluded,
+    created_at: e.created_at,
+    paid_by_name: e.paid_by?.display_name ?? "—",
+  })) as Expense[];
+  const accountList: PaymentAccount[] = (paymentAccounts ?? [])
+    .map((a: any) => a.payment_account)
+    .filter(Boolean);
 
   const totalExpenses = expenseList
-    .filter((e) => !e.excluded)
-    .reduce((sum, e) => sum + e.amount, 0);
+    .filter((e) => !e.is_excluded)
+    .reduce((sum, e) => sum + e.amount_idr, 0);
 
-  const mustPay = participantList.filter((p) => p.balance < 0);
-  const willReceive = participantList.filter((p) => p.balance > 0);
+  const mustPay = participantList.filter((p) => p.balance_idr < 0);
+  const willReceive = participantList.filter((p) => p.balance_idr > 0);
 
   // ── Build HTML ──────────────────────────────────────────────────────────────
   const html = `<!DOCTYPE html>
@@ -282,7 +289,7 @@ export async function GET(
   <div class="header">
     <h1>${trip.name}</h1>
     <div class="meta">
-      <span>📍 ${trip.start_city ?? ""} → ${trip.end_city ?? ""}</span>
+      <span>📍 ${trip.origin_city ?? ""} → ${trip.destination_city ?? ""}</span>
       <span>📅 ${formatDate(trip.start_date)} – ${formatDate(trip.end_date)}</span>
       <span>🖨️ Dicetak: ${formatDate(new Date().toISOString())}</span>
     </div>
@@ -313,9 +320,9 @@ export async function GET(
       .map(
         (acc) => `
       <div class="account-item">
-        <div class="bank">${acc.bank_name}</div>
+        <div class="bank">${acc.provider ?? acc.label}</div>
         <div class="number">${acc.account_number}</div>
-        <div class="holder">${acc.account_holder}</div>
+        <div class="holder">${acc.account_name}</div>
       </div>
     `,
       )
@@ -340,22 +347,21 @@ export async function GET(
         ${participantList
           .map((p) => {
             const balanceClass =
-              p.balance < 0 ? "pay" : p.balance > 0 ? "recv" : "zero";
+              p.balance_idr < 0 ? "pay" : p.balance_idr > 0 ? "recv" : "zero";
             const balanceLabel =
-              p.balance < 0
-                ? `Bayar ${formatRupiah(Math.abs(p.balance))}`
-                : p.balance > 0
-                  ? `Terima ${formatRupiah(p.balance)}`
+              p.balance_idr < 0
+                ? `Bayar ${formatRupiah(Math.abs(p.balance_idr))}`
+                : p.balance_idr > 0
+                  ? `Terima ${formatRupiah(p.balance_idr)}`
                   : "Lunas";
             return `
           <tr>
             <td>
-              ${p.name}
-              ${p.is_driver ? '<span class="badge badge-driver">Supir</span>' : ""}
+              ${p.display_name}
             </td>
             <td class="text-right ${balanceClass}">${balanceLabel}</td>
             <td class="text-center">
-              ${p.balance < 0 ? "🔴 Harus Bayar" : p.balance > 0 ? "🟢 Menerima" : "✅ Lunas"}
+              ${p.balance_idr < 0 ? "🔴 Harus Bayar" : p.balance_idr > 0 ? "🟢 Menerima" : "✅ Lunas"}
             </td>
           </tr>`;
           })
@@ -377,7 +383,7 @@ export async function GET(
           .map(
             (p) => `
           <div style="padding: 6px 0; border-bottom: 1px solid #f3f4f6;">
-            ${p.name}: <span class="pay">${formatRupiah(Math.abs(p.balance))}</span>
+            ${p.display_name}: <span class="pay">${formatRupiah(Math.abs(p.balance_idr))}</span>
           </div>
         `,
           )
@@ -389,7 +395,7 @@ export async function GET(
           .map(
             (p) => `
           <div style="padding: 6px 0; border-bottom: 1px solid #f3f4f6;">
-            ${p.name}: <span class="recv">${formatRupiah(p.balance)}</span>
+            ${p.display_name}: <span class="recv">${formatRupiah(p.balance_idr)}</span>
           </div>
         `,
           )
@@ -403,7 +409,7 @@ export async function GET(
 
   <!-- Expense List -->
   <div class="section">
-    <div class="section-title">Daftar Pengeluaran (${expenseList.filter((e) => !e.excluded).length} item)</div>
+    <div class="section-title">Daftar Pengeluaran (${expenseList.filter((e) => !e.is_excluded).length} item)</div>
     <table>
       <thead>
         <tr>
@@ -417,11 +423,11 @@ export async function GET(
         ${expenseList
           .map(
             (e) => `
-          <tr style="${e.excluded ? "opacity:0.4; text-decoration:line-through;" : ""}">
-            <td>${e.description}${e.excluded ? " <em style='font-size:11px;color:#9ca3af'>(dikecualikan)</em>" : ""}</td>
-            <td>${e.paid_by}</td>
+          <tr style="${e.is_excluded ? "opacity:0.4; text-decoration:line-through;" : ""}">
+            <td>${e.title}${e.is_excluded ? " <em style='font-size:11px;color:#9ca3af'>(dikecualikan)</em>" : ""}</td>
+            <td>${e.paid_by_name}</td>
             <td>${formatDate(e.created_at)}</td>
-            <td class="text-right">${formatRupiah(e.amount)}</td>
+            <td class="text-right">${formatRupiah(e.amount_idr)}</td>
           </tr>
         `,
           )
