@@ -15,8 +15,7 @@
  * (Replace the existing file entirely)
  */
 
-import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
+import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
 
 export const runtime = "edge";
@@ -77,18 +76,9 @@ export async function GET(
   request: NextRequest,
   { params }: { params: { tripId: string } },
 ) {
-  const cookieStore = cookies();
-
-  const supabase = createServerClient(
+  const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!, // service role for server-side reads
-    {
-      cookies: {
-        get(name: string) {
-          return cookieStore.get(name)?.value;
-        },
-      },
-    },
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
   );
 
   const { tripId } = params;
