@@ -3,19 +3,24 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getSupabaseServer } from "@/lib/supabaseServer";
 
+export const runtime = "edge";
+
 const createParticipantSchema = z.object({
   name: z.string().min(1, "Nama peserta wajib diisi"),
-  isDriver: z.boolean().optional().default(false)
+  isDriver: z.boolean().optional().default(false),
 });
 
-export async function POST(request: Request, { params }: { params: { tripId: string } }) {
+export async function POST(
+  request: Request,
+  { params }: { params: { tripId: string } },
+) {
   const payload = await request.json().catch(() => null);
   const parsed = createParticipantSchema.safeParse(payload);
 
   if (!parsed.success) {
     return NextResponse.json(
       { message: "Data peserta belum lengkap", issues: parsed.error.flatten() },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
@@ -27,7 +32,10 @@ export async function POST(request: Request, { params }: { params: { tripId: str
     .single();
 
   if (tripError || !trip) {
-    return NextResponse.json({ message: "Perjalanan tidak ditemukan" }, { status: 404 });
+    return NextResponse.json(
+      { message: "Perjalanan tidak ditemukan" },
+      { status: 404 },
+    );
   }
 
   const { name, isDriver } = parsed.data;
@@ -36,14 +44,17 @@ export async function POST(request: Request, { params }: { params: { tripId: str
     .insert({
       trip_id: params.tripId,
       display_name: name.trim(),
-      role: isDriver ? "driver" : "member"
+      role: isDriver ? "driver" : "member",
     })
     .select("id, display_name, role")
     .single();
 
   if (participantError || !participant) {
     console.error(participantError);
-    return NextResponse.json({ message: "Gagal menambahkan peserta" }, { status: 500 });
+    return NextResponse.json(
+      { message: "Gagal menambahkan peserta" },
+      { status: 500 },
+    );
   }
 
   revalidatePath(`/perjalanan/${params.tripId}`);
@@ -53,9 +64,9 @@ export async function POST(request: Request, { params }: { params: { tripId: str
       data: {
         id: participant.id,
         name: participant.display_name,
-        role: participant.role
-      }
+        role: participant.role,
+      },
     },
-    { status: 201 }
+    { status: 201 },
   );
 }

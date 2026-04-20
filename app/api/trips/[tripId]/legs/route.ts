@@ -3,6 +3,8 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getSupabaseServer } from "@/lib/supabaseServer";
 
+export const runtime = "edge";
+
 const timeRegex = /^\d{2}:\d{2}$/;
 
 type LegOrderRow = {
@@ -18,7 +20,7 @@ const createLegSchema = z.object({
     .regex(timeRegex, "Format waktu harus HH:MM")
     .optional()
     .nullable(),
-  notes: z.string().max(500).optional().nullable()
+  notes: z.string().max(500).optional().nullable(),
 });
 
 function combineDateTime(date?: string | null, time?: string | null) {
@@ -30,31 +32,50 @@ function combineDateTime(date?: string | null, time?: string | null) {
   return new Date(`${date}T${hour}:${minute}:00`).toISOString();
 }
 
-export async function POST(request: Request, { params }: { params: { tripId: string } }) {
+export async function POST(
+  request: Request,
+  { params }: { params: { tripId: string } },
+) {
   const { tripId } = params;
 
   if (!tripId) {
-    return NextResponse.json({ message: "Trip tidak ditemukan" }, { status: 404 });
+    return NextResponse.json(
+      { message: "Trip tidak ditemukan" },
+      { status: 404 },
+    );
   }
 
   const payload = await request.json().catch(() => null);
   const parsed = createLegSchema.safeParse(payload);
 
   if (!parsed.success) {
-    return NextResponse.json({ message: "Data leg belum valid", issues: parsed.error.flatten() }, { status: 400 });
+    return NextResponse.json(
+      { message: "Data leg belum valid", issues: parsed.error.flatten() },
+      { status: 400 },
+    );
   }
 
   const supabase = getSupabaseServer();
 
-  const { data: tripRow, error: tripError } = await supabase.from("trips").select("id").eq("id", tripId).maybeSingle();
+  const { data: tripRow, error: tripError } = await supabase
+    .from("trips")
+    .select("id")
+    .eq("id", tripId)
+    .maybeSingle();
 
   if (tripError) {
     console.error(tripError);
-    return NextResponse.json({ message: "Gagal mengecek perjalanan" }, { status: 500 });
+    return NextResponse.json(
+      { message: "Gagal mengecek perjalanan" },
+      { status: 500 },
+    );
   }
 
   if (!tripRow) {
-    return NextResponse.json({ message: "Trip tidak ditemukan" }, { status: 404 });
+    return NextResponse.json(
+      { message: "Trip tidak ditemukan" },
+      { status: 404 },
+    );
   }
 
   const { data: lastLegData, error: lastLegError } = await supabase
@@ -67,14 +88,19 @@ export async function POST(request: Request, { params }: { params: { tripId: str
 
   if (lastLegError) {
     console.error(lastLegError);
-    return NextResponse.json({ message: "Gagal membaca urutan leg" }, { status: 500 });
+    return NextResponse.json(
+      { message: "Gagal membaca urutan leg" },
+      { status: 500 },
+    );
   }
 
   const lastLegRow = (lastLegData as LegOrderRow | null) || null;
 
   const nextOrder = (lastLegRow?.leg_order ?? 0) + 1;
 
-  const startDateTime = combineDateTime(parsed.data.startDate, parsed.data.startTime) ?? new Date().toISOString();
+  const startDateTime =
+    combineDateTime(parsed.data.startDate, parsed.data.startTime) ??
+    new Date().toISOString();
 
   const insertData = {
     trip_id: tripId,
@@ -84,7 +110,7 @@ export async function POST(request: Request, { params }: { params: { tripId: str
     destination: parsed.data.destination?.trim() || null,
     start_datetime: startDateTime,
     end_datetime: null,
-    notes: parsed.data.notes?.trim() || null
+    notes: parsed.data.notes?.trim() || null,
   };
 
   const { data: legRow, error: insertError } = await supabase
@@ -100,5 +126,11 @@ export async function POST(request: Request, { params }: { params: { tripId: str
 
   revalidatePath(`/perjalanan/${tripId}`);
 
-  return NextResponse.json({ message: "Leg ditambahkan", data: { legId: legRow.id, order: legRow.leg_order } }, { status: 201 });
+  return NextResponse.json(
+    {
+      message: "Leg ditambahkan",
+      data: { legId: legRow.id, order: legRow.leg_order },
+    },
+    { status: 201 },
+  );
 }

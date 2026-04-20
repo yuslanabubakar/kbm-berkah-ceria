@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getSupabaseServer } from "@/lib/supabaseServer";
 
+export const runtime = "edge";
+
 const updateSchema = z.object({
   label: z.string().min(3, "Nama akun minimal 3 karakter").optional(),
   channel: z.enum(["bank", "ewallet", "cash", "other"]).optional(),

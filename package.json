@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "build:cf": "next build && npx @cloudflare/next-on-pages",
     "start": "next start",
     "lint": "next lint",
     "format": "prettier --write .",
@@ -18,16 +19,14 @@
     "@supabase/supabase-js": "2.86.0",
     "clsx": "2.1.1",
     "date-fns": "3.6.0",
-    "iconv-lite": "0.6.3",
     "next": "14.2.35",
-    "pdfkit": "0.15.0",
     "react": "18.2.0",
     "react-dom": "18.2.0",
     "zod": "3.23.8"
   },
   "devDependencies": {
+    "@cloudflare/next-on-pages": "^1.4.0",
     "@types/node": "20.14.7",
-    "@types/pdfkit": "0.13.4",
     "@types/react": "18.3.3",
     "@types/react-dom": "18.3.0",
     "autoprefixer": "10.4.19",
@@ -40,7 +39,8 @@
     "postcss": "8.4.38",
     "prettier": "3.3.2",
     "tailwindcss": "3.4.4",
-    "typescript": "5.4.5"
+    "typescript": "5.4.5",
+    "wrangler": "^3.0.0"
   },
   "lint-staged": {
     "*.{ts,tsx,js,jsx}": [

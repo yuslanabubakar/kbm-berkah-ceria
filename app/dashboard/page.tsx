@@ -5,6 +5,7 @@ import { DashboardPaymentSection } from "@/components/DashboardPaymentSection";
 import { fetchUserPaymentAccounts } from "@/lib/paymentAccounts";
 import { fetchTripsSummary } from "@/lib/tripQueries";
 
+export const runtime = "edge";
 export const revalidate = 0;
 
 export default async function DashboardPage() {

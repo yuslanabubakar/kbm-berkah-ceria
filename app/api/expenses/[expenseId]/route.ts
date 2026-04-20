@@ -3,6 +3,8 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getSupabaseServer } from "@/lib/supabaseServer";
 
+export const runtime = "edge";
+
 const expenseSchema = z
   .object({
     tripId: z.string().min(1),
@@ -12,20 +14,20 @@ const expenseSchema = z
     legId: z.string().min(1),
     vehicleId: z.string().optional().nullable(),
     shareScope: z.enum(["leg", "vehicle"]),
-    catatan: z.string().optional()
+    catatan: z.string().optional(),
   })
   .superRefine((data, ctx) => {
     if (data.shareScope === "vehicle" && !data.vehicleId) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["vehicleId"],
-        message: "Pilih kendaraan untuk membagi biaya khusus kendaraan"
+        message: "Pilih kendaraan untuk membagi biaya khusus kendaraan",
       });
     }
   });
 
 const deleteSchema = z.object({
-  tripId: z.string().min(1)
+  tripId: z.string().min(1),
 });
 
 type Params = {
@@ -38,8 +40,11 @@ export async function PATCH(request: Request, { params }: Params) {
 
   if (!parsed.success) {
     return NextResponse.json(
-      { message: "Data belum lengkap", issues: parsed.error.flatten().fieldErrors },
-      { status: 400 }
+      {
+        message: "Data belum lengkap",
+        issues: parsed.error.flatten().fieldErrors,
+      },
+      { status: 400 },
     );
   }
 
@@ -54,7 +59,7 @@ export async function PATCH(request: Request, { params }: Params) {
         leg_id: parsed.data.legId,
         vehicle_id: parsed.data.vehicleId ?? null,
         share_scope: parsed.data.shareScope,
-        notes: parsed.data.catatan
+        notes: parsed.data.catatan,
       })
       .eq("id", params.expenseId)
       .eq("trip_id", parsed.data.tripId)
@@ -63,16 +68,25 @@ export async function PATCH(request: Request, { params }: Params) {
 
     if (error) {
       if ("code" in error && error.code === "PGRST116") {
-        return NextResponse.json({ message: "Pengeluaran tidak ditemukan" }, { status: 404 });
+        return NextResponse.json(
+          { message: "Pengeluaran tidak ditemukan" },
+          { status: 404 },
+        );
       }
       console.error(error);
-      return NextResponse.json({ message: "Gagal memperbarui" }, { status: 500 });
+      return NextResponse.json(
+        { message: "Gagal memperbarui" },
+        { status: 500 },
+      );
     }
 
     revalidatePath(`/perjalanan/${parsed.data.tripId}`);
     revalidatePath(`/`);
 
-    return NextResponse.json({ message: "Berhasil diperbarui" }, { status: 200 });
+    return NextResponse.json(
+      { message: "Berhasil diperbarui" },
+      { status: 200 },
+    );
   } catch (error) {
     console.error(error);
     return NextResponse.json({ message: "Server error" }, { status: 500 });
@@ -86,7 +100,7 @@ export async function DELETE(request: Request, { params }: Params) {
   if (!parsed.success) {
     return NextResponse.json(
       { message: "Butuh informasi perjalanan" },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
@@ -102,7 +116,10 @@ export async function DELETE(request: Request, { params }: Params) {
 
     if (error) {
       if ("code" in error && error.code === "PGRST116") {
-        return NextResponse.json({ message: "Pengeluaran tidak ditemukan" }, { status: 404 });
+        return NextResponse.json(
+          { message: "Pengeluaran tidak ditemukan" },
+          { status: 404 },
+        );
       }
       console.error(error);
       return NextResponse.json({ message: "Gagal menghapus" }, { status: 500 });

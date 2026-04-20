@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
 import { getSupabaseServer } from "@/lib/supabaseServer";
 
+export const runtime = "edge";
+
 export async function DELETE(
   _request: Request,
-  { params }: { params: { tripId: string; shareId: string } }
+  { params }: { params: { tripId: string; shareId: string } },
 ) {
   const { tripId, shareId } = params;
 
@@ -21,7 +23,10 @@ export async function DELETE(
 
   if (error) {
     console.error(error);
-    return NextResponse.json({ message: "Gagal menghapus sharing" }, { status: 500 });
+    return NextResponse.json(
+      { message: "Gagal menghapus sharing" },
+      { status: 500 },
+    );
   }
 
   return NextResponse.json({ message: "Sharing dihapus" });

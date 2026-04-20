@@ -3,6 +3,8 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getSupabaseServer } from "@/lib/supabaseServer";
 
+export const runtime = "edge";
+
 const expenseSchema = z
   .object({
     tripId: z.string().min(1),
@@ -12,14 +14,14 @@ const expenseSchema = z
     legId: z.string().min(1),
     vehicleId: z.string().optional().nullable(),
     shareScope: z.enum(["leg", "vehicle"]),
-    catatan: z.string().optional()
+    catatan: z.string().optional(),
   })
   .superRefine((data, ctx) => {
     if (data.shareScope === "vehicle" && !data.vehicleId) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["vehicleId"],
-        message: "Pilih kendaraan untuk membagi biaya khusus kendaraan"
+        message: "Pilih kendaraan untuk membagi biaya khusus kendaraan",
       });
     }
   });
@@ -30,8 +32,11 @@ export async function POST(request: Request) {
 
   if (!parsed.success) {
     return NextResponse.json(
-      { message: "Data belum lengkap", issues: parsed.error.flatten().fieldErrors },
-      { status: 400 }
+      {
+        message: "Data belum lengkap",
+        issues: parsed.error.flatten().fieldErrors,
+      },
+      { status: 400 },
     );
   }
 
@@ -45,7 +50,7 @@ export async function POST(request: Request) {
       amount_idr: parsed.data.amountIdr,
       paid_by: parsed.data.paidBy,
       notes: parsed.data.catatan,
-      share_scope: parsed.data.shareScope
+      share_scope: parsed.data.shareScope,
     });
 
     if (error) {

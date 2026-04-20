@@ -4,6 +4,8 @@ import { z } from "zod";
 import { getSupabaseServer } from "@/lib/supabaseServer";
 import type { TripPaymentAccountAttachment } from "@/types/expense";
 
+export const runtime = "edge";
+
 const updateSchema = z
   .object({
     customLabel: z.string().max(80).optional().or(z.literal("")),

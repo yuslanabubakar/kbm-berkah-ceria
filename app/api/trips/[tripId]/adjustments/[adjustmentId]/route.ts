@@ -3,22 +3,33 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getSupabaseServer } from "@/lib/supabaseServer";
 
+export const runtime = "edge";
+
 const actionSchema = z.object({
-  action: z.enum(["apply", "void"])
+  action: z.enum(["apply", "void"]),
 });
 
-export async function PATCH(request: Request, { params }: { params: { tripId: string; adjustmentId: string } }) {
+export async function PATCH(
+  request: Request,
+  { params }: { params: { tripId: string; adjustmentId: string } },
+) {
   const { tripId, adjustmentId } = params;
 
   if (!tripId || !adjustmentId) {
-    return NextResponse.json({ message: "Parameter tidak lengkap" }, { status: 400 });
+    return NextResponse.json(
+      { message: "Parameter tidak lengkap" },
+      { status: 400 },
+    );
   }
 
   const payload = await request.json().catch(() => null);
   const parsed = actionSchema.safeParse(payload);
 
   if (!parsed.success) {
-    return NextResponse.json({ message: "Aksi tidak valid", issues: parsed.error.flatten() }, { status: 400 });
+    return NextResponse.json(
+      { message: "Aksi tidak valid", issues: parsed.error.flatten() },
+      { status: 400 },
+    );
   }
 
   const supabase = getSupabaseServer();
@@ -42,11 +53,17 @@ export async function PATCH(request: Request, { params }: { params: { tripId: st
 
   if (error) {
     console.error(error);
-    return NextResponse.json({ message: "Gagal memperbarui penyesuaian" }, { status: 500 });
+    return NextResponse.json(
+      { message: "Gagal memperbarui penyesuaian" },
+      { status: 500 },
+    );
   }
 
   if (!data) {
-    return NextResponse.json({ message: "Penyesuaian tidak ditemukan" }, { status: 404 });
+    return NextResponse.json(
+      { message: "Penyesuaian tidak ditemukan" },
+      { status: 404 },
+    );
   }
 
   revalidatePath(`/perjalanan/${tripId}`);

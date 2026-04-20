@@ -1,790 +1,455 @@
-import { NextResponse } from "next/server";
-import PDFDocument from "pdfkit";
-import { format } from "date-fns";
-import { id as localeId } from "date-fns/locale";
-import { getSupabaseServer } from "@/lib/supabaseServer";
-import { fetchTripDetail } from "@/lib/tripQueries";
-import { formatRupiah } from "@/lib/formatCurrency";
+/**
+ * REPLACEMENT FOR: app/api/trips/[tripId]/report/route.ts
+ *
+ * The old route used `pdfkit` (Node.js only) to stream a PDF binary.
+ * Cloudflare Pages runs on the edge runtime — no Node.js APIs available.
+ *
+ * NEW APPROACH: This route returns a fully-styled HTML page.
+ * The frontend opens it in a new tab and the user presses Ctrl+P / Cmd+P
+ * to save as PDF. This works identically from the user's perspective and
+ * requires zero new dependencies.
+ *
+ * Place this file at:
+ *   app/api/trips/[tripId]/report/route.ts
+ *
+ * (Replace the existing file entirely)
+ */
 
-export const dynamic = "force-dynamic";
-export const runtime = "nodejs";
+import { createServerClient } from "@supabase/ssr";
+import { cookies } from "next/headers";
+import { NextRequest, NextResponse } from "next/server";
 
-const COLOR_PRIMARY = "#2E5AAC";
-const COLOR_ACCENT = "#FF7B6A";
-const COLOR_LIGHT = "#F4E3C1";
-const COLOR_TEXT = "#1F2937";
-const COLOR_SUBTLE = "#6B7280";
-const COLOR_SUCCESS = "#047857";
-const COLOR_DANGER = "#DC2626";
-const COLOR_CARD_BORDER = "#93C5FD";
-const COLOR_CARD_BACKGROUND = "#FFFFFF";
+export const runtime = "edge";
 
-const FONT_REGULAR = "Helvetica";
-const FONT_BOLD = "Helvetica-Bold";
+// ─── Helpers ────────────────────────────────────────────────────────────────
 
-type PdfDoc = InstanceType<typeof PDFDocument>;
-type TripDetail = NonNullable<Awaited<ReturnType<typeof fetchTripDetail>>>;
+function formatRupiah(amount: number): string {
+  return new Intl.NumberFormat("id-ID", {
+    style: "currency",
+    currency: "IDR",
+    minimumFractionDigits: 0,
+  }).format(amount);
+}
 
-type TableColumn = {
-  header: string;
-  width: number;
-  align?: "left" | "center" | "right";
-};
+function formatDate(dateStr: string | null): string {
+  if (!dateStr) return "-";
+  return new Intl.DateTimeFormat("id-ID", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  }).format(new Date(dateStr));
+}
 
-type TableCell =
-  | string
-  | {
-      text: string;
-      color?: string;
-      bold?: boolean;
-    };
+// ─── Types (minimal — adjust to match your actual DB schema) ─────────────────
 
-type TableRow = TableCell[];
+interface Participant {
+  name: string;
+  is_driver: boolean;
+  balance: number; // positive = receive, negative = must pay
+}
 
-function drawTitleBanner(
-  doc: PdfDoc,
-  detail: TripDetail,
-  totalExpenses: number,
+interface Expense {
+  description: string;
+  amount: number;
+  paid_by: string;
+  created_at: string;
+  excluded: boolean;
+}
+
+interface HostAccount {
+  bank_name: string;
+  account_number: string;
+  account_holder: string;
+}
+
+interface Trip {
+  id: string;
+  name: string;
+  start_city: string;
+  end_city: string;
+  start_date: string | null;
+  end_date: string | null;
+}
+
+// ─── Route Handler ───────────────────────────────────────────────────────────
+
+export async function GET(
+  request: NextRequest,
+  { params }: { params: { tripId: string } },
 ) {
-  const contentWidth =
-    doc.page.width - doc.page.margins.left - doc.page.margins.right;
-  const startX = doc.page.margins.left;
-  const topY = doc.y;
-  const boxHeight = 120;
-
-  doc.save();
-  doc
-    .roundedRect(startX, topY, contentWidth, boxHeight, 12)
-    .fill(COLOR_PRIMARY);
-  doc.fillColor("#FFFFFF");
-  doc
-    .font(FONT_BOLD)
-    .fontSize(20)
-    .text("Laporan Perjalanan", startX + 24, topY + 22);
-  doc
-    .font(FONT_REGULAR)
-    .fontSize(12)
-    .text(detail.trip.nama, startX + 24, topY + 50, {
-      width: contentWidth - 48,
-    });
-
-  const metaLines = [
-    `ID Perjalanan: ${detail.trip.id}`,
-    `Rentang Tanggal: ${buildDateRange(detail.trip.tanggalMulai, detail.trip.tanggalSelesai)}`,
-    `Lokasi: ${detail.trip.lokasi}`,
-    `Total Pengeluaran: ${formatRupiah(totalExpenses)}`,
-  ];
-
-  doc
-    .font(FONT_REGULAR)
-    .fontSize(10)
-    .text(metaLines.join("\n"), startX + 24, topY + 78, {
-      width: contentWidth - 48,
-    });
-  doc.restore();
-
-  doc.y = topY + boxHeight + 24;
-  doc.fillColor(COLOR_TEXT);
-}
-
-function drawStatsRow(doc: PdfDoc, stats: { label: string; value: string }[]) {
-  if (!stats.length) return;
-
-  const availableWidth =
-    doc.page.width - doc.page.margins.left - doc.page.margins.right;
-  const x = doc.page.margins.left;
-  const gap = 12;
-  const cardHeight = 64;
-  const cardWidth = (availableWidth - gap * (stats.length - 1)) / stats.length;
-  let baseY = doc.y;
-
-  if (baseY + cardHeight > doc.page.height - doc.page.margins.bottom) {
-    doc.addPage();
-    baseY = doc.y;
-  }
-
-  doc.y = baseY;
-
-  stats.forEach((stat, index) => {
-    const cardX = x + index * (cardWidth + gap);
-    const cardY = baseY;
-    doc.save();
-    doc.roundedRect(cardX, cardY, cardWidth, cardHeight, 10).fill(COLOR_LIGHT);
-    const valueColor = index === 0 ? COLOR_ACCENT : COLOR_PRIMARY;
-    doc
-      .fillColor(valueColor)
-      .font(FONT_BOLD)
-      .fontSize(12)
-      .text(stat.value, cardX + 12, cardY + 16, {
-        width: cardWidth - 24,
-      });
-    doc
-      .fillColor(COLOR_TEXT)
-      .font(FONT_REGULAR)
-      .fontSize(9)
-      .text(stat.label, cardX + 12, cardY + 38, {
-        width: cardWidth - 24,
-      });
-    doc.restore();
-    doc.y = baseY;
-  });
-
-  doc.y = baseY + cardHeight + 24;
-  doc.fillColor(COLOR_TEXT);
-}
-
-function drawSectionTitle(doc: PdfDoc, title: string, subtitle?: string) {
-  const x = doc.page.margins.left;
-  const width = doc.page.width - doc.page.margins.left - doc.page.margins.right;
-
-  doc.save();
-  doc.fillColor(COLOR_PRIMARY).rect(x, doc.y, width, 2).fill();
-  doc.restore();
-
-  const spacing = 6;
-  const titleY = doc.y + spacing;
-
-  doc
-    .fillColor(COLOR_PRIMARY)
-    .font(FONT_BOLD)
-    .fontSize(14)
-    .text(title, x, titleY, { width, align: "left" });
-
-  if (subtitle) {
-    const subtitleY = doc.y + 2;
-    doc
-      .fillColor(COLOR_SUBTLE)
-      .font(FONT_REGULAR)
-      .fontSize(10)
-      .text(subtitle, x, subtitleY, { width, align: "left" });
-  }
-
-  doc.fillColor(COLOR_TEXT);
-  doc.moveDown(1);
-}
-
-const PAYMENT_CARD_PADDING = 12;
-
-function buildPaymentCardLines(account: TripDetail["hostAccounts"][number]) {
-  return [
-    `Jenis: ${channelLabels[account.channel] ?? account.channel}`,
-    account.provider ? `Provider: ${account.provider}` : undefined,
-    `Nomor: ${account.accountNumber}`,
-    `Atas nama: ${account.accountName}`,
-    account.instructions ? `Catatan: ${account.instructions}` : undefined,
-  ].filter(Boolean) as string[];
-}
-
-function calculatePaymentCardHeight(
-  doc: PdfDoc,
-  width: number,
-  title: string,
-  lines: string[],
-) {
-  const textWidth = width - PAYMENT_CARD_PADDING * 2;
-  doc.font(FONT_BOLD).fontSize(11);
-  const titleHeight = doc.heightOfString(title, { width: textWidth });
-  doc.font(FONT_REGULAR).fontSize(10);
-
-  let bodyHeight = 0;
-  lines.forEach((line, index) => {
-    bodyHeight += doc.heightOfString(line, { width: textWidth });
-    if (index < lines.length - 1) {
-      bodyHeight += 4;
-    }
-  });
-
-  const spacing = lines.length ? 6 : 0;
-  const totalHeight =
-    PAYMENT_CARD_PADDING +
-    titleHeight +
-    spacing +
-    bodyHeight +
-    PAYMENT_CARD_PADDING;
-  doc.font(FONT_REGULAR).fontSize(10);
-  return totalHeight;
-}
-
-function renderPaymentCard(
-  doc: PdfDoc,
-  x: number,
-  y: number,
-  width: number,
-  height: number,
-  title: string,
-  lines: string[],
-) {
-  const originalY = doc.y;
-  const textWidth = width - PAYMENT_CARD_PADDING * 2;
-
-  doc.save();
-  doc.roundedRect(x, y, width, height, 10).fill(COLOR_CARD_BACKGROUND);
-  doc
-    .strokeColor(COLOR_CARD_BORDER)
-    .lineWidth(0.8)
-    .roundedRect(x, y, width, height, 10)
-    .stroke();
-  doc.restore();
-
-  doc.y = y;
-  let cursorY = y + PAYMENT_CARD_PADDING;
-
-  doc
-    .fillColor(COLOR_PRIMARY)
-    .font(FONT_BOLD)
-    .fontSize(11)
-    .text(title, x + PAYMENT_CARD_PADDING, cursorY, { width: textWidth });
-
-  cursorY = doc.y + 2;
-
-  doc.fillColor(COLOR_TEXT).font(FONT_REGULAR).fontSize(10);
-  lines.forEach((line) => {
-    doc.text(line, x + PAYMENT_CARD_PADDING, cursorY, { width: textWidth });
-    cursorY = doc.y + 2;
-  });
-
-  doc.y = originalY;
-  doc.fillColor(COLOR_TEXT).font(FONT_REGULAR).fontSize(10);
-}
-
-function drawPaymentCards(doc: PdfDoc, accounts: TripDetail["hostAccounts"]) {
-  if (!accounts.length) {
-    return;
-  }
-
-  const availableWidth =
-    doc.page.width - doc.page.margins.left - doc.page.margins.right;
-  const columns = accounts.length > 1 && availableWidth > 360 ? 2 : 1;
-  const gapX = 12;
-  const gapY = 12;
-  const cardWidth =
-    columns === 1 ? availableWidth : (availableWidth - gapX) / columns;
-  const startX = doc.page.margins.left;
-  const maxY = () => doc.page.height - doc.page.margins.bottom;
-
-  let y = doc.y;
-  let colIndex = 0;
-  let rowHeight = 0;
-
-  accounts.forEach((account, index) => {
-    const lines = buildPaymentCardLines(account);
-    const cardHeight = calculatePaymentCardHeight(
-      doc,
-      cardWidth,
-      account.label,
-      lines,
-    );
-
-    if (colIndex !== 0 && y + cardHeight > maxY()) {
-      y += rowHeight + gapY;
-      colIndex = 0;
-      rowHeight = 0;
-    }
-
-    if (y + cardHeight > maxY()) {
-      doc.addPage();
-      y = doc.page.margins.top;
-      colIndex = 0;
-      rowHeight = 0;
-    }
-
-    const cardX = startX + colIndex * (cardWidth + gapX);
-    renderPaymentCard(
-      doc,
-      cardX,
-      y,
-      cardWidth,
-      cardHeight,
-      account.label,
-      lines,
-    );
-
-    rowHeight = Math.max(rowHeight, cardHeight);
-    colIndex += 1;
-
-    if (colIndex === columns) {
-      y += rowHeight + gapY;
-      colIndex = 0;
-      rowHeight = 0;
-    }
-  });
-
-  if (colIndex !== 0) {
-    y += rowHeight + gapY;
-  }
-
-  doc.y = y;
-  doc.moveDown(0.5);
-  doc.fillColor(COLOR_TEXT).font(FONT_REGULAR).fontSize(10);
-}
-
-function drawTable(doc: PdfDoc, columns: TableColumn[], rows: TableRow[]) {
-  if (!rows.length) {
-    doc
-      .fillColor(COLOR_SUBTLE)
-      .font(FONT_REGULAR)
-      .fontSize(10)
-      .text("Tidak ada data tersedia.");
-    doc.fillColor(COLOR_TEXT).moveDown();
-    return;
-  }
-
-  const x = doc.page.margins.left;
-  const headerHeight = 26;
-  const rowPadding = 6;
-  const borderColor = "#D1D5DB";
-  const tableWidth = columns.reduce((sum, column) => sum + column.width, 0);
-
-  let y = doc.y;
-  const getMaxY = () => doc.page.height - doc.page.margins.bottom;
-
-  const moveToNextPage = () => {
-    doc.addPage();
-    y = doc.page.margins.top;
-    doc.y = y;
-    hasHeaderOnPage = false;
-  };
-
-  const drawHeaderRow = () => {
-    doc.y = y;
-    doc.save();
-    doc.fillColor(COLOR_PRIMARY).rect(x, y, tableWidth, headerHeight).fill();
-    doc.restore();
-
-    doc.save();
-    doc.fillColor("#FFFFFF").font(FONT_BOLD).fontSize(10);
-    let cellX = x;
-    columns.forEach((column) => {
-      doc.text(column.header, cellX + rowPadding, y + rowPadding, {
-        width: column.width - rowPadding * 2,
-        align: column.align ?? "left",
-      });
-      cellX += column.width;
-    });
-    doc.restore();
-
-    doc.save();
-    doc
-      .strokeColor(borderColor)
-      .lineWidth(0.5)
-      .rect(x, y, tableWidth, headerHeight)
-      .stroke();
-    doc.restore();
-
-    y += headerHeight;
-    doc.y = y;
-  };
-
-  let hasHeaderOnPage = false;
-
-  const ensureHeader = () => {
-    if (!hasHeaderOnPage) {
-      if (y + headerHeight > getMaxY()) {
-        moveToNextPage();
-      }
-      drawHeaderRow();
-      hasHeaderOnPage = true;
-    }
-  };
-
-  rows.forEach((row, rowIndex) => {
-    ensureHeader();
-
-    let rowHeight = 0;
-    columns.forEach((column, index) => {
-      const cell = row[index];
-      const cellText = typeof cell === "string" ? cell : cell?.text ?? "";
-      const isBoldCell = typeof cell === "string" ? false : cell?.bold ?? false;
-      doc.font(isBoldCell ? FONT_BOLD : FONT_REGULAR).fontSize(9);
-      const cellHeight = doc.heightOfString(cellText, {
-        width: column.width - rowPadding * 2,
-        align: column.align ?? "left",
-      });
-      rowHeight = Math.max(rowHeight, cellHeight);
-    });
-    doc.font(FONT_REGULAR).fontSize(9);
-    rowHeight += rowPadding * 2;
-
-    if (y + rowHeight > getMaxY()) {
-      moveToNextPage();
-      ensureHeader();
-    }
-
-    const fillColor = rowIndex % 2 === 0 ? "#FFFFFF" : COLOR_LIGHT;
-    doc.save();
-    doc.fillColor(fillColor).rect(x, y, tableWidth, rowHeight).fill();
-    doc.restore();
-
-    let cellX = x;
-    columns.forEach((column, index) => {
-      const cell = row[index];
-      const cellText = typeof cell === "string" ? cell : cell?.text ?? "";
-      const isBoldCell = typeof cell === "string" ? false : cell?.bold ?? false;
-      const customColor = typeof cell === "string" ? undefined : cell?.color;
-      const defaultColor =
-        column.align === "right" ? COLOR_PRIMARY : COLOR_TEXT;
-      doc
-        .font(isBoldCell ? FONT_BOLD : FONT_REGULAR)
-        .fontSize(9)
-        .fillColor(customColor ?? defaultColor)
-        .text(cellText, cellX + rowPadding, y + rowPadding, {
-          width: column.width - rowPadding * 2,
-          align: column.align ?? "left",
-        });
-      cellX += column.width;
-    });
-
-    doc.font(FONT_REGULAR).fontSize(9).fillColor(COLOR_TEXT);
-    doc.save();
-    doc
-      .strokeColor(borderColor)
-      .lineWidth(0.5)
-      .moveTo(x, y)
-      .lineTo(x + tableWidth, y)
-      .stroke();
-    doc.restore();
-
-    y += rowHeight;
-    doc.y = y;
-  });
-
-  doc.save();
-  doc
-    .strokeColor(borderColor)
-    .lineWidth(0.5)
-    .moveTo(x, y)
-    .lineTo(x + tableWidth, y)
-    .stroke();
-  doc.restore();
-
-  doc.y = y + 16;
-  doc.x = doc.page.margins.left;
-  doc.fillColor(COLOR_TEXT);
-}
-
-const channelLabels: Record<string, string> = {
-  bank: "Bank Transfer",
-  ewallet: "E-Wallet",
-  cash: "Tunai",
-  other: "Lainnya",
-};
-
-function formatDate(value?: string) {
-  if (!value) return "-";
-  return format(new Date(value), "d MMM yyyy", { locale: localeId });
-}
-
-function formatDateTime(value?: string) {
-  if (!value) return "-";
-  return format(new Date(value), "d MMM yyyy HH:mm", { locale: localeId });
-}
-
-function buildDateRange(start?: string, end?: string) {
-  if (!start) return "-";
-  if (!end) {
-    return `${formatDate(start)} · berjalan`;
-  }
-  return `${formatDate(start)} - ${formatDate(end)}`;
-}
-
-function safeFilename(name: string, id: string) {
-  const slug = name
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/(^-|-$)/g, "");
-  const base = slug || "laporan-perjalanan";
-  return `${base}-${id}.pdf`;
-}
-
-function toArrayBuffer(bytes: Uint8Array): ArrayBuffer {
-  const bufferLike = bytes.buffer as ArrayBufferLike;
-  if (
-    bufferLike instanceof ArrayBuffer &&
-    bytes.byteOffset === 0 &&
-    bytes.byteLength === bufferLike.byteLength
-  ) {
-    return bufferLike;
-  }
-  const arrayBuffer = new ArrayBuffer(bytes.byteLength);
-  new Uint8Array(arrayBuffer).set(bytes);
-  return arrayBuffer;
-}
-
-async function createPdfBytes(detail: TripDetail) {
-  const doc = new PDFDocument({ margin: 50, size: "A4" });
-  const chunks: Uint8Array[] = [];
-  let totalLength = 0;
-
-  doc.on("data", (chunk) => {
-    const part =
-      chunk instanceof Uint8Array
-        ? chunk
-        : new Uint8Array(chunk as ArrayBufferLike);
-    chunks.push(part);
-    totalLength += part.byteLength;
-  });
-
-  const pdfPromise = new Promise<Uint8Array>((resolve, reject) => {
-    doc.on("end", () => {
-      const merged = new Uint8Array(totalLength);
-      let offset = 0;
-      chunks.forEach((part) => {
-        merged.set(part, offset);
-        offset += part.byteLength;
-      });
-      resolve(merged);
-    });
-    doc.on("error", (error) => reject(error));
-  });
-
-  const totalExpenses = detail.expenses.reduce(
-    (sum, expense) => sum + expense.amountIdr,
-    0,
-  );
-
-  drawTitleBanner(doc, detail, totalExpenses);
-
-  drawStatsRow(doc, [
-    { label: "Total Pengeluaran", value: formatRupiah(totalExpenses) },
-    { label: "Total Transaksi", value: `${detail.expenses.length}` },
-    { label: "Jumlah Peserta", value: `${detail.participants.length}` },
-  ]);
-
-  drawSectionTitle(
-    doc,
-    "Metode Pembayaran",
-    "Rincian akun yang dapat digunakan peserta",
-  );
-
-  if (detail.hostAccounts.length === 0) {
-    doc
-      .fillColor(COLOR_SUBTLE)
-      .font(FONT_REGULAR)
-      .fontSize(10)
-      .text("Belum ada metode pembayaran yang dicatat oleh host.");
-    doc.fillColor(COLOR_TEXT).moveDown();
-  } else {
-    drawPaymentCards(doc, detail.hostAccounts);
-  }
-
-  doc.addPage();
-
-  drawSectionTitle(
-    doc,
-    "Ringkasan Peserta",
-    "Saldo dan kontribusi setiap peserta",
-  );
-
-  const participantsColumns: TableColumn[] = [];
-  const availableWidth =
-    doc.page.width - doc.page.margins.left - doc.page.margins.right;
-  participantsColumns.push(
-    { header: "Nama", width: availableWidth * 0.32 },
-    { header: "Biaya", width: availableWidth * 0.17, align: "right" },
-    { header: "Talangan", width: availableWidth * 0.17, align: "right" },
-    { header: "Kembalian", width: availableWidth * 0.17, align: "right" },
-    { header: "Harus Bayar", width: availableWidth * 0.17, align: "right" },
-  );
-
-  const participantRows: TableRow[] = detail.balances.map<TableRow>((row) => {
-    const biaya = row.totalShare;
-    const talangan = row.totalPaid;
-    const kembalian = Math.max(talangan - biaya, 0);
-    const harusBayar = row.balance < 0 ? Math.abs(row.balance) : 0;
-    const harusBayarColor = harusBayar > 0 ? COLOR_DANGER : COLOR_SUCCESS;
-
-    return [
-      row.nama,
-      formatRupiah(biaya),
-      formatRupiah(talangan),
-      formatRupiah(kembalian),
-      {
-        text: formatRupiah(harusBayar),
-        color: harusBayarColor,
-        bold: true,
+  const cookieStore = cookies();
+
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!, // service role for server-side reads
+    {
+      cookies: {
+        get(name: string) {
+          return cookieStore.get(name)?.value;
+        },
       },
-    ];
-  });
-
-  drawTable(doc, participantsColumns, participantRows);
-
-  drawSectionTitle(
-    doc,
-    "Rincian Leg & Kendaraan",
-    "Daftar leg perjalanan beserta kendaraan dan penumpang",
-  );
-
-  if (!detail.legs.length) {
-    doc
-      .fillColor(COLOR_SUBTLE)
-      .font(FONT_REGULAR)
-      .fontSize(10)
-      .text("Belum ada leg yang tercatat untuk perjalanan ini.");
-    doc.fillColor(COLOR_TEXT).moveDown();
-  } else {
-    const legVehicleColumns: TableColumn[] = [];
-    legVehicleColumns.push(
-      { header: "Leg", width: availableWidth * 0.25 },
-      { header: "Jadwal", width: availableWidth * 0.2 },
-      { header: "Kendaraan", width: availableWidth * 0.23 },
-      { header: "Penumpang", width: availableWidth * 0.32 },
-    );
-
-    const legVehicleRows: TableRow[] = [];
-
-    detail.legs.forEach((leg) => {
-      const legLabelLines = [`Leg ${leg.order}`, leg.label]
-        .filter(Boolean)
-        .join("\n");
-      const scheduleLines = [
-        leg.start ? `Mulai: ${formatDateTime(leg.start)}` : undefined,
-        leg.end ? `Selesai: ${formatDateTime(leg.end)}` : undefined,
-      ]
-        .filter(Boolean)
-        .join("\n");
-      const scheduleText = scheduleLines || "-";
-
-      if (!leg.vehicles.length) {
-        legVehicleRows.push([
-          legLabelLines,
-          scheduleText,
-          "Belum ada kendaraan",
-          "-",
-        ]);
-        return;
-      }
-
-      leg.vehicles.forEach((vehicle) => {
-        const vehicleLines = [
-          vehicle.label,
-          vehicle.plateNumber ? `Plat: ${vehicle.plateNumber}` : undefined,
-          vehicle.seatCapacity ? `${vehicle.seatCapacity} kursi` : undefined,
-          vehicle.departureTime
-            ? `Berangkat: ${formatDateTime(vehicle.departureTime)}`
-            : undefined,
-          vehicle.notes ? `Catatan: ${vehicle.notes}` : undefined,
-        ]
-          .filter(Boolean)
-          .join("\n");
-
-        const passengerLines = vehicle.assignments.length
-          ? vehicle.assignments
-              .map(
-                (assignment) =>
-                  `${assignment.participantName}${assignment.role === "driver" ? " (Supir)" : ""}`,
-              )
-              .join("\n")
-          : "Belum ada penumpang";
-
-        legVehicleRows.push([
-          legLabelLines,
-          scheduleText,
-          vehicleLines,
-          passengerLines,
-        ]);
-      });
-    });
-
-    drawTable(doc, legVehicleColumns, legVehicleRows);
-  }
-
-  doc.addPage();
-
-  drawSectionTitle(
-    doc,
-    "Daftar Pengeluaran",
-    "Rincian transaksi selama perjalanan",
-  );
-
-  const expenseColumns: TableColumn[] = [];
-  expenseColumns.push(
-    { header: "No", width: availableWidth * 0.07, align: "center" },
-    { header: "Judul", width: availableWidth * 0.22 },
-    { header: "Tanggal", width: availableWidth * 0.18 },
-    { header: "Jumlah", width: availableWidth * 0.16, align: "right" },
-    { header: "Dibayar Oleh", width: availableWidth * 0.17 },
-    { header: "Keterangan", width: availableWidth * 0.2 },
-  );
-
-  const expenseRows: TableRow[] = detail.expenses.map<TableRow>(
-    (expense, index) => {
-      const scopeText =
-        expense.shareScope === "vehicle"
-          ? "Penumpang kendaraan terkait"
-          : "Semua penumpang leg";
-      const notesText = expense.notes ? `Catatan: ${expense.notes}` : "";
-      const info = [scopeText, notesText].filter(Boolean).join("\n");
-
-      return [
-        `${index + 1}`,
-        expense.judul,
-        formatDateTime(expense.date),
-        formatRupiah(expense.amountIdr),
-        expense.paidBy.nama,
-        info,
-      ];
     },
   );
 
-  drawTable(doc, expenseColumns, expenseRows);
-
-  doc.end();
-
-  return pdfPromise;
-}
-
-export async function GET(
-  _request: Request,
-  { params }: { params: { tripId: string } },
-) {
   const { tripId } = params;
 
-  if (!tripId) {
-    return NextResponse.json(
-      { message: "Trip tidak ditemukan" },
-      { status: 404 },
-    );
+  // ── Fetch trip ──────────────────────────────────────────────────────────────
+  const { data: trip, error: tripError } = await supabase
+    .from("trips")
+    .select("id, name, start_city, end_city, start_date, end_date")
+    .eq("id", tripId)
+    .single();
+
+  if (tripError || !trip) {
+    return new NextResponse("Trip tidak ditemukan", { status: 404 });
   }
 
-  const supabase = getSupabaseServer();
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser();
+  // ── Fetch participants with balances ────────────────────────────────────────
+  // Adjust query to match your actual view/table name
+  const { data: participants } = await supabase
+    .from("trip_balances") // your view from 0001_init.sql
+    .select("name, is_driver, balance")
+    .eq("trip_id", tripId)
+    .order("balance");
 
-  if (userError || !user) {
-    return NextResponse.json(
-      { message: "Tidak terautentikasi" },
-      { status: 401 },
-    );
-  }
+  // ── Fetch expenses ──────────────────────────────────────────────────────────
+  const { data: expenses } = await supabase
+    .from("expenses")
+    .select("description, amount, paid_by, created_at, excluded")
+    .eq("trip_id", tripId)
+    .order("created_at");
 
-  try {
-    const detail = await fetchTripDetail(tripId);
+  // ── Fetch host accounts ─────────────────────────────────────────────────────
+  const { data: hostAccounts } = await supabase
+    .from("host_payment_accounts")
+    .select("bank_name, account_number, account_holder")
+    .eq("trip_id", tripId);
 
-    if (!detail) {
-      return NextResponse.json(
-        { message: "Trip tidak ditemukan atau akses ditolak" },
-        { status: 404 },
-      );
+  const participantList: Participant[] = participants ?? [];
+  const expenseList: Expense[] = expenses ?? [];
+  const accountList: HostAccount[] = hostAccounts ?? [];
+
+  const totalExpenses = expenseList
+    .filter((e) => !e.excluded)
+    .reduce((sum, e) => sum + e.amount, 0);
+
+  const mustPay = participantList.filter((p) => p.balance < 0);
+  const willReceive = participantList.filter((p) => p.balance > 0);
+
+  // ── Build HTML ──────────────────────────────────────────────────────────────
+  const html = `<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Laporan Perjalanan — ${trip.name}</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', Arial, sans-serif;
+      font-size: 13px;
+      color: #1a1a1a;
+      background: #fff;
+      padding: 32px 40px;
+      max-width: 800px;
+      margin: 0 auto;
     }
 
-    const pdfBytes = await createPdfBytes(detail);
-    const arrayBuffer = toArrayBuffer(pdfBytes);
-    const filename = safeFilename(detail.trip.nama, detail.trip.id);
+    /* ── Print button (hidden when printing) ── */
+    .print-btn {
+      display: flex;
+      justify-content: flex-end;
+      margin-bottom: 24px;
+    }
+    .print-btn button {
+      background: #2563eb;
+      color: white;
+      border: none;
+      padding: 10px 24px;
+      border-radius: 6px;
+      font-size: 14px;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    .print-btn button:hover { background: #1d4ed8; }
 
-    return new NextResponse(arrayBuffer, {
-      headers: {
-        "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename="${filename}"`,
-        "Cache-Control": "no-store",
-      },
-    });
-  } catch (error) {
-    console.error("Gagal menghasilkan laporan trip", error);
-    return NextResponse.json(
-      { message: "Gagal membuat laporan" },
-      { status: 500 },
-    );
+    @media print {
+      .print-btn { display: none; }
+      body { padding: 0; }
+    }
+
+    /* ── Header ── */
+    .header { margin-bottom: 28px; border-bottom: 2px solid #2563eb; padding-bottom: 16px; }
+    .header h1 { font-size: 22px; font-weight: 700; color: #2563eb; }
+    .header .meta { color: #555; margin-top: 6px; font-size: 12px; }
+    .header .meta span { margin-right: 16px; }
+
+    /* ── Section ── */
+    .section { margin-bottom: 32px; }
+    .section-title {
+      font-size: 14px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #2563eb;
+      border-bottom: 1px solid #e5e7eb;
+      padding-bottom: 6px;
+      margin-bottom: 14px;
+    }
+
+    /* ── Table ── */
+    table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+    th {
+      text-align: left;
+      padding: 8px 10px;
+      background: #f1f5f9;
+      font-weight: 600;
+      color: #374151;
+      border-bottom: 1px solid #e5e7eb;
+    }
+    td {
+      padding: 8px 10px;
+      border-bottom: 1px solid #f3f4f6;
+      vertical-align: top;
+    }
+    tr:last-child td { border-bottom: none; }
+    .text-right { text-align: right; }
+    .text-center { text-align: center; }
+
+    /* ── Balance colors ── */
+    .pay   { color: #dc2626; font-weight: 600; }
+    .recv  { color: #16a34a; font-weight: 600; }
+    .zero  { color: #6b7280; }
+
+    /* ── Summary cards ── */
+    .summary-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .card {
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      padding: 14px 16px;
+    }
+    .card .label { font-size: 11px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.04em; }
+    .card .value { font-size: 18px; font-weight: 700; margin-top: 4px; color: #111; }
+
+    /* ── Accounts ── */
+    .account-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 12px;
+      border: 1px solid #e5e7eb;
+      border-radius: 6px;
+      margin-bottom: 8px;
+    }
+    .account-item .bank { font-weight: 700; min-width: 100px; }
+    .account-item .number { font-family: monospace; font-size: 14px; color: #1d4ed8; }
+    .account-item .holder { color: #6b7280; font-size: 12px; }
+
+    /* ── Badge ── */
+    .badge {
+      display: inline-block;
+      font-size: 10px;
+      padding: 2px 7px;
+      border-radius: 99px;
+      font-weight: 600;
+      margin-left: 6px;
+    }
+    .badge-driver { background: #dbeafe; color: #1e40af; }
+
+    /* ── Footer ── */
+    .footer {
+      margin-top: 40px;
+      border-top: 1px solid #e5e7eb;
+      padding-top: 12px;
+      font-size: 11px;
+      color: #9ca3af;
+      text-align: center;
+    }
+
+    @media print {
+      .section { page-break-inside: avoid; }
+      .section:nth-child(2) { page-break-before: always; }
+      .section:nth-child(4) { page-break-before: always; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="print-btn">
+    <button onclick="window.print()">🖨️ Simpan sebagai PDF</button>
+  </div>
+
+  <!-- Header -->
+  <div class="header">
+    <h1>${trip.name}</h1>
+    <div class="meta">
+      <span>📍 ${trip.start_city ?? ""} → ${trip.end_city ?? ""}</span>
+      <span>📅 ${formatDate(trip.start_date)} – ${formatDate(trip.end_date)}</span>
+      <span>🖨️ Dicetak: ${formatDate(new Date().toISOString())}</span>
+    </div>
+  </div>
+
+  <!-- Summary Cards -->
+  <div class="section">
+    <div class="section-title">Ringkasan</div>
+    <div class="summary-cards">
+      <div class="card">
+        <div class="label">Total Pengeluaran</div>
+        <div class="value">${formatRupiah(totalExpenses)}</div>
+      </div>
+      <div class="card">
+        <div class="label">Jumlah Peserta</div>
+        <div class="value">${participantList.length} orang</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Payment Methods -->
+  ${
+    accountList.length > 0
+      ? `
+  <div class="section">
+    <div class="section-title">Metode Pembayaran Host</div>
+    ${accountList
+      .map(
+        (acc) => `
+      <div class="account-item">
+        <div class="bank">${acc.bank_name}</div>
+        <div class="number">${acc.account_number}</div>
+        <div class="holder">${acc.account_holder}</div>
+      </div>
+    `,
+      )
+      .join("")}
+  </div>
+  `
+      : ""
   }
+
+  <!-- Participant Summary -->
+  <div class="section">
+    <div class="section-title">Ringkasan Peserta</div>
+    <table>
+      <thead>
+        <tr>
+          <th>Nama</th>
+          <th class="text-right">Saldo</th>
+          <th class="text-center">Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${participantList
+          .map((p) => {
+            const balanceClass =
+              p.balance < 0 ? "pay" : p.balance > 0 ? "recv" : "zero";
+            const balanceLabel =
+              p.balance < 0
+                ? `Bayar ${formatRupiah(Math.abs(p.balance))}`
+                : p.balance > 0
+                  ? `Terima ${formatRupiah(p.balance)}`
+                  : "Lunas";
+            return `
+          <tr>
+            <td>
+              ${p.name}
+              ${p.is_driver ? '<span class="badge badge-driver">Supir</span>' : ""}
+            </td>
+            <td class="text-right ${balanceClass}">${balanceLabel}</td>
+            <td class="text-center">
+              ${p.balance < 0 ? "🔴 Harus Bayar" : p.balance > 0 ? "🟢 Menerima" : "✅ Lunas"}
+            </td>
+          </tr>`;
+          })
+          .join("")}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Siapa Bayar Siapa -->
+  ${
+    mustPay.length > 0 || willReceive.length > 0
+      ? `
+  <div class="section">
+    <div class="section-title">Siapa Bayar ke Siapa</div>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+      <div>
+        <div style="font-weight:600; margin-bottom:8px; color:#dc2626;">🔴 Harus Membayar</div>
+        ${mustPay
+          .map(
+            (p) => `
+          <div style="padding: 6px 0; border-bottom: 1px solid #f3f4f6;">
+            ${p.name}: <span class="pay">${formatRupiah(Math.abs(p.balance))}</span>
+          </div>
+        `,
+          )
+          .join("")}
+      </div>
+      <div>
+        <div style="font-weight:600; margin-bottom:8px; color:#16a34a;">🟢 Akan Menerima</div>
+        ${willReceive
+          .map(
+            (p) => `
+          <div style="padding: 6px 0; border-bottom: 1px solid #f3f4f6;">
+            ${p.name}: <span class="recv">${formatRupiah(p.balance)}</span>
+          </div>
+        `,
+          )
+          .join("")}
+      </div>
+    </div>
+  </div>
+  `
+      : ""
+  }
+
+  <!-- Expense List -->
+  <div class="section">
+    <div class="section-title">Daftar Pengeluaran (${expenseList.filter((e) => !e.excluded).length} item)</div>
+    <table>
+      <thead>
+        <tr>
+          <th>Keterangan</th>
+          <th>Dibayar oleh</th>
+          <th>Tanggal</th>
+          <th class="text-right">Jumlah</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${expenseList
+          .map(
+            (e) => `
+          <tr style="${e.excluded ? "opacity:0.4; text-decoration:line-through;" : ""}">
+            <td>${e.description}${e.excluded ? " <em style='font-size:11px;color:#9ca3af'>(dikecualikan)</em>" : ""}</td>
+            <td>${e.paid_by}</td>
+            <td>${formatDate(e.created_at)}</td>
+            <td class="text-right">${formatRupiah(e.amount)}</td>
+          </tr>
+        `,
+          )
+          .join("")}
+      </tbody>
+      <tfoot>
+        <tr>
+          <td colspan="3" style="font-weight:700; padding: 10px 10px 2px; text-align:right;">Total</td>
+          <td class="text-right" style="font-weight:700; padding: 10px 10px 2px;">${formatRupiah(totalExpenses)}</td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+
+  <div class="footer">
+    Laporan dibuat otomatis oleh KBM Berkah Ceria • ${new Date().getFullYear()}
+  </div>
+
+</body>
+</html>`;
+
+  return new NextResponse(html, {
+    headers: {
+      "Content-Type": "text/html; charset=utf-8",
+      // Prevent caching so it's always fresh
+      "Cache-Control": "no-store",
+    },
+  });
 }

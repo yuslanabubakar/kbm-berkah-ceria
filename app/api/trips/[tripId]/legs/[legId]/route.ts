@@ -3,6 +3,8 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getSupabaseServer } from "@/lib/supabaseServer";
 
+export const runtime = "edge";
+
 const timeRegex = /^\d{2}:\d{2}$/;
 
 const updateLegSchema = z
@@ -15,17 +17,28 @@ const updateLegSchema = z
       .regex(timeRegex, "Format waktu HH:MM")
       .optional()
       .nullable(),
-    notes: z.string().max(500).optional().nullable()
+    notes: z.string().max(500).optional().nullable(),
   })
-  .refine((values) => Object.values(values).some((value) => value !== undefined), {
-    message: "Tidak ada perubahan yang dikirim"
-  })
-  .refine((values) => values.startDate === undefined || values.startTime !== undefined, {
-    message: "Tanggal & jam leg harus dikirim berpasangan"
-  })
-  .refine((values) => values.startTime === undefined || values.startDate !== undefined, {
-    message: "Tanggal & jam leg harus dikirim berpasangan"
-  });
+  .refine(
+    (values) => Object.values(values).some((value) => value !== undefined),
+    {
+      message: "Tidak ada perubahan yang dikirim",
+    },
+  )
+  .refine(
+    (values) =>
+      values.startDate === undefined || values.startTime !== undefined,
+    {
+      message: "Tanggal & jam leg harus dikirim berpasangan",
+    },
+  )
+  .refine(
+    (values) =>
+      values.startTime === undefined || values.startDate !== undefined,
+    {
+      message: "Tanggal & jam leg harus dikirim berpasangan",
+    },
+  );
 
 function combineDateTime(date?: string | null, time?: string | null) {
   if (!date) {
@@ -36,14 +49,17 @@ function combineDateTime(date?: string | null, time?: string | null) {
   return new Date(`${date}T${hour}:${minute}:00`).toISOString();
 }
 
-export async function PATCH(request: Request, { params }: { params: { tripId: string; legId: string } }) {
+export async function PATCH(
+  request: Request,
+  { params }: { params: { tripId: string; legId: string } },
+) {
   const payload = await request.json().catch(() => null);
   const parsed = updateLegSchema.safeParse(payload);
 
   if (!parsed.success) {
     return NextResponse.json(
       { message: parsed.error.errors[0]?.message ?? "Data leg tidak valid" },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
@@ -57,7 +73,10 @@ export async function PATCH(request: Request, { params }: { params: { tripId: st
     .single();
 
   if (legError || !legRow || legRow.trip_id !== tripId) {
-    return NextResponse.json({ message: "Leg tidak ditemukan" }, { status: 404 });
+    return NextResponse.json(
+      { message: "Leg tidak ditemukan" },
+      { status: 404 },
+    );
   }
 
   const updatePayload: Record<string, unknown> = {};
@@ -72,10 +91,16 @@ export async function PATCH(request: Request, { params }: { params: { tripId: st
     updatePayload.notes = parsed.data.notes?.trim() || null;
   }
   if (parsed.data.startDate !== undefined) {
-    updatePayload.start_datetime = combineDateTime(parsed.data.startDate, parsed.data.startTime);
+    updatePayload.start_datetime = combineDateTime(
+      parsed.data.startDate,
+      parsed.data.startTime,
+    );
   }
   if (parsed.data.startDate !== undefined) {
-    updatePayload.start_datetime = combineDateTime(parsed.data.startDate, parsed.data.startTime);
+    updatePayload.start_datetime = combineDateTime(
+      parsed.data.startDate,
+      parsed.data.startTime,
+    );
   }
 
   const { error: updateError } = await supabase
@@ -86,7 +111,10 @@ export async function PATCH(request: Request, { params }: { params: { tripId: st
 
   if (updateError) {
     console.error(updateError);
-    return NextResponse.json({ message: "Gagal memperbarui leg" }, { status: 500 });
+    return NextResponse.json(
+      { message: "Gagal memperbarui leg" },
+      { status: 500 },
+    );
   }
 
   revalidatePath(`/perjalanan/${tripId}`);

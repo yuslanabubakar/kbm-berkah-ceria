@@ -2,18 +2,23 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getSupabaseServer } from "@/lib/supabaseServer";
 
+export const runtime = "edge";
+
 const shareSchema = z.object({
-  email: z.string().email("Email tidak valid")
+  email: z.string().email("Email tidak valid"),
 });
 
 export async function POST(
   request: Request,
-  { params }: { params: { tripId: string } }
+  { params }: { params: { tripId: string } },
 ) {
   const { tripId } = params;
 
   if (!tripId) {
-    return NextResponse.json({ message: "Trip tidak ditemukan" }, { status: 404 });
+    return NextResponse.json(
+      { message: "Trip tidak ditemukan" },
+      { status: 404 },
+    );
   }
 
   const payload = await request.json().catch(() => null);
@@ -22,7 +27,7 @@ export async function POST(
   if (!parsed.success) {
     return NextResponse.json(
       { message: "Data belum valid", issues: parsed.error.flatten() },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
@@ -31,11 +36,14 @@ export async function POST(
   // Get current user
   const {
     data: { user },
-    error: userError
+    error: userError,
   } = await supabase.auth.getUser();
 
   if (userError || !user) {
-    return NextResponse.json({ message: "Tidak terautentikasi" }, { status: 401 });
+    return NextResponse.json(
+      { message: "Tidak terautentikasi" },
+      { status: 401 },
+    );
   }
 
   // Check if trip exists and user is owner
@@ -46,19 +54,24 @@ export async function POST(
     .single();
 
   if (tripError || !trip) {
-    return NextResponse.json({ message: "Trip tidak ditemukan" }, { status: 404 });
+    return NextResponse.json(
+      { message: "Trip tidak ditemukan" },
+      { status: 404 },
+    );
   }
 
   if (trip.owner_id !== user.id) {
     return NextResponse.json(
       { message: "Hanya pemilik trip yang bisa membagikan" },
-      { status: 403 }
+      { status: 403 },
     );
   }
 
   // Check if user exists with this email
   const { data: targetUser } = await supabase.auth.admin.listUsers();
-  const sharedUser = targetUser?.users?.find((u) => u.email === parsed.data.email);
+  const sharedUser = targetUser?.users?.find(
+    (u) => u.email === parsed.data.email,
+  );
 
   // Create share record
   const { data: share, error: shareError } = await supabase
@@ -68,7 +81,7 @@ export async function POST(
       shared_with_email: parsed.data.email,
       shared_with_user_id: sharedUser?.id || null,
       shared_by: user.id,
-      can_edit: false
+      can_edit: false,
     })
     .select("id, shared_with_email, created_at")
     .single();
@@ -77,27 +90,33 @@ export async function POST(
     if (shareError.code === "23505") {
       return NextResponse.json(
         { message: "Trip sudah dibagikan ke email ini" },
-        { status: 400 }
+        { status: 400 },
       );
     }
     console.error(shareError);
-    return NextResponse.json({ message: "Gagal membagikan trip" }, { status: 500 });
+    return NextResponse.json(
+      { message: "Gagal membagikan trip" },
+      { status: 500 },
+    );
   }
 
   return NextResponse.json(
     { message: "Trip berhasil dibagikan", data: share },
-    { status: 201 }
+    { status: 201 },
   );
 }
 
 export async function GET(
   _request: Request,
-  { params }: { params: { tripId: string } }
+  { params }: { params: { tripId: string } },
 ) {
   const { tripId } = params;
 
   if (!tripId) {
-    return NextResponse.json({ message: "Trip tidak ditemukan" }, { status: 404 });
+    return NextResponse.json(
+      { message: "Trip tidak ditemukan" },
+      { status: 404 },
+    );
   }
 
   const supabase = getSupabaseServer();
@@ -110,7 +129,10 @@ export async function GET(
 
   if (error) {
     console.error(error);
-    return NextResponse.json({ message: "Gagal mengambil data sharing" }, { status: 500 });
+    return NextResponse.json(
+      { message: "Gagal mengambil data sharing" },
+      { status: 500 },
+    );
   }
 
   return NextResponse.json({ shares: shares || [] });

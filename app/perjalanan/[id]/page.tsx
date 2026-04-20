@@ -13,6 +13,7 @@ import { format } from "date-fns";
 import { id } from "date-fns/locale";
 import { notFound } from "next/navigation";
 
+export const runtime = "edge";
 export const revalidate = 0;
 
 function formatRange(start?: string, end?: string) {

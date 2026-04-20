@@ -3,6 +3,8 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getSupabaseServer } from "@/lib/supabaseServer";
 
+export const runtime = "edge";
+
 const channelEnum = z.enum(["bank", "ewallet", "cash", "other"]);
 
 const updateSchema = z
@@ -13,25 +15,37 @@ const updateSchema = z
     accountName: z.string().min(3).optional(),
     accountNumber: z.string().min(3).optional(),
     instructions: z.string().max(280).optional().or(z.literal("")),
-    priority: z.number().int().min(0).max(100).optional()
+    priority: z.number().int().min(0).max(100).optional(),
   })
-  .refine((value) => Object.values(value).some((field) => field !== undefined), {
-    message: "Tidak ada perubahan",
-    path: ["label"]
-  });
+  .refine(
+    (value) => Object.values(value).some((field) => field !== undefined),
+    {
+      message: "Tidak ada perubahan",
+      path: ["label"],
+    },
+  );
 
-export async function PATCH(request: Request, { params }: { params: { tripId: string; accountId: string } }) {
+export async function PATCH(
+  request: Request,
+  { params }: { params: { tripId: string; accountId: string } },
+) {
   const { tripId, accountId } = params;
 
   if (!tripId || !accountId) {
-    return NextResponse.json({ message: "Akun host tidak ditemukan" }, { status: 404 });
+    return NextResponse.json(
+      { message: "Akun host tidak ditemukan" },
+      { status: 404 },
+    );
   }
 
   const payload = await request.json().catch(() => null);
   const parsed = updateSchema.safeParse(payload ?? {});
 
   if (!parsed.success) {
-    return NextResponse.json({ message: "Data belum valid", issues: parsed.error.flatten() }, { status: 400 });
+    return NextResponse.json(
+      { message: "Data belum valid", issues: parsed.error.flatten() },
+      { status: 400 },
+    );
   }
 
   const updates: Record<string, string | number | null> = {};
@@ -59,7 +73,10 @@ export async function PATCH(request: Request, { params }: { params: { tripId: st
   }
 
   if (!Object.keys(updates).length) {
-    return NextResponse.json({ message: "Tidak ada perubahan" }, { status: 400 });
+    return NextResponse.json(
+      { message: "Tidak ada perubahan" },
+      { status: 400 },
+    );
   }
 
   const supabase = getSupabaseServer();
@@ -74,11 +91,17 @@ export async function PATCH(request: Request, { params }: { params: { tripId: st
 
   if (error) {
     console.error(error);
-    return NextResponse.json({ message: "Gagal memperbarui akun host" }, { status: 500 });
+    return NextResponse.json(
+      { message: "Gagal memperbarui akun host" },
+      { status: 500 },
+    );
   }
 
   if (!data) {
-    return NextResponse.json({ message: "Akun host tidak ditemukan" }, { status: 404 });
+    return NextResponse.json(
+      { message: "Akun host tidak ditemukan" },
+      { status: 404 },
+    );
   }
 
   revalidatePath("/");
@@ -87,11 +110,17 @@ export async function PATCH(request: Request, { params }: { params: { tripId: st
   return NextResponse.json({ message: "Akun host diperbarui" });
 }
 
-export async function DELETE(_request: Request, { params }: { params: { tripId: string; accountId: string } }) {
+export async function DELETE(
+  _request: Request,
+  { params }: { params: { tripId: string; accountId: string } },
+) {
   const { tripId, accountId } = params;
 
   if (!tripId || !accountId) {
-    return NextResponse.json({ message: "Akun host tidak ditemukan" }, { status: 404 });
+    return NextResponse.json(
+      { message: "Akun host tidak ditemukan" },
+      { status: 404 },
+    );
   }
 
   const supabase = getSupabaseServer();
@@ -106,11 +135,17 @@ export async function DELETE(_request: Request, { params }: { params: { tripId: 
 
   if (error) {
     console.error(error);
-    return NextResponse.json({ message: "Gagal menghapus akun host" }, { status: 500 });
+    return NextResponse.json(
+      { message: "Gagal menghapus akun host" },
+      { status: 500 },
+    );
   }
 
   if (!data) {
-    return NextResponse.json({ message: "Akun host tidak ditemukan" }, { status: 404 });
+    return NextResponse.json(
+      { message: "Akun host tidak ditemukan" },
+      { status: 404 },
+    );
   }
 
   revalidatePath("/");
