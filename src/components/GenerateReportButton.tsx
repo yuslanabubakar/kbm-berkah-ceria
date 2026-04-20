@@ -23,30 +23,10 @@ export function GenerateReportButton({ tripId, tripName }: Props) {
   async function handleDownload() {
     setIsDownloading(true);
     try {
-      const response = await fetch(`/api/trips/${tripId}/report`, {
-        method: "GET",
-        credentials: "include",
-      });
-
-      if (!response.ok) {
-        const payload = await response.json().catch(() => null);
-        throw new Error(payload?.message ?? "Gagal mengunduh laporan");
-      }
-
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const anchor = document.createElement("a");
-      anchor.href = url;
-      anchor.download = buildFilename(tripName, tripId);
-      document.body.appendChild(anchor);
-      anchor.click();
-      anchor.remove();
-      window.URL.revokeObjectURL(url);
+      window.open(`/api/trips/${tripId}/report`, "_blank", "noreferrer");
     } catch (error) {
       console.error(error);
-      const message =
-        error instanceof Error ? error.message : "Gagal mengunduh laporan";
-      alert(message);
+      alert("Gagal membuka laporan");
     } finally {
       setIsDownloading(false);
     }
