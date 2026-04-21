@@ -11,16 +11,18 @@ Aplikasi berbagi biaya perjalanan untuk tim KBM Berkah Ceria. Menggunakan Next.j
 - Mode host menyediakan kontrol split manual per expense, toggle pengecualian, penyesuaian saldo (draft/applied/void), histori penyesuaian, serta laporan status peserta real time.
 - Manajemen armada/penumpang digabung dalam satu panel: tambah leg, hubungkan kendaraan, atur jadwal, assign peserta massal, pindah penumpang, ubah supir/penumpang, tambah/edit peserta.
 - Fitur berbagi trip mengundang email read-only via `trip_shares`, menjaga RLS Supabase; halaman ringkasan komunitas menampilkan agregat perjalanan.
-- Generator laporan PDF (`GET /api/trips/:tripId/report`) menyusun Metode Pembayaran, Ringkasan Peserta, dan Daftar Pengeluaran ke dalam tiga halaman terpisah dengan format Rupiah dan highlight kewajiban bayar.
+- Generator laporan HTML (`GET /api/trips/:tripId/report`) menyusun Metode Pembayaran, Ringkasan Peserta, dan Daftar Pengeluaran ke dalam tiga halaman terpisah dengan format Rupiah, status pills, dan highlight kewajiban bayar; dapat disimpan sebagai PDF via print dialog.
 - Fitur "Salin Tagihan WA" menghasilkan template pesan WhatsApp otomatis yang mencakup ringkasan tagihan ("Siapa bayar berapa" dan "Siapa terima berapa") beserta metode pembayaran host untuk kemudahan penagihan.
 
 ## Tech Stack
 
 - Next.js 14 (App Router, Server Components) + React 18 + TypeScript
+- **Cloudflare Pages** (edge runtime) untuk deployment
 - Supabase Postgres + Auth + Storage via `@supabase/ssr`
 - Tailwind CSS 3, clsx untuk styling
 - Zod untuk validasi form, date-fns dan Intl untuk format tanggal & Rupiah
 - ESLint, Prettier, Husky, lint-staged, pnpm
+- Wrangler untuk Cloudflare Pages configuration
 
 ## Prasyarat
 
@@ -30,9 +32,17 @@ Aplikasi berbagi biaya perjalanan untuk tim KBM Berkah Ceria. Menggunakan Next.j
 
 ## Cara Jalanin
 
+### Development
+
 ```bash
 pnpm install
 pnpm dev
+```
+
+### Build untuk Cloudflare Pages
+
+```bash
+pnpm run build:cf
 ```
 
 ## Variabel Lingkungan
@@ -54,8 +64,8 @@ NEXT_PUBLIC_APP_URL=http://localhost:3000
 2. Di Google Cloud Console tambahkan seluruh redirect berikut pada OAuth client kamu:
    - `https://<project>.supabase.co/auth/v1/callback`
    - `http://localhost:3000/auth/callback`
-   - `https://<domain-vercel>/auth/callback`
-3. Pastikan `.env.local` memiliki `NEXT_PUBLIC_APP_URL` yang menunjuk ke origin saat ini (lokal atau Vercel). Nilai ini dipakai ketika memanggil `signInWithOAuth`.
+   - `https://<cloudflare-pages-domain>/auth/callback`
+3. Pastikan `.env.local` memiliki `NEXT_PUBLIC_APP_URL` yang menunjuk ke origin saat ini (lokal atau Cloudflare Pages domain). Nilai ini dipakai ketika memanggil `signInWithOAuth`.
 4. Tombol "Masuk dengan Google" tersedia di header aplikasi; setelah login pengguna diarahkan kembali ke halaman sebelumnya.
 
 ## Integrasi Supabase
@@ -83,6 +93,18 @@ supabase db push
 ```
 
 Pastikan sudah login ke Supabase CLI dan environment berisi kredensial yang benar.
+
+### Deployment ke Cloudflare Pages
+
+1. Install Wrangler: `pnpm install -D wrangler`
+2. Konfigurasi `wrangler.toml` sesuai Cloudflare project kamu (lihat `compatibility_date`, `pages_build_output_dir`)
+3. Deploy menggunakan:
+   ```bash
+   pnpm run build:cf
+   pnpm wrangler pages deploy .vercel/output/static
+   ```
+4. Aplikasi berjalan pada edge runtime (semua pages dan routes gunakan `runtime = "edge"`) untuk kompatibilitas Cloudflare Workers.
+5. Pastikan `.env` berisi kredensial Supabase yang valid; selama build, isi variabel `NEXT_PUBLIC_*` agar tidak menyebabkan prerender crash.
 
 ### Contoh Seed Data
 
@@ -119,7 +141,7 @@ Gunakan seed ini untuk uji tampilan sebelum data produksi siap.
 
 - `POST /api/trips/:tripId/host-accounts` menambah rekening/e-wallet host; `PATCH` dan `DELETE` tersedia per `accountId`.
 - `POST /api/trips/:tripId/shares` mengundang email; `GET` menampilkan daftar share; `DELETE /shares/:shareId` mencabut akses.
-- `GET /api/trips/:tripId/report` menghasilkan laporan PDF tiga halaman (metode pembayaran, ringkasan peserta, daftar pengeluaran).
+- `GET /api/trips/:tripId/report` menghasilkan laporan HTML tiga halaman (metode pembayaran, ringkasan peserta, daftar pengeluaran) yang dapat disimpan sebagai PDF via browser print.
 
 ## Panduan Penggunaan
 
@@ -143,9 +165,24 @@ supabase/
   seed.sql              -> Data contoh
 ```
 
+## Catatan Teknis
+
+### Edge Runtime & Cloudflare Pages
+
+- Semua pages dan API routes menggunakan `runtime = "edge"` untuk kompatibilitas Cloudflare Pages.
+- Node.js APIs (seperti `pdfkit`) tidak tersedia; laporan menggunakan HTML + browser print dialog.
+- Build output menggunakan `.vercel/output/static` (from `@cloudflare/next-on-pages`).
+
+### Report Generation
+
+- Laporan yang dulu menggunakan PDF binary (`pdfkit`) sekarang menggunakan HTML yang fully-styled.
+- User membuka laporan di tab baru dan menekan Ctrl+P (Windows/Linux) atau Cmd+P (macOS) untuk save as PDF.
+- Eliminates external dependencies dan memastikan kompatibilitas edge runtime.
+
 ## Next Steps
 
 - Tambahkan opsi akses edit pada sharing serta UI untuk mencabut/upgrade hak akses tamu.
 - Sambungkan halaman Ringkasan ke agregasi Supabase agar tidak bergantung pada data statis.
 - Integrasikan channel realtime Supabase untuk update saldo dan pengeluaran instan.
 - Siapkan pengujian (unit/integration) untuk API routes kritikal sebelum rilis produksi.
+- Monitor edge runtime performance dan cold start times setelah migration.
