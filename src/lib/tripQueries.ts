@@ -817,3 +817,27 @@ export async function fetchTripDetail(
     },
   };
 }
+
+export type CommunityStats = {
+  totalTrip: number;
+  totalPeserta: number;
+  totalPengeluaran: number;
+};
+
+export async function fetchCommunityStats(): Promise<CommunityStats> {
+  const supabase = getSupabaseServiceRole();
+
+  const [tripsResult, participantsResult, expensesResult] = await Promise.all([
+    supabase.from("trips").select("id", { count: "exact", head: true }),
+    supabase.from("participants").select("id", { count: "exact", head: true }),
+    supabase.from("expenses").select("amount_idr").eq("is_excluded", false),
+  ]);
+
+  const totalTrip = tripsResult.count ?? 0;
+  const totalPeserta = participantsResult.count ?? 0;
+  const totalPengeluaran = (
+    (expensesResult.data ?? []) as { amount_idr: string | number | null }[]
+  ).reduce((sum, row) => sum + toNumber(row.amount_idr), 0);
+
+  return { totalTrip, totalPeserta, totalPengeluaran };
+}
