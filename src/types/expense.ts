@@ -54,6 +54,7 @@ export type Expense = {
   judul: string;
   amountIdr: number;
   paidBy: Participant;
+  expenseType?: string;
   date: string;
   notes?: string;
   legId?: string;

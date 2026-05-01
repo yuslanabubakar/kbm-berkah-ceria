@@ -110,6 +110,7 @@ type ExpenseParticipantRow = {
 type ExpenseRow = {
   id: string;
   title: string;
+  expense_type?: string | null;
   notes: string | null;
   amount_idr: string | number | null;
   issued_at: string;
@@ -687,6 +688,7 @@ export async function fetchTripDetail(
         id: paidByRaw?.id ?? "unknown",
         nama: paidByRaw?.display_name ?? "Tanpa nama",
       },
+      expenseType: expense.expense_type ?? undefined,
       date: expense.issued_at,
       notes: expense.notes ?? undefined,
       legId: expense.leg_id,

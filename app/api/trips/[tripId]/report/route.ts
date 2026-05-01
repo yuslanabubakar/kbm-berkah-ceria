@@ -44,6 +44,8 @@ function formatDate(dateStr: string | null): string {
 interface Participant {
   display_name: string;
   balance_idr: number;
+  total_paid: number;
+  total_share: number;
 }
 
 interface Expense {
@@ -52,6 +54,12 @@ interface Expense {
   is_excluded: boolean;
   created_at: string;
   paid_by_name: string;
+  expense_type?: string | null;
+  splits?: Array<{
+    participant_name: string;
+    share_amount_override: number | null;
+    share_weight: number;
+  }>;
 }
 
 interface PaymentAccount {
@@ -101,7 +109,7 @@ export async function GET(
   // ── Fetch participants with balances ────────────────────────────────────────
   const { data: participants } = await supabase
     .from("trip_balances")
-    .select("display_name, balance_idr")
+    .select("display_name, balance_idr, total_paid, total_share")
     .eq("trip_id", tripId)
     .order("balance_idr");
 
@@ -109,7 +117,7 @@ export async function GET(
   const { data: expenses } = await supabase
     .from("expenses")
     .select(
-      "title, amount_idr, is_excluded, created_at, paid_by:participants!paid_by(display_name)",
+      "title, amount_idr, expense_type, is_excluded, created_at, paid_by:participants!paid_by(display_name), expense_splits(share_weight, share_amount_override, participants(display_name))",
     )
     .eq("trip_id", tripId)
     .order("created_at");
@@ -122,13 +130,27 @@ export async function GET(
     )
     .eq("trip_id", tripId);
 
-  const participantList: Participant[] = participants ?? [];
+  const participantList: Participant[] = (participants ?? []).map((p: any) => ({
+    display_name: p.display_name,
+    balance_idr: Number(p.balance_idr ?? 0),
+    total_paid: Number(p.total_paid ?? 0),
+    total_share: Number(p.total_share ?? 0),
+  }));
   const expenseList = (expenses ?? []).map((e: any) => ({
     title: e.title,
     amount_idr: Number(e.amount_idr),
+    expense_type: e.expense_type,
     is_excluded: e.is_excluded,
     created_at: e.created_at,
     paid_by_name: e.paid_by?.display_name ?? "—",
+    splits: (e.expense_splits ?? []).map((split: any) => ({
+      participant_name: split.participants?.display_name ?? "Tanpa nama",
+      share_amount_override:
+        split.share_amount_override != null
+          ? Number(split.share_amount_override)
+          : null,
+      share_weight: Number(split.share_weight ?? 0),
+    })),
   })) as Expense[];
   const accountList: PaymentAccount[] = (paymentAccounts ?? [])
     .map((a: any) => a.payment_account)
@@ -144,6 +166,37 @@ export async function GET(
   // ── Build HTML ──────────────────────────────────────────────────────────────
   const perPersonShare =
     participantList.length > 0 ? totalExpenses / participantList.length : 0;
+
+  const renderSplitRows = (expense: Expense) => {
+    if (!expense.splits?.length) {
+      return "";
+    }
+
+    const totalWeight = expense.splits.reduce(
+      (sum, split) => sum + split.share_weight,
+      0,
+    );
+
+    return `
+      <div style="margin-top:4px;padding-left:12px;color:#6b7280;font-size:10px;display:grid;gap:2px;">
+        ${expense.splits
+          .map((split) => {
+            const amount =
+              split.share_amount_override != null
+                ? split.share_amount_override
+                : totalWeight > 0
+                  ? (expense.amount_idr * split.share_weight) / totalWeight
+                  : 0;
+
+            return `<div style="display:flex;justify-content:space-between;gap:12px;">
+              <span>${split.participant_name}</span>
+              <span style="font-weight:600;color:#374151;">${formatRupiah(amount)}</span>
+            </div>`;
+          })
+          .join("")}
+      </div>
+    `;
+  };
 
   const html = `<!DOCTYPE html>
 <html lang="id">
@@ -324,7 +377,13 @@ export async function GET(
     <div class="section-title">Saldo Peserta</div>
     <table>
       <thead>
-        <tr><th style="width:40%">Nama</th><th class="text-right" style="width:35%">Saldo</th><th class="text-center" style="width:25%">Status</th></tr>
+        <tr>
+          <th style="width:30%">Nama</th>
+          <th class="text-right" style="width:18%">Biaya</th>
+          <th class="text-right" style="width:18%">Talangan</th>
+          <th class="text-right" style="width:20%">Saldo</th>
+          <th class="text-center" style="width:14%">Status</th>
+        </tr>
       </thead>
       <tbody>
         ${participantList
@@ -343,6 +402,8 @@ export async function GET(
             const pillText = bal < 0 ? "Bayar" : bal > 0 ? "Terima" : "Lunas";
             return `<tr>
             <td>${p.display_name}</td>
+            <td class="text-right">${formatRupiah(p.total_share)}</td>
+            <td class="text-right">${formatRupiah(p.total_paid)}</td>
             <td class="text-right ${cls}">${prefix} ${label}</td>
             <td class="text-center"><span class="pill ${pillCls}">${pillText}</span></td>
           </tr>`;
@@ -396,16 +457,18 @@ export async function GET(
     <div class="section-title">Daftar Pengeluaran (${expenseList.filter((e) => !e.is_excluded).length} item)</div>
     <table>
       <thead>
-        <tr><th>Keterangan</th><th>Dibayar oleh</th><th>Tanggal</th><th class="text-right">Jumlah</th></tr>
+        <tr><th>Keterangan</th><th>Dibayar oleh</th><th class="text-right">Jumlah</th></tr>
       </thead>
       <tbody>
         ${expenseList
           .map(
             (e) => `
           <tr${e.is_excluded ? ' style="opacity:0.35;text-decoration:line-through"' : ""}>
-            <td>${e.title}${e.is_excluded ? ' <span style="font-size:9px;color:#9ca3af">(dikecualikan)</span>' : ""}</td>
+            <td>
+              ${e.title}${e.expense_type === "makan" ? ' <span style="font-size:9px;color:#b45309;font-weight:700">(makan)</span>' : ""}${e.is_excluded ? ' <span style="font-size:9px;color:#9ca3af">(dikecualikan)</span>' : ""}
+              ${renderSplitRows(e)}
+            </td>
             <td>${e.paid_by_name}</td>
-            <td>${formatDate(e.created_at)}</td>
             <td class="text-right">${formatRupiah(e.amount_idr)}</td>
           </tr>
         `,

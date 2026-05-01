@@ -12,7 +12,7 @@ import {
   expenseFormSchema,
   formatLegDateRange,
   type ExpenseFormValues,
-  type LegVehicleOption
+  type LegVehicleOption,
 } from "@/components/expenseFormUtils";
 import clsx from "clsx";
 
@@ -24,7 +24,13 @@ type ExpenseListProps = {
   canEdit?: boolean;
 };
 
-export function ExpenseList({ tripId, expenses, participants, legs, canEdit = false }: ExpenseListProps) {
+export function ExpenseList({
+  tripId,
+  expenses,
+  participants,
+  legs,
+  canEdit = false,
+}: ExpenseListProps) {
   const router = useRouter();
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Expense | null>(null);
@@ -39,7 +45,7 @@ export function ExpenseList({ tripId, expenses, participants, legs, canEdit = fa
       const response = await fetch(`/api/expenses/${deleteTarget.id}`, {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tripId })
+        body: JSON.stringify({ tripId }),
       });
 
       if (!response.ok) {
@@ -65,15 +71,50 @@ export function ExpenseList({ tripId, expenses, participants, legs, canEdit = fa
     );
   }
 
+  const getSplitAmount = (expense: Expense, participantId: string) => {
+    const split = expense.splits?.find(
+      (item) => item.participantId === participantId,
+    );
+    if (!split) return null;
+
+    if (split.shareAmountOverride != null) {
+      return split.shareAmountOverride;
+    }
+
+    const totalWeight =
+      expense.splits?.reduce((sum, item) => sum + item.shareWeight, 0) ?? 0;
+    if (totalWeight <= 0) return null;
+
+    return (expense.amountIdr * split.shareWeight) / totalWeight;
+  };
+
+  const hasDetailedSplits = (expense: Expense) =>
+    (expense.splits?.length ?? 0) > 0;
+
+  const getScopeLabel = (expense: Expense) => {
+    if (expense.expenseType === "makan" && hasDetailedSplits(expense)) {
+      return "Tagihan makan per orang";
+    }
+
+    return expense.shareScope === "vehicle"
+      ? "Dibagi ke penumpang kendaraan terkait"
+      : "Dibagi ke semua penumpang leg ini";
+  };
+
   return (
     <>
       <ul className="space-y-4">
         {expenses.map((expense) => (
-          <li key={expense.id} className="rounded-2xl border bg-white/90 p-4 shadow-sm">
+          <li
+            key={expense.id}
+            className="rounded-2xl border bg-white/90 p-4 shadow-sm"
+          >
             <div className="flex items-start justify-between gap-4">
               <div>
                 <div className="flex items-center gap-2">
-                  <p className="text-base font-semibold text-slate-900">{expense.judul}</p>
+                  <p className="text-base font-semibold text-slate-900">
+                    {expense.judul}
+                  </p>
                   {expense.isExcluded && (
                     <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-600">
                       Dikecualikan
@@ -81,14 +122,17 @@ export function ExpenseList({ tripId, expenses, participants, legs, canEdit = fa
                   )}
                 </div>
                 <p className="text-sm text-slate-500">
-                  {format(new Date(expense.date), "d MMM yyyy", { locale: id })} · ditanggung sementara oleh {expense.paidBy.nama}
+                  {format(new Date(expense.date), "d MMM yyyy", { locale: id })}{" "}
+                  · ditanggung sementara oleh {expense.paidBy.nama}
                 </p>
                 <p className="text-xs text-slate-400">
-                  Dibagi ke {expense.shareScope === "vehicle" ? "penumpang kendaraan terkait" : "semua penumpang leg ini"}
+                  {getScopeLabel(expense)}
                 </p>
               </div>
               <div className="text-right">
-                <p className="text-lg font-semibold text-brand-blue">{formatRupiah(expense.amountIdr)}</p>
+                <p className="text-lg font-semibold text-brand-blue">
+                  {formatRupiah(expense.amountIdr)}
+                </p>
                 {canEdit && (
                   <div className="mt-1 flex justify-end gap-2 text-xs">
                     <button
@@ -109,7 +153,44 @@ export function ExpenseList({ tripId, expenses, participants, legs, canEdit = fa
                 )}
               </div>
             </div>
-            {expense.notes && <p className="mt-2 text-sm text-slate-600">{expense.notes}</p>}
+            {expense.notes && (
+              <p className="mt-2 text-sm text-slate-600">{expense.notes}</p>
+            )}
+            {hasDetailedSplits(expense) && (
+              <div className="mt-3 rounded-xl bg-slate-50 p-3">
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    {expense.expenseType === "makan"
+                      ? "Rincian tagihan makan"
+                      : "Rincian pembagian biaya"}
+                  </p>
+                  <p className="text-xs text-slate-400">
+                    {expense.splits?.length} orang
+                  </p>
+                </div>
+                <ul className="space-y-1.5">
+                  {(expense.splits ?? []).map((split) => {
+                    const splitAmount = getSplitAmount(
+                      expense,
+                      split.participantId,
+                    );
+                    return (
+                      <li
+                        key={`${expense.id}:${split.participantId}`}
+                        className="flex items-center justify-between gap-3 text-sm text-slate-600"
+                      >
+                        <span>{split.participantName}</span>
+                        <span className="font-medium text-slate-900">
+                          {splitAmount != null
+                            ? formatRupiah(splitAmount)
+                            : "-"}
+                        </span>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            )}
           </li>
         ))}
       </ul>
@@ -132,11 +213,16 @@ export function ExpenseList({ tripId, expenses, participants, legs, canEdit = fa
       {deleteTarget && (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm">
           <div className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-xl">
-            <h3 className="text-lg font-semibold text-slate-900">Hapus pengeluaran?</h3>
+            <h3 className="text-lg font-semibold text-slate-900">
+              Hapus pengeluaran?
+            </h3>
             <p className="mt-2 text-sm text-slate-600">
-              {deleteTarget.judul} ({formatRupiah(deleteTarget.amountIdr)}) akan hilang dari perhitungan saldo.
+              {deleteTarget.judul} ({formatRupiah(deleteTarget.amountIdr)}) akan
+              hilang dari perhitungan saldo.
             </p>
-            {deleteError && <p className="mt-2 text-sm text-rose-600">{deleteError}</p>}
+            {deleteError && (
+              <p className="mt-2 text-sm text-rose-600">{deleteError}</p>
+            )}
             <div className="mt-4 flex justify-end gap-3">
               <button
                 type="button"
@@ -171,11 +257,26 @@ type ExpenseEditDialogProps = {
   onSaved: () => void;
 };
 
-function ExpenseEditDialog({ expense, tripId, participants, legs, onClose, onSaved }: ExpenseEditDialogProps) {
-  const legVehicleOptions = useMemo<LegVehicleOption[]>(() => buildLegVehicleOptions(legs), [legs]);
+function ExpenseEditDialog({
+  expense,
+  tripId,
+  participants,
+  legs,
+  onClose,
+  onSaved,
+}: ExpenseEditDialogProps) {
+  const legVehicleOptions = useMemo<LegVehicleOption[]>(
+    () => buildLegVehicleOptions(legs),
+    [legs],
+  );
   const initialLegOption = useMemo(() => {
-    return legVehicleOptions.find((option) => option.legId === expense.legId && option.vehicleId === (expense.vehicleId ?? null))
-      ?? legVehicleOptions[0];
+    return (
+      legVehicleOptions.find(
+        (option) =>
+          option.legId === expense.legId &&
+          option.vehicleId === (expense.vehicleId ?? null),
+      ) ?? legVehicleOptions[0]
+    );
   }, [legVehicleOptions, expense.legId, expense.vehicleId]);
 
   const [values, setValues] = useState<ExpenseFormValues>({
@@ -185,13 +286,19 @@ function ExpenseEditDialog({ expense, tripId, participants, legs, onClose, onSav
     legId: initialLegOption?.legId ?? "",
     vehicleId: initialLegOption?.vehicleId ?? null,
     paidById: expense.paidBy.id,
-    shareScope: expense.shareScope
+    shareScope: expense.shareScope,
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [status, setStatus] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const selectedLeg = useMemo(() => legs.find((leg) => leg.id === values.legId), [legs, values.legId]);
-  const legScheduleText = useMemo(() => formatLegDateRange(selectedLeg), [selectedLeg]);
+  const selectedLeg = useMemo(
+    () => legs.find((leg) => leg.id === values.legId),
+    [legs, values.legId],
+  );
+  const legScheduleText = useMemo(
+    () => formatLegDateRange(selectedLeg),
+    [selectedLeg],
+  );
   const vehicleScopeDisabled = !values.vehicleId;
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -222,8 +329,8 @@ function ExpenseEditDialog({ expense, tripId, participants, legs, onClose, onSav
           paidBy: parse.data.paidById,
           legId: parse.data.legId,
           vehicleId: parse.data.vehicleId || null,
-          shareScope: parse.data.shareScope
-        })
+          shareScope: parse.data.shareScope,
+        }),
       });
 
       if (!response.ok) {
@@ -236,7 +343,9 @@ function ExpenseEditDialog({ expense, tripId, participants, legs, onClose, onSav
       onSaved();
     } catch (error) {
       console.error(error);
-      setStatus(error instanceof Error ? error.message : "Ada kendala, coba lagi ya");
+      setStatus(
+        error instanceof Error ? error.message : "Ada kendala, coba lagi ya",
+      );
     } finally {
       setLoading(false);
     }
@@ -244,13 +353,23 @@ function ExpenseEditDialog({ expense, tripId, participants, legs, onClose, onSav
 
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm">
-      <form onSubmit={handleSubmit} className="w-full max-w-lg space-y-4 rounded-2xl bg-white p-6 shadow-2xl">
+      <form
+        onSubmit={handleSubmit}
+        className="w-full max-w-lg space-y-4 rounded-2xl bg-white p-6 shadow-2xl"
+      >
         <div className="flex items-center justify-between">
           <div>
-            <h3 className="text-lg font-semibold text-slate-900">Edit pengeluaran</h3>
+            <h3 className="text-lg font-semibold text-slate-900">
+              Edit pengeluaran
+            </h3>
             <p className="text-sm text-slate-500">Perbarui detail biaya ini.</p>
           </div>
-          <button type="button" onClick={onClose} className="text-sm text-slate-500 hover:text-slate-800" disabled={loading}>
+          <button
+            type="button"
+            onClick={onClose}
+            className="text-sm text-slate-500 hover:text-slate-800"
+            disabled={loading}
+          >
             Tutup
           </button>
         </div>
@@ -260,10 +379,14 @@ function ExpenseEditDialog({ expense, tripId, participants, legs, onClose, onSav
           <input
             type="text"
             value={values.judul}
-            onChange={(e) => setValues((prev) => ({ ...prev, judul: e.target.value }))}
+            onChange={(e) =>
+              setValues((prev) => ({ ...prev, judul: e.target.value }))
+            }
             className="mt-1 w-full rounded-xl border px-3 py-2"
           />
-          {errors.judul && <p className="text-sm text-rose-600">{errors.judul}</p>}
+          {errors.judul && (
+            <p className="text-sm text-rose-600">{errors.judul}</p>
+          )}
         </div>
 
         <div>
@@ -272,13 +395,24 @@ function ExpenseEditDialog({ expense, tripId, participants, legs, onClose, onSav
             type="number"
             inputMode="decimal"
             value={values.amountIdr || ""}
-            onChange={(e) => setValues((prev) => ({ ...prev, amountIdr: Number(e.target.value) }))}
+            onChange={(e) =>
+              setValues((prev) => ({
+                ...prev,
+                amountIdr: Number(e.target.value),
+              }))
+            }
             className="mt-1 w-full rounded-xl border px-3 py-2"
             min={0}
             step={0.01}
           />
-          {values.amountIdr > 0 && <p className="text-sm text-slate-500">{formatRupiah(values.amountIdr)}</p>}
-          {errors.amountIdr && <p className="text-sm text-rose-600">{errors.amountIdr}</p>}
+          {values.amountIdr > 0 && (
+            <p className="text-sm text-slate-500">
+              {formatRupiah(values.amountIdr)}
+            </p>
+          )}
+          {errors.amountIdr && (
+            <p className="text-sm text-rose-600">{errors.amountIdr}</p>
+          )}
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2">
@@ -286,7 +420,9 @@ function ExpenseEditDialog({ expense, tripId, participants, legs, onClose, onSav
             <label className="text-sm font-medium">Dibayar oleh</label>
             <select
               value={values.paidById}
-              onChange={(e) => setValues((prev) => ({ ...prev, paidById: e.target.value }))}
+              onChange={(e) =>
+                setValues((prev) => ({ ...prev, paidById: e.target.value }))
+              }
               className="mt-1 w-full rounded-xl border px-3 py-2"
             >
               {participants.map((participant) => (
@@ -295,7 +431,9 @@ function ExpenseEditDialog({ expense, tripId, participants, legs, onClose, onSav
                 </option>
               ))}
             </select>
-            {errors.paidById && <p className="text-sm text-rose-600">{errors.paidById}</p>}
+            {errors.paidById && (
+              <p className="text-sm text-rose-600">{errors.paidById}</p>
+            )}
           </div>
 
           <div>
@@ -303,13 +441,18 @@ function ExpenseEditDialog({ expense, tripId, participants, legs, onClose, onSav
             <select
               value={`${values.legId}::${values.vehicleId ?? "none"}`}
               onChange={(e) => {
-                const target = legVehicleOptions.find((option) => option.key === e.target.value);
+                const target = legVehicleOptions.find(
+                  (option) => option.key === e.target.value,
+                );
                 if (!target) return;
                 setValues((prev) => ({
                   ...prev,
                   legId: target.legId,
                   vehicleId: target.vehicleId,
-                  shareScope: prev.shareScope === "vehicle" && !target.vehicleId ? "leg" : prev.shareScope
+                  shareScope:
+                    prev.shareScope === "vehicle" && !target.vehicleId
+                      ? "leg"
+                      : prev.shareScope,
                 }));
               }}
               className="mt-1 w-full rounded-xl border px-3 py-2"
@@ -320,7 +463,9 @@ function ExpenseEditDialog({ expense, tripId, participants, legs, onClose, onSav
                 </option>
               ))}
             </select>
-            {errors.legId && <p className="text-sm text-rose-600">{errors.legId}</p>}
+            {errors.legId && (
+              <p className="text-sm text-rose-600">{errors.legId}</p>
+            )}
           </div>
         </div>
 
@@ -333,11 +478,17 @@ function ExpenseEditDialog({ expense, tripId, participants, legs, onClose, onSav
                 name="shareScopeEdit"
                 value="leg"
                 checked={values.shareScope === "leg"}
-                onChange={() => setValues((prev) => ({ ...prev, shareScope: "leg" }))}
+                onChange={() =>
+                  setValues((prev) => ({ ...prev, shareScope: "leg" }))
+                }
               />
               Semua penumpang leg ini
             </label>
-            <label className={clsx("flex items-center gap-2 text-sm", vehicleScopeDisabled ? "text-slate-300" : "text-slate-600")}
+            <label
+              className={clsx(
+                "flex items-center gap-2 text-sm",
+                vehicleScopeDisabled ? "text-slate-300" : "text-slate-600",
+              )}
             >
               <input
                 type="radio"
@@ -345,14 +496,19 @@ function ExpenseEditDialog({ expense, tripId, participants, legs, onClose, onSav
                 value="vehicle"
                 checked={values.shareScope === "vehicle"}
                 onChange={() =>
-                  setValues((prev) => ({ ...prev, shareScope: vehicleScopeDisabled ? "leg" : "vehicle" }))
+                  setValues((prev) => ({
+                    ...prev,
+                    shareScope: vehicleScopeDisabled ? "leg" : "vehicle",
+                  }))
                 }
                 disabled={vehicleScopeDisabled}
               />
               Penumpang kendaraan ini
             </label>
           </div>
-          {errors.shareScope && <p className="text-sm text-rose-600">{errors.shareScope}</p>}
+          {errors.shareScope && (
+            <p className="text-sm text-rose-600">{errors.shareScope}</p>
+          )}
         </div>
 
         <div>
@@ -369,13 +525,19 @@ function ExpenseEditDialog({ expense, tripId, participants, legs, onClose, onSav
           <label className="text-sm font-medium">Catatan (opsional)</label>
           <textarea
             value={values.catatan || ""}
-            onChange={(e) => setValues((prev) => ({ ...prev, catatan: e.target.value }))}
+            onChange={(e) =>
+              setValues((prev) => ({ ...prev, catatan: e.target.value }))
+            }
             className="mt-1 h-24 w-full rounded-xl border px-3 py-2"
           />
-          {errors.catatan && <p className="text-sm text-rose-600">{errors.catatan}</p>}
+          {errors.catatan && (
+            <p className="text-sm text-rose-600">{errors.catatan}</p>
+          )}
         </div>
 
-        {status && <p className="text-center text-sm text-slate-600">{status}</p>}
+        {status && (
+          <p className="text-center text-sm text-slate-600">{status}</p>
+        )}
 
         <div className="flex justify-end gap-3 pt-2">
           <button

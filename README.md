@@ -8,10 +8,11 @@ Aplikasi berbagi biaya perjalanan untuk tim KBM Berkah Ceria. Menggunakan Next.j
 - Form pembuatan trip membuat leg awal, kendaraan default, peserta perdana beserta status supir, dan jadwal keberangkatan dasar agar perjalanan siap dipakai instan.
 - Halaman detail perjalanan menyajikan saldo peserta (dengan badge supir & host-only badge saat relevan), daftar pengeluaran lengkap, serta kartu metode pembayaran siap salin.
 - Pencatatan pengeluaran mendukung scope leg/kendaraan, edit & hapus, pengecualian dari perhitungan, format Rupiah otomatis, validasi Zod, dan lampiran bukti opsional.
+- **Pemberhentian makan** — mode khusus di form pengeluaran untuk mencatat tagihan makan per orang dalam satu mobil; satu orang bayar duluan, tiap peserta punya jumlah berbeda, total dihitung otomatis. Rincian per orang tampil di kartu pengeluaran (app) maupun laporan PDF.
 - Mode host menyediakan kontrol split manual per expense, toggle pengecualian, penyesuaian saldo (draft/applied/void), histori penyesuaian, serta laporan status peserta real time.
 - Manajemen armada/penumpang digabung dalam satu panel: tambah leg, hubungkan kendaraan, atur jadwal, assign peserta massal, pindah penumpang, ubah supir/penumpang, tambah/edit peserta.
 - Fitur berbagi trip mengundang email read-only via `trip_shares`, menjaga RLS Supabase; halaman ringkasan komunitas menampilkan agregat perjalanan.
-- Generator laporan HTML (`GET /api/trips/:tripId/report`) menyusun Metode Pembayaran, Ringkasan Peserta, dan Daftar Pengeluaran ke dalam tiga halaman terpisah dengan format Rupiah, status pills, dan highlight kewajiban bayar; dapat disimpan sebagai PDF via print dialog.
+- Generator laporan HTML (`GET /api/trips/:tripId/report`) menyusun Metode Pembayaran, Saldo Peserta (kolom Biaya, Talangan, Saldo, Status), dan Daftar Pengeluaran (dengan rincian tagihan makan per orang); dapat disimpan sebagai PDF via print dialog.
 - Fitur "Salin Tagihan WA" menghasilkan template pesan WhatsApp otomatis yang mencakup ringkasan tagihan ("Siapa bayar berapa" dan "Siapa terima berapa") beserta metode pembayaran host untuk kemudahan penagihan.
 
 ## Tech Stack
