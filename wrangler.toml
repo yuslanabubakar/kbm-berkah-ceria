@@ -3,3 +3,8 @@ name = "kbm-berkah-ceria"
 compatibility_date = "2024-09-23"
 compatibility_flags = ["nodejs_compat"]
 pages_build_output_dir = ".vercel/output/static"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "kbm-berkah-ceria-db"
+database_id = "dadbc229-b1ed-4e99-b6f4-94bf225348fd"

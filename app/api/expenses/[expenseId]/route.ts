@@ -1,7 +1,10 @@
 import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getSupabaseServer } from "@/lib/supabaseServer";
+import { getDb } from "@/lib/db";
+import { getCurrentUser } from "@/lib/auth";
+import { expenses } from "@/db/schema";
+import { eq, and } from "drizzle-orm";
 
 export const runtime = "edge";
 
@@ -35,6 +38,14 @@ type Params = {
 };
 
 export async function PATCH(request: Request, { params }: Params) {
+  const currentUser = await getCurrentUser(request);
+  if (!currentUser) {
+    return NextResponse.json(
+      { message: "Tidak terautentikasi" },
+      { status: 401 },
+    );
+  }
+
   const payload = await request.json().catch(() => null);
   const parsed = expenseSchema.safeParse(payload);
 
@@ -49,36 +60,36 @@ export async function PATCH(request: Request, { params }: Params) {
   }
 
   try {
-    const supabase = getSupabaseServer();
-    const { data, error } = await supabase
-      .from("expenses")
-      .update({
-        title: parsed.data.judul,
-        amount_idr: parsed.data.amountIdr,
-        paid_by: parsed.data.paidBy,
-        leg_id: parsed.data.legId,
-        vehicle_id: parsed.data.vehicleId ?? null,
-        share_scope: parsed.data.shareScope,
-        notes: parsed.data.catatan,
-      })
-      .eq("id", params.expenseId)
-      .eq("trip_id", parsed.data.tripId)
-      .select("id")
-      .single();
+    const db = getDb();
+    const existing = await db
+      .select()
+      .from(expenses)
+      .where(
+        and(
+          eq(expenses.id, params.expenseId),
+          eq(expenses.tripId, parsed.data.tripId),
+        ),
+      )
+      .get();
 
-    if (error) {
-      if ("code" in error && error.code === "PGRST116") {
-        return NextResponse.json(
-          { message: "Pengeluaran tidak ditemukan" },
-          { status: 404 },
-        );
-      }
-      console.error(error);
+    if (!existing) {
       return NextResponse.json(
-        { message: "Gagal memperbarui" },
-        { status: 500 },
+        { message: "Pengeluaran tidak ditemukan" },
+        { status: 404 },
       );
     }
+
+    await db
+      .update(expenses)
+      .set({
+        title: parsed.data.judul,
+        amountIdr: parsed.data.amountIdr,
+        paidBy: parsed.data.paidBy,
+        legId: parsed.data.legId,
+        vehicleId: parsed.data.vehicleId ?? null,
+        notes: parsed.data.catatan ?? null,
+      })
+      .where(eq(expenses.id, params.expenseId));
 
     revalidatePath(`/perjalanan/${parsed.data.tripId}`);
     revalidatePath(`/`);
@@ -94,6 +105,14 @@ export async function PATCH(request: Request, { params }: Params) {
 }
 
 export async function DELETE(request: Request, { params }: Params) {
+  const currentUser = await getCurrentUser(request);
+  if (!currentUser) {
+    return NextResponse.json(
+      { message: "Tidak terautentikasi" },
+      { status: 401 },
+    );
+  }
+
   const payload = await request.json().catch(() => null);
   const parsed = deleteSchema.safeParse(payload);
 
@@ -105,25 +124,26 @@ export async function DELETE(request: Request, { params }: Params) {
   }
 
   try {
-    const supabase = getSupabaseServer();
-    const { error } = await supabase
-      .from("expenses")
-      .delete()
-      .eq("id", params.expenseId)
-      .eq("trip_id", parsed.data.tripId)
-      .select("id")
-      .single();
+    const db = getDb();
+    const existing = await db
+      .select()
+      .from(expenses)
+      .where(
+        and(
+          eq(expenses.id, params.expenseId),
+          eq(expenses.tripId, parsed.data.tripId),
+        ),
+      )
+      .get();
 
-    if (error) {
-      if ("code" in error && error.code === "PGRST116") {
-        return NextResponse.json(
-          { message: "Pengeluaran tidak ditemukan" },
-          { status: 404 },
-        );
-      }
-      console.error(error);
-      return NextResponse.json({ message: "Gagal menghapus" }, { status: 500 });
+    if (!existing) {
+      return NextResponse.json(
+        { message: "Pengeluaran tidak ditemukan" },
+        { status: 404 },
+      );
     }
+
+    await db.delete(expenses).where(eq(expenses.id, params.expenseId));
 
     revalidatePath(`/perjalanan/${parsed.data.tripId}`);
     revalidatePath(`/`);

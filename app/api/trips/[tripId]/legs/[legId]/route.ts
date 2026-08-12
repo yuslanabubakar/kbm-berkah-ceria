@@ -1,7 +1,10 @@
 import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getSupabaseServer } from "@/lib/supabaseServer";
+import { getDb } from "@/lib/db";
+import { getCurrentUser } from "@/lib/auth";
+import { tripLegs } from "@/db/schema";
+import { eq, and } from "drizzle-orm";
 
 export const runtime = "edge";
 
@@ -21,29 +24,11 @@ const updateLegSchema = z
   })
   .refine(
     (values) => Object.values(values).some((value) => value !== undefined),
-    {
-      message: "Tidak ada perubahan yang dikirim",
-    },
-  )
-  .refine(
-    (values) =>
-      values.startDate === undefined || values.startTime !== undefined,
-    {
-      message: "Tanggal & jam leg harus dikirim berpasangan",
-    },
-  )
-  .refine(
-    (values) =>
-      values.startTime === undefined || values.startDate !== undefined,
-    {
-      message: "Tanggal & jam leg harus dikirim berpasangan",
-    },
+    { message: "Tidak ada perubahan yang dikirim" },
   );
 
 function combineDateTime(date?: string | null, time?: string | null) {
-  if (!date) {
-    return null;
-  }
+  if (!date) return null;
   const safeTime = time && timeRegex.test(time) ? time : "00:00";
   const [hour, minute] = safeTime.split(":");
   return new Date(`${date}T${hour}:${minute}:00`).toISOString();
@@ -53,9 +38,17 @@ export async function PATCH(
   request: Request,
   { params }: { params: { tripId: string; legId: string } },
 ) {
+  const { tripId, legId } = params;
+  const currentUser = await getCurrentUser(request);
+  if (!currentUser) {
+    return NextResponse.json(
+      { message: "Tidak terautentikasi" },
+      { status: 401 },
+    );
+  }
+
   const payload = await request.json().catch(() => null);
   const parsed = updateLegSchema.safeParse(payload);
-
   if (!parsed.success) {
     return NextResponse.json(
       { message: parsed.error.errors[0]?.message ?? "Data leg tidak valid" },
@@ -63,59 +56,35 @@ export async function PATCH(
     );
   }
 
-  const supabase = getSupabaseServer();
-  const { tripId, legId } = params;
+  const db = getDb();
+  const leg = await db
+    .select()
+    .from(tripLegs)
+    .where(and(eq(tripLegs.id, legId), eq(tripLegs.tripId, tripId)))
+    .get();
 
-  const { data: legRow, error: legError } = await supabase
-    .from("trip_legs")
-    .select("trip_id")
-    .eq("id", legId)
-    .single();
-
-  if (legError || !legRow || legRow.trip_id !== tripId) {
+  if (!leg) {
     return NextResponse.json(
       { message: "Leg tidak ditemukan" },
       { status: 404 },
     );
   }
 
-  const updatePayload: Record<string, unknown> = {};
-
-  if (parsed.data.origin !== undefined) {
+  const updatePayload: Record<string, any> = {};
+  if (parsed.data.origin !== undefined)
     updatePayload.origin = parsed.data.origin.trim();
-  }
-  if (parsed.data.destination !== undefined) {
+  if (parsed.data.destination !== undefined)
     updatePayload.destination = parsed.data.destination?.trim() || null;
-  }
-  if (parsed.data.notes !== undefined) {
+  if (parsed.data.notes !== undefined)
     updatePayload.notes = parsed.data.notes?.trim() || null;
-  }
   if (parsed.data.startDate !== undefined) {
-    updatePayload.start_datetime = combineDateTime(
-      parsed.data.startDate,
-      parsed.data.startTime,
-    );
-  }
-  if (parsed.data.startDate !== undefined) {
-    updatePayload.start_datetime = combineDateTime(
+    updatePayload.startDatetime = combineDateTime(
       parsed.data.startDate,
       parsed.data.startTime,
     );
   }
 
-  const { error: updateError } = await supabase
-    .from("trip_legs")
-    .update(updatePayload)
-    .eq("id", legId)
-    .eq("trip_id", tripId);
-
-  if (updateError) {
-    console.error(updateError);
-    return NextResponse.json(
-      { message: "Gagal memperbarui leg" },
-      { status: 500 },
-    );
-  }
+  await db.update(tripLegs).set(updatePayload).where(eq(tripLegs.id, legId));
 
   revalidatePath(`/perjalanan/${tripId}`);
   return NextResponse.json({ message: "Leg diperbarui" });

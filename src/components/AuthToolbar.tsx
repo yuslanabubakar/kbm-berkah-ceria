@@ -1,39 +1,17 @@
 "use client";
 
-import { useCallback, useMemo } from "react";
-import { useRouter } from "next/navigation";
-import { getSupabaseBrowser } from "@/lib/supabaseClient";
-import { useSupabaseSession } from "@/hooks/useSupabaseSession";
-
-const redirectBase = process.env.NEXT_PUBLIC_APP_URL;
+import { useAuth } from "@/hooks/useAuth";
 
 export function AuthToolbar() {
-  const router = useRouter();
-  const { user, loading } = useSupabaseSession();
-  const supabase = useMemo(() => getSupabaseBrowser(), []);
+  const { user, loading } = useAuth();
 
-  const handleSignIn = useCallback(async () => {
-    if (!redirectBase) {
-      console.error("NEXT_PUBLIC_APP_URL belum diset");
-      return;
-    }
+  const handleSignIn = () => {
+    window.location.href = "/api/auth/login";
+  };
 
-    if (typeof window !== "undefined") {
-      sessionStorage.setItem("kbm-return-path", window.location.pathname + window.location.search);
-    }
-
-    await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo: `${redirectBase}/auth/callback`
-      }
-    });
-  }, [supabase]);
-
-  const handleSignOut = useCallback(async () => {
-    await supabase.auth.signOut();
-    router.refresh();
-  }, [supabase, router]);
+  const handleSignOut = () => {
+    window.location.href = "/api/auth/logout";
+  };
 
   if (loading) {
     return <span className="text-sm text-slate-500">Memuat akun...</span>;
@@ -54,7 +32,9 @@ export function AuthToolbar() {
   return (
     <div className="flex items-center gap-4 text-sm">
       <div className="text-right">
-        <p className="font-semibold text-slate-900">{user.user_metadata?.full_name ?? user.email}</p>
+        <p className="font-semibold text-slate-900">
+          {user.name || user.email}
+        </p>
         <p className="text-xs text-slate-500">{user.email}</p>
       </div>
       <button

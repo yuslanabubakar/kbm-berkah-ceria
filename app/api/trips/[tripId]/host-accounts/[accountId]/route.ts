@@ -1,36 +1,30 @@
 import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getSupabaseServer } from "@/lib/supabaseServer";
+import { getDb } from "@/lib/db";
+import { getCurrentUser } from "@/lib/auth";
+import { tripPaymentAccounts, userPaymentAccounts } from "@/db/schema";
+import { eq, and } from "drizzle-orm";
 
 export const runtime = "edge";
 
 const channelEnum = z.enum(["bank", "ewallet", "cash", "other"]);
 
-const updateSchema = z
-  .object({
-    label: z.string().min(3).optional(),
-    channel: channelEnum.optional(),
-    provider: z.string().min(2).max(80).optional().or(z.literal("")),
-    accountName: z.string().min(3).optional(),
-    accountNumber: z.string().min(3).optional(),
-    instructions: z.string().max(280).optional().or(z.literal("")),
-    priority: z.number().int().min(0).max(100).optional(),
-  })
-  .refine(
-    (value) => Object.values(value).some((field) => field !== undefined),
-    {
-      message: "Tidak ada perubahan",
-      path: ["label"],
-    },
-  );
+const updateSchema = z.object({
+  label: z.string().min(3).optional(),
+  channel: channelEnum.optional(),
+  provider: z.string().min(2).max(80).optional().or(z.literal("")),
+  accountName: z.string().min(3).optional(),
+  accountNumber: z.string().min(3).optional(),
+  instructions: z.string().max(280).optional().or(z.literal("")),
+  priority: z.number().int().min(0).max(100).optional(),
+});
 
 export async function PATCH(
   request: Request,
   { params }: { params: { tripId: string; accountId: string } },
 ) {
   const { tripId, accountId } = params;
-
   if (!tripId || !accountId) {
     return NextResponse.json(
       { message: "Akun host tidak ditemukan" },
@@ -38,9 +32,16 @@ export async function PATCH(
     );
   }
 
+  const currentUser = await getCurrentUser(request);
+  if (!currentUser) {
+    return NextResponse.json(
+      { message: "Tidak terautentikasi" },
+      { status: 401 },
+    );
+  }
+
   const payload = await request.json().catch(() => null);
   const parsed = updateSchema.safeParse(payload ?? {});
-
   if (!parsed.success) {
     return NextResponse.json(
       { message: "Data belum valid", issues: parsed.error.flatten() },
@@ -48,61 +49,36 @@ export async function PATCH(
     );
   }
 
-  const updates: Record<string, string | number | null> = {};
+  const db = getDb();
+  const attachment = await db
+    .select()
+    .from(tripPaymentAccounts)
+    .where(
+      and(
+        eq(tripPaymentAccounts.id, accountId),
+        eq(tripPaymentAccounts.tripId, tripId),
+      ),
+    )
+    .get();
 
-  if (parsed.data.label !== undefined) {
-    updates.label = parsed.data.label.trim();
-  }
-  if (parsed.data.channel !== undefined) {
-    updates.channel = parsed.data.channel;
-  }
-  if (parsed.data.provider !== undefined) {
-    updates.provider = parsed.data.provider.trim() || null;
-  }
-  if (parsed.data.accountName !== undefined) {
-    updates.account_name = parsed.data.accountName.trim();
-  }
-  if (parsed.data.accountNumber !== undefined) {
-    updates.account_number = parsed.data.accountNumber.trim();
-  }
-  if (parsed.data.instructions !== undefined) {
-    updates.instructions = parsed.data.instructions.trim() || null;
-  }
-  if (parsed.data.priority !== undefined) {
-    updates.priority = parsed.data.priority;
-  }
-
-  if (!Object.keys(updates).length) {
-    return NextResponse.json(
-      { message: "Tidak ada perubahan" },
-      { status: 400 },
-    );
-  }
-
-  const supabase = getSupabaseServer();
-
-  const { data, error } = await supabase
-    .from("host_payment_accounts")
-    .update(updates)
-    .eq("trip_id", tripId)
-    .eq("id", accountId)
-    .select("id")
-    .maybeSingle();
-
-  if (error) {
-    console.error(error);
-    return NextResponse.json(
-      { message: "Gagal memperbarui akun host" },
-      { status: 500 },
-    );
-  }
-
-  if (!data) {
+  if (!attachment) {
     return NextResponse.json(
       { message: "Akun host tidak ditemukan" },
       { status: 404 },
     );
   }
+
+  // Update custom fields on attachment or underlying user account
+  const now = new Date().toISOString();
+  await db
+    .update(tripPaymentAccounts)
+    .set({
+      customLabel: parsed.data.label?.trim(),
+      customInstructions: parsed.data.instructions?.trim() || null,
+      customPriority: parsed.data.priority,
+      updatedAt: now,
+    })
+    .where(eq(tripPaymentAccounts.id, accountId));
 
   revalidatePath("/");
   revalidatePath(`/perjalanan/${tripId}`);
@@ -111,11 +87,10 @@ export async function PATCH(
 }
 
 export async function DELETE(
-  _request: Request,
+  request: Request,
   { params }: { params: { tripId: string; accountId: string } },
 ) {
   const { tripId, accountId } = params;
-
   if (!tripId || !accountId) {
     return NextResponse.json(
       { message: "Akun host tidak ditemukan" },
@@ -123,30 +98,23 @@ export async function DELETE(
     );
   }
 
-  const supabase = getSupabaseServer();
-
-  const { data, error } = await supabase
-    .from("host_payment_accounts")
-    .delete()
-    .eq("trip_id", tripId)
-    .eq("id", accountId)
-    .select("id")
-    .maybeSingle();
-
-  if (error) {
-    console.error(error);
+  const currentUser = await getCurrentUser(request);
+  if (!currentUser) {
     return NextResponse.json(
-      { message: "Gagal menghapus akun host" },
-      { status: 500 },
+      { message: "Tidak terautentikasi" },
+      { status: 401 },
     );
   }
 
-  if (!data) {
-    return NextResponse.json(
-      { message: "Akun host tidak ditemukan" },
-      { status: 404 },
+  const db = getDb();
+  await db
+    .delete(tripPaymentAccounts)
+    .where(
+      and(
+        eq(tripPaymentAccounts.id, accountId),
+        eq(tripPaymentAccounts.tripId, tripId),
+      ),
     );
-  }
 
   revalidatePath("/");
   revalidatePath(`/perjalanan/${tripId}`);

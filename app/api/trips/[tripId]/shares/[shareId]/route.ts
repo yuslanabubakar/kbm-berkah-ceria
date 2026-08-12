@@ -1,33 +1,32 @@
 import { NextResponse } from "next/server";
-import { getSupabaseServer } from "@/lib/supabaseServer";
+import { getDb } from "@/lib/db";
+import { getCurrentUser } from "@/lib/auth";
+import { tripShares } from "@/db/schema";
+import { eq, and } from "drizzle-orm";
 
 export const runtime = "edge";
 
 export async function DELETE(
-  _request: Request,
+  request: Request,
   { params }: { params: { tripId: string; shareId: string } },
 ) {
   const { tripId, shareId } = params;
-
   if (!tripId || !shareId) {
     return NextResponse.json({ message: "Data tidak valid" }, { status: 404 });
   }
 
-  const supabase = getSupabaseServer();
-
-  const { error } = await supabase
-    .from("trip_shares")
-    .delete()
-    .eq("id", shareId)
-    .eq("trip_id", tripId);
-
-  if (error) {
-    console.error(error);
+  const currentUser = await getCurrentUser(request);
+  if (!currentUser) {
     return NextResponse.json(
-      { message: "Gagal menghapus sharing" },
-      { status: 500 },
+      { message: "Tidak terautentikasi" },
+      { status: 401 },
     );
   }
+
+  const db = getDb();
+  await db
+    .delete(tripShares)
+    .where(and(eq(tripShares.id, shareId), eq(tripShares.tripId, tripId)));
 
   return NextResponse.json({ message: "Sharing dihapus" });
 }

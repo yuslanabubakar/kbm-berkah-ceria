@@ -1,7 +1,10 @@
 import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getSupabaseServer } from "@/lib/supabaseServer";
+import { getDb } from "@/lib/db";
+import { getCurrentUser } from "@/lib/auth";
+import { legVehicleLinks, tripLegs, fleetVehicles } from "@/db/schema";
+import { eq, and } from "drizzle-orm";
 
 export const runtime = "edge";
 
@@ -20,74 +23,15 @@ const scheduleFieldsSchema = z.object({
     .nullable(),
 });
 
-const scheduleSchema = baseVehicleSchema.merge(scheduleFieldsSchema).refine(
-  (values) => {
-    const hasDate = Boolean(values.departureDate);
-    const hasTime = Boolean(values.departureTime);
-    return hasDate === hasTime;
-  },
-  { message: "Tanggal & jam keberangkatan harus diisi bersamaan" },
-);
-
+const scheduleSchema = baseVehicleSchema.merge(scheduleFieldsSchema);
 const linkSchema = scheduleSchema;
 const unlinkSchema = baseVehicleSchema;
 
 function combineDateTime(date?: string | null, time?: string | null) {
-  if (!date) {
-    return null;
-  }
+  if (!date) return null;
   const safeTime = time && timeRegex.test(time) ? time : "00:00";
   const [hour, minute] = safeTime.split(":");
   return new Date(`${date}T${hour}:${minute}:00`).toISOString();
-}
-
-async function ensureLeg(tripId: string, legId: string) {
-  const supabase = getSupabaseServer();
-  const { data, error } = await supabase
-    .from("trip_legs")
-    .select("id")
-    .eq("id", legId)
-    .eq("trip_id", tripId)
-    .maybeSingle();
-
-  if (error) {
-    throw error;
-  }
-
-  return data;
-}
-
-async function ensureVehicle(tripId: string, vehicleId: string) {
-  const supabase = getSupabaseServer();
-  const { data, error } = await supabase
-    .from("trip_vehicles")
-    .select("id")
-    .eq("id", vehicleId)
-    .eq("trip_id", tripId)
-    .maybeSingle();
-
-  if (error) {
-    throw error;
-  }
-
-  return data;
-}
-
-async function ensureLink(tripId: string, legId: string, vehicleId: string) {
-  const supabase = getSupabaseServer();
-  const { data, error } = await supabase
-    .from("leg_vehicle_links")
-    .select("id")
-    .eq("trip_id", tripId)
-    .eq("leg_id", legId)
-    .eq("vehicle_id", vehicleId)
-    .maybeSingle();
-
-  if (error) {
-    throw error;
-  }
-
-  return data;
 }
 
 export async function POST(
@@ -95,7 +39,6 @@ export async function POST(
   { params }: { params: { tripId: string; legId: string } },
 ) {
   const { tripId, legId } = params;
-
   if (!tripId || !legId) {
     return NextResponse.json(
       { message: "Parameter tidak lengkap" },
@@ -103,9 +46,16 @@ export async function POST(
     );
   }
 
+  const currentUser = await getCurrentUser(request);
+  if (!currentUser) {
+    return NextResponse.json(
+      { message: "Tidak terautentikasi" },
+      { status: 401 },
+    );
+  }
+
   const payload = await request.json().catch(() => null);
   const parsed = linkSchema.safeParse(payload);
-
   if (!parsed.success) {
     return NextResponse.json(
       { message: "Data belum valid", issues: parsed.error.flatten() },
@@ -113,65 +63,41 @@ export async function POST(
     );
   }
 
-  try {
-    const [legRow, vehicleRow, existingLink] = await Promise.all([
-      ensureLeg(tripId, legId),
-      ensureVehicle(tripId, parsed.data.vehicleId),
-      ensureLink(tripId, legId, parsed.data.vehicleId),
-    ]);
+  const db = getDb();
+  const existingLink = await db
+    .select()
+    .from(legVehicleLinks)
+    .where(
+      and(
+        eq(legVehicleLinks.legId, legId),
+        eq(legVehicleLinks.vehicleId, parsed.data.vehicleId),
+      ),
+    )
+    .get();
 
-    if (!legRow) {
-      return NextResponse.json(
-        { message: "Leg tidak ditemukan" },
-        { status: 404 },
-      );
-    }
-
-    if (!vehicleRow) {
-      return NextResponse.json(
-        { message: "Kendaraan tidak ditemukan" },
-        { status: 404 },
-      );
-    }
-
-    if (existingLink) {
-      return NextResponse.json(
-        { message: "Kendaraan sudah terhubung dengan leg" },
-        { status: 400 },
-      );
-    }
-  } catch (error) {
-    console.error(error);
+  if (existingLink) {
     return NextResponse.json(
-      { message: "Gagal memverifikasi data" },
-      { status: 500 },
+      { message: "Kendaraan sudah terhubung dengan leg" },
+      { status: 400 },
     );
   }
 
-  const supabase = getSupabaseServer();
   const departureAt = combineDateTime(
     parsed.data.departureDate,
     parsed.data.departureTime,
   );
-  const { error: insertError } = await supabase
-    .from("leg_vehicle_links")
-    .insert({
-      trip_id: tripId,
-      leg_id: legId,
-      vehicle_id: parsed.data.vehicleId,
-      departure_at: departureAt,
-    });
+  const now = new Date().toISOString();
 
-  if (insertError) {
-    console.error(insertError);
-    return NextResponse.json(
-      { message: "Gagal menghubungkan kendaraan" },
-      { status: 500 },
-    );
-  }
+  await db.insert(legVehicleLinks).values({
+    id: crypto.randomUUID(),
+    tripId,
+    legId,
+    vehicleId: parsed.data.vehicleId,
+    departureTime: departureAt,
+    createdAt: now,
+  });
 
   revalidatePath(`/perjalanan/${tripId}`);
-
   return NextResponse.json(
     { message: "Kendaraan ditambahkan ke leg" },
     { status: 201 },
@@ -183,7 +109,6 @@ export async function DELETE(
   { params }: { params: { tripId: string; legId: string } },
 ) {
   const { tripId, legId } = params;
-
   if (!tripId || !legId) {
     return NextResponse.json(
       { message: "Parameter tidak lengkap" },
@@ -191,9 +116,16 @@ export async function DELETE(
     );
   }
 
+  const currentUser = await getCurrentUser(request);
+  if (!currentUser) {
+    return NextResponse.json(
+      { message: "Tidak terautentikasi" },
+      { status: 401 },
+    );
+  }
+
   const payload = await request.json().catch(() => null);
   const parsed = unlinkSchema.safeParse(payload);
-
   if (!parsed.success) {
     return NextResponse.json(
       {
@@ -204,40 +136,18 @@ export async function DELETE(
     );
   }
 
-  try {
-    const linkRow = await ensureLink(tripId, legId, parsed.data.vehicleId);
-    if (!linkRow) {
-      return NextResponse.json(
-        { message: "Relasi kendaraan tidak ditemukan" },
-        { status: 404 },
-      );
-    }
-  } catch (error) {
-    console.error(error);
-    return NextResponse.json(
-      { message: "Gagal mengecek relasi" },
-      { status: 500 },
+  const db = getDb();
+  await db
+    .delete(legVehicleLinks)
+    .where(
+      and(
+        eq(legVehicleLinks.tripId, tripId),
+        eq(legVehicleLinks.legId, legId),
+        eq(legVehicleLinks.vehicleId, parsed.data.vehicleId),
+      ),
     );
-  }
-
-  const supabase = getSupabaseServer();
-  const { error: deleteError } = await supabase
-    .from("leg_vehicle_links")
-    .delete()
-    .eq("trip_id", tripId)
-    .eq("leg_id", legId)
-    .eq("vehicle_id", parsed.data.vehicleId);
-
-  if (deleteError) {
-    console.error(deleteError);
-    return NextResponse.json(
-      { message: "Gagal melepas kendaraan" },
-      { status: 500 },
-    );
-  }
 
   revalidatePath(`/perjalanan/${tripId}`);
-
   return NextResponse.json({ message: "Kendaraan dilepas dari leg" });
 }
 
@@ -246,7 +156,6 @@ export async function PATCH(
   { params }: { params: { tripId: string; legId: string } },
 ) {
   const { tripId, legId } = params;
-
   if (!tripId || !legId) {
     return NextResponse.json(
       { message: "Parameter tidak lengkap" },
@@ -254,9 +163,16 @@ export async function PATCH(
     );
   }
 
+  const currentUser = await getCurrentUser(request);
+  if (!currentUser) {
+    return NextResponse.json(
+      { message: "Tidak terautentikasi" },
+      { status: 401 },
+    );
+  }
+
   const payload = await request.json().catch(() => null);
   const parsed = scheduleSchema.safeParse(payload);
-
   if (!parsed.success) {
     return NextResponse.json(
       { message: parsed.error.errors[0]?.message ?? "Data jadwal tidak valid" },
@@ -264,42 +180,22 @@ export async function PATCH(
     );
   }
 
-  try {
-    const linkRow = await ensureLink(tripId, legId, parsed.data.vehicleId);
-    if (!linkRow) {
-      return NextResponse.json(
-        { message: "Relasi kendaraan tidak ditemukan" },
-        { status: 404 },
-      );
-    }
-  } catch (error) {
-    console.error(error);
-    return NextResponse.json(
-      { message: "Gagal mengecek relasi" },
-      { status: 500 },
-    );
-  }
-
   const departureAt = combineDateTime(
     parsed.data.departureDate,
     parsed.data.departureTime,
   );
+  const db = getDb();
 
-  const supabase = getSupabaseServer();
-  const { error: updateError } = await supabase
-    .from("leg_vehicle_links")
-    .update({ departure_at: departureAt })
-    .eq("trip_id", tripId)
-    .eq("leg_id", legId)
-    .eq("vehicle_id", parsed.data.vehicleId);
-
-  if (updateError) {
-    console.error(updateError);
-    return NextResponse.json(
-      { message: "Gagal menyimpan jadwal kendaraan" },
-      { status: 500 },
+  await db
+    .update(legVehicleLinks)
+    .set({ departureTime: departureAt })
+    .where(
+      and(
+        eq(legVehicleLinks.tripId, tripId),
+        eq(legVehicleLinks.legId, legId),
+        eq(legVehicleLinks.vehicleId, parsed.data.vehicleId),
+      ),
     );
-  }
 
   revalidatePath(`/perjalanan/${tripId}`);
   return NextResponse.json({ message: "Jadwal kendaraan diperbarui" });

@@ -2,14 +2,14 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useSupabaseSession } from "@/hooks/useSupabaseSession";
+import { useAuth } from "@/hooks/useAuth";
 
 export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
 export default function LoginPage() {
   const router = useRouter();
-  const { user, loading } = useSupabaseSession();
+  const { user, loading } = useAuth();
 
   useEffect(() => {
     if (!loading && user) {
@@ -35,14 +35,19 @@ export default function LoginPage() {
         Masuk ke KBM Berkah Ceria
       </h1>
       <p className="text-sm text-slate-600">
-        Klik tombol &quot;Masuk dengan Google&quot; di pojok kanan atas untuk
-        mulai menggunakan aplikasi. Jika belum bisa, pastikan kamu sudah
-        diundang oleh host trip.
+        Silakan masuk menggunakan akun Google kamu untuk melihat dan mengelola
+        perjalanan.
       </p>
-      <p className="text-sm text-slate-500">
-        Setelah login, kamu akan diarahkan ke dashboard untuk melihat dan
-        mengelola perjalanan.
-      </p>
+
+      <button
+        type="button"
+        onClick={() => {
+          window.location.href = "/api/auth/login";
+        }}
+        className="w-full flex items-center justify-center gap-3 rounded-2xl border border-brand-blue bg-brand-blue px-4 py-3 text-sm font-semibold text-white shadow-sm hover:bg-brand-blue/90 transition-colors"
+      >
+        <span>Masuk dengan Google</span>
+      </button>
     </section>
   );
 }

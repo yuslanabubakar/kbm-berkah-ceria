@@ -1,15 +1,14 @@
 import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getSupabaseServer } from "@/lib/supabaseServer";
+import { getDb } from "@/lib/db";
+import { getCurrentUser } from "@/lib/auth";
+import { trips, tripLegs } from "@/db/schema";
+import { eq, desc } from "drizzle-orm";
 
 export const runtime = "edge";
 
 const timeRegex = /^\d{2}:\d{2}$/;
-
-type LegOrderRow = {
-  leg_order: number;
-};
 
 const createLegSchema = z.object({
   origin: z.string().min(1, "Asal leg wajib diisi"),
@@ -24,9 +23,7 @@ const createLegSchema = z.object({
 });
 
 function combineDateTime(date?: string | null, time?: string | null) {
-  if (!date) {
-    return null;
-  }
+  if (!date) return null;
   const safeTime = time && timeRegex.test(time) ? time : "00:00";
   const [hour, minute] = safeTime.split(":");
   return new Date(`${date}T${hour}:${minute}:00`).toISOString();
@@ -37,7 +34,6 @@ export async function POST(
   { params }: { params: { tripId: string } },
 ) {
   const { tripId } = params;
-
   if (!tripId) {
     return NextResponse.json(
       { message: "Trip tidak ditemukan" },
@@ -45,9 +41,16 @@ export async function POST(
     );
   }
 
+  const currentUser = await getCurrentUser(request);
+  if (!currentUser) {
+    return NextResponse.json(
+      { message: "Tidak terautentikasi" },
+      { status: 401 },
+    );
+  }
+
   const payload = await request.json().catch(() => null);
   const parsed = createLegSchema.safeParse(payload);
-
   if (!parsed.success) {
     return NextResponse.json(
       { message: "Data leg belum valid", issues: parsed.error.flatten() },
@@ -55,82 +58,46 @@ export async function POST(
     );
   }
 
-  const supabase = getSupabaseServer();
-
-  const { data: tripRow, error: tripError } = await supabase
-    .from("trips")
-    .select("id")
-    .eq("id", tripId)
-    .maybeSingle();
-
-  if (tripError) {
-    console.error(tripError);
-    return NextResponse.json(
-      { message: "Gagal mengecek perjalanan" },
-      { status: 500 },
-    );
-  }
-
-  if (!tripRow) {
+  const db = getDb();
+  const trip = await db.select().from(trips).where(eq(trips.id, tripId)).get();
+  if (!trip) {
     return NextResponse.json(
       { message: "Trip tidak ditemukan" },
       { status: 404 },
     );
   }
 
-  const { data: lastLegData, error: lastLegError } = await supabase
-    .from("trip_legs")
-    .select("leg_order")
-    .eq("trip_id", tripId)
-    .order("leg_order", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+  const lastLeg = await db
+    .select()
+    .from(tripLegs)
+    .where(eq(tripLegs.tripId, tripId))
+    .orderBy(desc(tripLegs.legOrder))
+    .get();
 
-  if (lastLegError) {
-    console.error(lastLegError);
-    return NextResponse.json(
-      { message: "Gagal membaca urutan leg" },
-      { status: 500 },
-    );
-  }
-
-  const lastLegRow = (lastLegData as LegOrderRow | null) || null;
-
-  const nextOrder = (lastLegRow?.leg_order ?? 0) + 1;
-
+  const nextOrder = (lastLeg?.legOrder ?? 0) + 1;
   const startDateTime =
     combineDateTime(parsed.data.startDate, parsed.data.startTime) ??
     new Date().toISOString();
+  const legId = crypto.randomUUID();
+  const now = new Date().toISOString();
 
-  const insertData = {
-    trip_id: tripId,
-    leg_order: nextOrder,
-    leg_type: "custom" as const,
+  await db.insert(tripLegs).values({
+    id: legId,
+    tripId,
+    legOrder: nextOrder,
+    legType: "custom",
     origin: parsed.data.origin.trim(),
     destination: parsed.data.destination?.trim() || null,
-    start_datetime: startDateTime,
-    end_datetime: null,
+    startDatetime: startDateTime,
+    endDatetime: null,
     notes: parsed.data.notes?.trim() || null,
-  };
-
-  const { data: legRow, error: insertError } = await supabase
-    .from("trip_legs")
-    .insert(insertData)
-    .select("id, leg_order")
-    .single();
-
-  if (insertError || !legRow) {
-    console.error(insertError);
-    return NextResponse.json({ message: "Gagal membuat leg" }, { status: 500 });
-  }
+    createdAt: now,
+  });
 
   revalidatePath(`/perjalanan/${tripId}`);
 
   return NextResponse.json(
-    {
-      message: "Leg ditambahkan",
-      data: { legId: legRow.id, order: legRow.leg_order },
-    },
+    { message: "Leg ditambahkan", data: { legId, order: nextOrder } },
     { status: 201 },
   );
 }

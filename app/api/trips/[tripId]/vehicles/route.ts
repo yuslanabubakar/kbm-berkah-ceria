@@ -1,7 +1,9 @@
 import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getSupabaseServer } from "@/lib/supabaseServer";
+import { getDb } from "@/lib/db";
+import { getCurrentUser } from "@/lib/auth";
+import { fleetVehicles } from "@/db/schema";
 
 export const runtime = "edge";
 
@@ -17,7 +19,6 @@ export async function POST(
   { params }: { params: { tripId: string } },
 ) {
   const { tripId } = params;
-
   if (!tripId) {
     return NextResponse.json(
       { message: "Trip tidak ditemukan" },
@@ -25,9 +26,16 @@ export async function POST(
     );
   }
 
+  const currentUser = await getCurrentUser(request);
+  if (!currentUser) {
+    return NextResponse.json(
+      { message: "Tidak terautentikasi" },
+      { status: 401 },
+    );
+  }
+
   const payload = await request.json().catch(() => null);
   const parsed = createVehicleSchema.safeParse(payload);
-
   if (!parsed.success) {
     return NextResponse.json(
       { message: "Data kendaraan belum valid", issues: parsed.error.flatten() },
@@ -35,34 +43,24 @@ export async function POST(
     );
   }
 
-  const supabase = getSupabaseServer();
+  const db = getDb();
+  const vehicleId = crypto.randomUUID();
+  const now = new Date().toISOString();
 
-  const insertData = {
-    trip_id: tripId,
+  await db.insert(fleetVehicles).values({
+    id: vehicleId,
+    tripId,
     label: parsed.data.label,
-    plate_number: parsed.data.plateNumber ?? null,
-    seat_capacity: parsed.data.seatCapacity ?? 7,
+    plateNumber: parsed.data.plateNumber ?? null,
+    seatCapacity: parsed.data.seatCapacity ?? 7,
     notes: parsed.data.notes ?? null,
-  };
-
-  const { data: vehicleRow, error: vehicleError } = await supabase
-    .from("trip_vehicles")
-    .insert(insertData)
-    .select("id")
-    .single();
-
-  if (vehicleError || !vehicleRow) {
-    console.error(vehicleError);
-    return NextResponse.json(
-      { message: "Gagal menambahkan kendaraan" },
-      { status: 500 },
-    );
-  }
+    createdAt: now,
+  });
 
   revalidatePath(`/perjalanan/${tripId}`);
 
   return NextResponse.json(
-    { message: "Kendaraan ditambahkan", data: { vehicleId: vehicleRow.id } },
+    { message: "Kendaraan ditambahkan", data: { vehicleId } },
     { status: 201 },
   );
 }

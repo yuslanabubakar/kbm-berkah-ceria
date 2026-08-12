@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getSupabaseServer } from "@/lib/supabaseServer";
+import { getDb } from "@/lib/db";
+import { getCurrentUser } from "@/lib/auth";
+import { trips, tripShares } from "@/db/schema";
+import { eq, desc } from "drizzle-orm";
 
 export const runtime = "edge";
 
@@ -13,7 +16,6 @@ export async function POST(
   { params }: { params: { tripId: string } },
 ) {
   const { tripId } = params;
-
   if (!tripId) {
     return NextResponse.json(
       { message: "Trip tidak ditemukan" },
@@ -21,9 +23,16 @@ export async function POST(
     );
   }
 
+  const currentUser = await getCurrentUser(request);
+  if (!currentUser) {
+    return NextResponse.json(
+      { message: "Tidak terautentikasi" },
+      { status: 401 },
+    );
+  }
+
   const payload = await request.json().catch(() => null);
   const parsed = shareSchema.safeParse(payload);
-
   if (!parsed.success) {
     return NextResponse.json(
       { message: "Data belum valid", issues: parsed.error.flatten() },
@@ -31,87 +40,47 @@ export async function POST(
     );
   }
 
-  const supabase = getSupabaseServer();
-
-  // Get current user
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser();
-
-  if (userError || !user) {
-    return NextResponse.json(
-      { message: "Tidak terautentikasi" },
-      { status: 401 },
-    );
-  }
-
-  // Check if trip exists and user is owner
-  const { data: trip, error: tripError } = await supabase
-    .from("trips")
-    .select("id, owner_id")
-    .eq("id", tripId)
-    .single();
-
-  if (tripError || !trip) {
+  const db = getDb();
+  const trip = await db.select().from(trips).where(eq(trips.id, tripId)).get();
+  if (!trip) {
     return NextResponse.json(
       { message: "Trip tidak ditemukan" },
       { status: 404 },
     );
   }
 
-  if (trip.owner_id !== user.id) {
+  if (trip.ownerId !== currentUser.id) {
     return NextResponse.json(
       { message: "Hanya pemilik trip yang bisa membagikan" },
       { status: 403 },
     );
   }
 
-  // Check if user exists with this email
-  const { data: targetUser } = await supabase.auth.admin.listUsers();
-  const sharedUser = targetUser?.users?.find(
-    (u) => u.email === parsed.data.email,
-  );
+  const id = crypto.randomUUID();
+  const now = new Date().toISOString();
 
-  // Create share record
-  const { data: share, error: shareError } = await supabase
-    .from("trip_shares")
-    .insert({
-      trip_id: tripId,
-      shared_with_email: parsed.data.email,
-      shared_with_user_id: sharedUser?.id || null,
-      shared_by: user.id,
-      can_edit: false,
-    })
-    .select("id, shared_with_email, created_at")
-    .single();
-
-  if (shareError) {
-    if (shareError.code === "23505") {
-      return NextResponse.json(
-        { message: "Trip sudah dibagikan ke email ini" },
-        { status: 400 },
-      );
-    }
-    console.error(shareError);
-    return NextResponse.json(
-      { message: "Gagal membagikan trip" },
-      { status: 500 },
-    );
-  }
+  await db.insert(tripShares).values({
+    id,
+    tripId,
+    sharedWithEmail: parsed.data.email.toLowerCase(),
+    canEdit: false,
+    createdAt: now,
+  });
 
   return NextResponse.json(
-    { message: "Trip berhasil dibagikan", data: share },
+    {
+      message: "Trip berhasil dibagikan",
+      data: { id, shared_with_email: parsed.data.email, created_at: now },
+    },
     { status: 201 },
   );
 }
 
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: { tripId: string } },
 ) {
   const { tripId } = params;
-
   if (!tripId) {
     return NextResponse.json(
       { message: "Trip tidak ditemukan" },
@@ -119,21 +88,20 @@ export async function GET(
     );
   }
 
-  const supabase = getSupabaseServer();
+  const db = getDb();
+  const sharesRows = await db
+    .select()
+    .from(tripShares)
+    .where(eq(tripShares.tripId, tripId))
+    .orderBy(desc(tripShares.createdAt))
+    .all();
 
-  const { data: shares, error } = await supabase
-    .from("trip_shares")
-    .select("id, shared_with_email, can_edit, created_at")
-    .eq("trip_id", tripId)
-    .order("created_at", { ascending: false });
+  const shares = sharesRows.map((s) => ({
+    id: s.id,
+    shared_with_email: s.sharedWithEmail,
+    can_edit: s.canEdit,
+    created_at: s.createdAt,
+  }));
 
-  if (error) {
-    console.error(error);
-    return NextResponse.json(
-      { message: "Gagal mengambil data sharing" },
-      { status: 500 },
-    );
-  }
-
-  return NextResponse.json({ shares: shares || [] });
+  return NextResponse.json({ shares });
 }

@@ -1,80 +1,35 @@
-import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { COOKIE_NAME, verifySessionToken } from "@/lib/auth";
 
 export async function middleware(request: NextRequest) {
-  let response = NextResponse.next({
-    request: {
-      headers: request.headers
-    }
-  });
+  const token = request.cookies.get(COOKIE_NAME)?.value;
+  const user = token ? await verifySessionToken(token) : null;
 
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        get(name: string) {
-          return request.cookies.get(name)?.value;
-        },
-        set(name: string, value: string, options: CookieOptions) {
-          request.cookies.set({
-            name,
-            value,
-            ...options
-          });
-          response = NextResponse.next({
-            request: {
-              headers: request.headers
-            }
-          });
-          response.cookies.set({
-            name,
-            value,
-            ...options
-          });
-        },
-        remove(name: string, options: CookieOptions) {
-          request.cookies.set({
-            name,
-            value: "",
-            ...options
-          });
-          response = NextResponse.next({
-            request: {
-              headers: request.headers
-            }
-          });
-          response.cookies.set({
-            name,
-            value: "",
-            ...options
-          });
-        }
-      }
-    }
-  );
-
-  const {
-    data: { session }
-  } = await supabase.auth.getSession();
-
-  const isAuthRoute = request.nextUrl.pathname.startsWith("/auth");
+  const isAuthRoute = request.nextUrl.pathname.startsWith("/api/auth");
   const isLoginRoute = request.nextUrl.pathname === "/login";
-  const isPublicRoute = request.nextUrl.pathname === "/" || isAuthRoute || isLoginRoute;
+  const isPublicRoute =
+    request.nextUrl.pathname === "/" ||
+    request.nextUrl.pathname.startsWith("/ringkasan") ||
+    (request.nextUrl.pathname.startsWith("/api/trips/") &&
+      request.nextUrl.pathname.endsWith("/report")) ||
+    isAuthRoute ||
+    isLoginRoute;
 
-  if (!session && !isPublicRoute) {
+  if (!user && !isPublicRoute) {
     const redirectUrl = new URL("/login", request.url);
     return NextResponse.redirect(redirectUrl);
   }
 
-  if (session && isLoginRoute) {
+  if (user && isLoginRoute) {
     const redirectUrl = new URL("/dashboard", request.url);
     return NextResponse.redirect(redirectUrl);
   }
 
-  return response;
+  return NextResponse.next();
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)"]
+  matcher: [
+    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+  ],
 };

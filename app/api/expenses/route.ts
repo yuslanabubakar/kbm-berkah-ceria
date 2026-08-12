@@ -1,7 +1,10 @@
 import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getSupabaseServer } from "@/lib/supabaseServer";
+import { getDb } from "@/lib/db";
+import { getCurrentUser } from "@/lib/auth";
+import { expenses, expenseSplits } from "@/db/schema";
+import { eq } from "drizzle-orm";
 
 export const runtime = "edge";
 
@@ -33,7 +36,15 @@ const expenseSchema = z
   });
 
 export async function POST(request: Request) {
-  const payload = await request.json();
+  const currentUser = await getCurrentUser(request);
+  if (!currentUser) {
+    return NextResponse.json(
+      { message: "Tidak terautentikasi" },
+      { status: 401 },
+    );
+  }
+
+  const payload = await request.json().catch(() => null);
   const parsed = expenseSchema.safeParse(payload);
 
   if (!parsed.success) {
@@ -46,7 +57,6 @@ export async function POST(request: Request) {
     );
   }
 
-  // When food-stop splits are provided, derive the total from them (ignore client amountIdr).
   const hasSplits = parsed.data.splits && parsed.data.splits.length > 0;
   const amountIdr = hasSplits
     ? parsed.data.splits!.reduce((sum, s) => sum + s.amountIdr, 0)
@@ -59,50 +69,37 @@ export async function POST(request: Request) {
     );
   }
 
+  const db = getDb();
+  const expenseId = crypto.randomUUID();
+  const now = new Date().toISOString();
+
   try {
-    const supabase = getSupabaseServer();
-
-    const { data: expenseRow, error } = await supabase
-      .from("expenses")
-      .insert({
-        trip_id: parsed.data.tripId,
-        leg_id: parsed.data.legId,
-        vehicle_id: parsed.data.vehicleId ?? null,
-        title: parsed.data.judul,
-        amount_idr: amountIdr,
-        paid_by: parsed.data.paidBy,
-        notes: parsed.data.catatan,
-        share_scope: parsed.data.shareScope,
-        expense_type: hasSplits ? "makan" : "lainnya",
-      })
-      .select("id")
-      .single();
-
-    if (error || !expenseRow) {
-      console.error(error);
-      return NextResponse.json({ message: "Gagal simpan" }, { status: 500 });
-    }
+    await db.insert(expenses).values({
+      id: expenseId,
+      tripId: parsed.data.tripId,
+      legId: parsed.data.legId,
+      vehicleId: parsed.data.vehicleId ?? null,
+      paidBy: parsed.data.paidBy,
+      title: parsed.data.judul,
+      amountIdr,
+      notes: parsed.data.catatan ?? null,
+      expenseType: hasSplits ? "makan" : "lainnya",
+      issuedAt: now,
+      createdBy: currentUser.id,
+      isExcluded: false,
+      createdAt: now,
+    });
 
     if (hasSplits) {
-      const splitRows = parsed.data.splits!.map((s) => ({
-        expense_id: expenseRow.id,
-        participant_id: s.participantId,
-        share_weight: 1,
-        share_amount_override: s.amountIdr,
-      }));
-
-      const { error: splitError } = await supabase
-        .from("expense_splits")
-        .insert(splitRows);
-
-      if (splitError) {
-        console.error(splitError);
-        // Best-effort rollback — delete the orphaned expense.
-        await supabase.from("expenses").delete().eq("id", expenseRow.id);
-        return NextResponse.json(
-          { message: "Gagal menyimpan pembagian tagihan makan" },
-          { status: 500 },
-        );
+      for (const s of parsed.data.splits!) {
+        await db.insert(expenseSplits).values({
+          id: crypto.randomUUID(),
+          expenseId,
+          participantId: s.participantId,
+          shareWeight: 1,
+          shareAmountOverride: s.amountIdr,
+          createdAt: now,
+        });
       }
     }
 
@@ -110,11 +107,19 @@ export async function POST(request: Request) {
     revalidatePath(`/`);
 
     return NextResponse.json(
-      { message: "Berhasil", id: expenseRow.id },
+      { message: "Berhasil", id: expenseId },
       { status: 201 },
     );
   } catch (error) {
     console.error(error);
-    return NextResponse.json({ message: "Server error" }, { status: 500 });
+    try {
+      await db.delete(expenses).where(eq(expenses.id, expenseId));
+    } catch {
+      // ignore
+    }
+    return NextResponse.json(
+      { message: "Gagal menyimpan pengeluaran" },
+      { status: 500 },
+    );
   }
 }

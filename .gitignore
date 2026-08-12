@@ -25,3 +25,4 @@ tsconfig.tsbuildinfo
 
 # Supabase generated metadata
 supabase/.branches
+migrations/seed_*.sql

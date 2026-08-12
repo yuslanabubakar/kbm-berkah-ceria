@@ -1,7 +1,10 @@
 import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getSupabaseServer } from "@/lib/supabaseServer";
+import { getDb } from "@/lib/db";
+import { getCurrentUser } from "@/lib/auth";
+import { balanceAdjustments } from "@/db/schema";
+import { eq, and } from "drizzle-orm";
 
 export const runtime = "edge";
 
@@ -14,7 +17,6 @@ export async function PATCH(
   { params }: { params: { tripId: string; adjustmentId: string } },
 ) {
   const { tripId, adjustmentId } = params;
-
   if (!tripId || !adjustmentId) {
     return NextResponse.json(
       { message: "Parameter tidak lengkap" },
@@ -22,9 +24,16 @@ export async function PATCH(
     );
   }
 
+  const currentUser = await getCurrentUser(request);
+  if (!currentUser) {
+    return NextResponse.json(
+      { message: "Tidak terautentikasi" },
+      { status: 401 },
+    );
+  }
+
   const payload = await request.json().catch(() => null);
   const parsed = actionSchema.safeParse(payload);
-
   if (!parsed.success) {
     return NextResponse.json(
       { message: "Aksi tidak valid", issues: parsed.error.flatten() },
@@ -32,39 +41,36 @@ export async function PATCH(
     );
   }
 
-  const supabase = getSupabaseServer();
-  const updateData: Record<string, unknown> = {};
+  const db = getDb();
+  const existing = await db
+    .select()
+    .from(balanceAdjustments)
+    .where(
+      and(
+        eq(balanceAdjustments.id, adjustmentId),
+        eq(balanceAdjustments.tripId, tripId),
+      ),
+    )
+    .get();
 
-  if (parsed.data.action === "apply") {
-    updateData.status = "applied";
-    updateData.applied_at = new Date().toISOString();
-  } else {
-    updateData.status = "void";
-    updateData.applied_at = null;
-  }
-
-  const { data, error } = await supabase
-    .from("balance_adjustments")
-    .update(updateData)
-    .eq("id", adjustmentId)
-    .eq("trip_id", tripId)
-    .select("id")
-    .maybeSingle();
-
-  if (error) {
-    console.error(error);
-    return NextResponse.json(
-      { message: "Gagal memperbarui penyesuaian" },
-      { status: 500 },
-    );
-  }
-
-  if (!data) {
+  if (!existing) {
     return NextResponse.json(
       { message: "Penyesuaian tidak ditemukan" },
       { status: 404 },
     );
   }
+
+  const now = new Date().toISOString();
+  const isApply = parsed.data.action === "apply";
+
+  await db
+    .update(balanceAdjustments)
+    .set({
+      status: isApply ? "applied" : "void",
+      appliedBy: isApply ? currentUser.id : null,
+      appliedAt: isApply ? now : null,
+    })
+    .where(eq(balanceAdjustments.id, adjustmentId));
 
   revalidatePath(`/perjalanan/${tripId}`);
 

@@ -1,7 +1,10 @@
 import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getSupabaseServer } from "@/lib/supabaseServer";
+import { getDb } from "@/lib/db";
+import { getCurrentUser } from "@/lib/auth";
+import { participants, expenses, balanceAdjustments } from "@/db/schema";
+import { eq, and } from "drizzle-orm";
 
 export const runtime = "edge";
 
@@ -18,9 +21,16 @@ export async function PATCH(
   request: Request,
   { params }: { params: { tripId: string; participantId: string } },
 ) {
+  const currentUser = await getCurrentUser(request);
+  if (!currentUser) {
+    return NextResponse.json(
+      { message: "Tidak terautentikasi" },
+      { status: 401 },
+    );
+  }
+
   const payload = await request.json().catch(() => null);
   const parsed = updateParticipantSchema.safeParse(payload);
-
   if (!parsed.success) {
     return NextResponse.json(
       { message: parsed.error.errors[0]?.message ?? "Data tidak valid" },
@@ -28,89 +38,98 @@ export async function PATCH(
     );
   }
 
-  const supabase = getSupabaseServer();
-  const { data: participant, error: lookupError } = await supabase
-    .from("participants")
-    .select("trip_id")
-    .eq("id", params.participantId)
-    .single();
+  const db = getDb();
+  const existing = await db
+    .select()
+    .from(participants)
+    .where(
+      and(
+        eq(participants.id, params.participantId),
+        eq(participants.tripId, params.tripId),
+      ),
+    )
+    .get();
 
-  if (lookupError || !participant || participant.trip_id !== params.tripId) {
+  if (!existing) {
     return NextResponse.json(
       { message: "Peserta tidak ditemukan" },
       { status: 404 },
     );
   }
 
-  const updatePayload: Record<string, unknown> = {};
-  if (parsed.data.name != null) {
-    updatePayload.display_name = parsed.data.name.trim();
-  }
+  const updatePayload: Record<string, any> = {};
+  if (parsed.data.name != null)
+    updatePayload.displayName = parsed.data.name.trim();
   if (parsed.data.isDriver != null) {
     updatePayload.role = parsed.data.isDriver ? "driver" : "member";
+    updatePayload.isDriver = parsed.data.isDriver;
   }
 
-  if (!Object.keys(updatePayload).length) {
-    return NextResponse.json(
-      { message: "Tidak ada perubahan" },
-      { status: 400 },
-    );
-  }
-
-  const { error: updateError } = await supabase
-    .from("participants")
-    .update(updatePayload)
-    .eq("id", params.participantId);
-
-  if (updateError) {
-    console.error(updateError);
-    return NextResponse.json(
-      { message: "Gagal memperbarui peserta" },
-      { status: 500 },
-    );
-  }
+  await db
+    .update(participants)
+    .set(updatePayload)
+    .where(eq(participants.id, params.participantId));
 
   revalidatePath(`/perjalanan/${params.tripId}`);
   return NextResponse.json({ message: "Peserta diperbarui" });
 }
 
 export async function DELETE(
-  _request: Request,
+  request: Request,
   { params }: { params: { tripId: string; participantId: string } },
 ) {
-  const supabase = getSupabaseServer();
-  const { data: participant, error: lookupError } = await supabase
-    .from("participants")
-    .select("trip_id")
-    .eq("id", params.participantId)
-    .single();
+  const currentUser = await getCurrentUser(request);
+  if (!currentUser) {
+    return NextResponse.json(
+      { message: "Tidak terautentikasi" },
+      { status: 401 },
+    );
+  }
 
-  if (lookupError || !participant || participant.trip_id !== params.tripId) {
+  const db = getDb();
+  const existing = await db
+    .select()
+    .from(participants)
+    .where(
+      and(
+        eq(participants.id, params.participantId),
+        eq(participants.tripId, params.tripId),
+      ),
+    )
+    .get();
+
+  if (!existing) {
     return NextResponse.json(
       { message: "Peserta tidak ditemukan" },
       { status: 404 },
     );
   }
 
-  const { count: participantCount } = await supabase
-    .from("participants")
-    .select("id", { count: "exact", head: true })
-    .eq("trip_id", params.tripId);
+  const allTripParticipants = await db
+    .select({ id: participants.id })
+    .from(participants)
+    .where(eq(participants.tripId, params.tripId))
+    .all();
 
-  if (participantCount != null && participantCount <= 1) {
+  if (allTripParticipants.length <= 1) {
     return NextResponse.json(
       { message: "Minimal harus ada satu peserta dalam perjalanan" },
       { status: 400 },
     );
   }
 
-  const { count: expenseCount } = await supabase
-    .from("expenses")
-    .select("id", { count: "exact", head: true })
-    .eq("trip_id", params.tripId)
-    .eq("paid_by", params.participantId);
+  const paidExpenses = await db
+    .select({ id: expenses.id })
+    .from(expenses)
+    .where(
+      and(
+        eq(expenses.tripId, params.tripId),
+        eq(expenses.paidBy, params.participantId),
+      ),
+    )
+    .all();
 
-  if (expenseCount && expenseCount > 0) {
+  if (paidExpenses.length > 0) {
     return NextResponse.json(
       {
         message: "Peserta tidak bisa dihapus karena sudah mencatat pengeluaran",
@@ -119,32 +138,27 @@ export async function DELETE(
     );
   }
 
-  const { count: adjustmentCount } = await supabase
-    .from("balance_adjustments")
-    .select("id", { count: "exact", head: true })
-    .eq("trip_id", params.tripId)
-    .eq("participant_id", params.participantId);
+  const userAdjustments = await db
+    .select({ id: balanceAdjustments.id })
+    .from(balanceAdjustments)
+    .where(
+      and(
+        eq(balanceAdjustments.tripId, params.tripId),
+        eq(balanceAdjustments.participantId, params.participantId),
+      ),
+    )
+    .all();
 
-  if (adjustmentCount && adjustmentCount > 0) {
+  if (userAdjustments.length > 0) {
     return NextResponse.json(
       { message: "Hapus penyesuaian saldo terkait sebelum menghapus peserta" },
       { status: 400 },
     );
   }
 
-  const { error: deleteError } = await supabase
-    .from("participants")
-    .delete()
-    .eq("id", params.participantId)
-    .eq("trip_id", params.tripId);
-
-  if (deleteError) {
-    console.error(deleteError);
-    return NextResponse.json(
-      { message: "Gagal menghapus peserta" },
-      { status: 500 },
-    );
-  }
+  await db
+    .delete(participants)
+    .where(eq(participants.id, params.participantId));
 
   revalidatePath(`/perjalanan/${params.tripId}`);
   return NextResponse.json({ message: "Peserta dihapus" });

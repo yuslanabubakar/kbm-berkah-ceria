@@ -15,7 +15,7 @@
  * (Replace the existing file entirely)
  */
 
-import { getSupabaseServiceRole } from "@/lib/supabaseServer";
+import { fetchTripDetail } from "@/lib/tripQueries";
 import { NextRequest, NextResponse } from "next/server";
 
 export const runtime = "edge";
@@ -39,7 +39,7 @@ function formatDate(dateStr: string | null): string {
   }).format(new Date(dateStr));
 }
 
-// ─── Types (minimal — adjust to match your actual DB schema) ─────────────────
+// ─── Types ────────────────────────────────────────────────────────────────
 
 interface Participant {
   display_name: string;
@@ -84,77 +84,54 @@ export async function GET(
   request: NextRequest,
   { params }: { params: { tripId: string } },
 ) {
-  const supabase = getSupabaseServiceRole();
-
   const { tripId } = params;
+  const detail = await fetchTripDetail(tripId);
 
-  // ── Fetch trip ──────────────────────────────────────────────────────────────
-  const { data: trip, error: tripError } = await supabase
-    .from("trips")
-    .select("id, name, origin_city, destination_city, start_date, end_date")
-    .eq("id", tripId)
-    .single();
-
-  if (tripError || !trip) {
+  if (!detail) {
     return NextResponse.json(
-      {
-        message: "Trip tidak ditemukan",
-        tripId,
-        error: tripError?.message,
-      },
+      { message: "Trip tidak ditemukan", tripId },
       { status: 404 },
     );
   }
 
-  // ── Fetch participants with balances ────────────────────────────────────────
-  const { data: participants } = await supabase
-    .from("trip_balances")
-    .select("display_name, balance_idr, total_paid, total_share")
-    .eq("trip_id", tripId)
-    .order("balance_idr");
+  const trip: Trip = {
+    id: detail.trip.id,
+    name: detail.trip.nama,
+    origin_city: null,
+    destination_city: null,
+    start_date: detail.trip.tanggalMulai,
+    end_date: detail.trip.tanggalSelesai ?? null,
+  };
 
-  // ── Fetch expenses with paid_by participant name ────────────────────────────
-  const { data: expenses } = await supabase
-    .from("expenses")
-    .select(
-      "title, amount_idr, expense_type, is_excluded, created_at, paid_by:participants!paid_by(display_name), expense_splits(share_weight, share_amount_override, participants(display_name))",
-    )
-    .eq("trip_id", tripId)
-    .order("created_at");
-
-  // ── Fetch payment accounts attached to trip ─────────────────────────────────
-  const { data: paymentAccounts } = await supabase
-    .from("trip_payment_accounts")
-    .select(
-      "payment_account:user_payment_accounts(label, provider, account_name, account_number)",
-    )
-    .eq("trip_id", tripId);
-
-  const participantList: Participant[] = (participants ?? []).map((p: any) => ({
-    display_name: p.display_name,
-    balance_idr: Number(p.balance_idr ?? 0),
-    total_paid: Number(p.total_paid ?? 0),
-    total_share: Number(p.total_share ?? 0),
+  const participantList: Participant[] = detail.balances.map((b) => ({
+    display_name: b.nama,
+    balance_idr: b.balance,
+    total_paid: b.totalPaid,
+    total_share: b.totalShare,
   }));
-  const expenseList = (expenses ?? []).map((e: any) => ({
-    title: e.title,
-    amount_idr: Number(e.amount_idr),
-    expense_type: e.expense_type,
-    is_excluded: e.is_excluded,
-    created_at: e.created_at,
-    paid_by_name: e.paid_by?.display_name ?? "—",
-    splits: (e.expense_splits ?? []).map((split: any) => ({
-      participant_name: split.participants?.display_name ?? "Tanpa nama",
-      share_amount_override:
-        split.share_amount_override != null
-          ? Number(split.share_amount_override)
-          : null,
-      share_weight: Number(split.share_weight ?? 0),
+
+  const expenseList: Expense[] = detail.expenses.map((e) => ({
+    title: e.judul,
+    amount_idr: e.amountIdr,
+    expense_type: e.expenseType,
+    is_excluded: Boolean(e.isExcluded),
+    created_at: e.date,
+    paid_by_name: e.paidBy.nama,
+    splits: (e.splits ?? []).map((s) => ({
+      participant_name: s.participantName,
+      share_amount_override: s.shareAmountOverride ?? null,
+      share_weight: s.shareWeight,
     })),
-  })) as Expense[];
-  const accountList: PaymentAccount[] = (paymentAccounts ?? [])
-    .map((a: any) => a.payment_account)
-    .filter(Boolean);
+  }));
+
+  const accountList: PaymentAccount[] = detail.paymentAttachments.map(
+    (acc) => ({
+      label: acc.label,
+      provider: acc.provider ?? null,
+      account_name: acc.accountName,
+      account_number: acc.accountNumber,
+    }),
+  );
 
   const totalExpenses = expenseList
     .filter((e) => !e.is_excluded)

@@ -1,7 +1,9 @@
 import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getSupabaseServer } from "@/lib/supabaseServer";
+import { getDb } from "@/lib/db";
+import { getCurrentUser } from "@/lib/auth";
+import { balanceAdjustments } from "@/db/schema";
 
 export const runtime = "edge";
 
@@ -19,7 +21,6 @@ export async function POST(
   { params }: { params: { tripId: string } },
 ) {
   const tripId = params.tripId;
-
   if (!tripId) {
     return NextResponse.json(
       { message: "Trip tidak ditemukan" },
@@ -27,8 +28,15 @@ export async function POST(
     );
   }
 
-  const payload = await request.json().catch(() => null);
+  const currentUser = await getCurrentUser(request);
+  if (!currentUser) {
+    return NextResponse.json(
+      { message: "Tidak terautentikasi" },
+      { status: 401 },
+    );
+  }
 
+  const payload = await request.json().catch(() => null);
   const parsed = adjustmentSchema.safeParse(payload);
 
   if (!parsed.success) {
@@ -38,40 +46,28 @@ export async function POST(
     );
   }
 
-  const supabase = getSupabaseServer();
+  const db = getDb();
+  const id = crypto.randomUUID();
   const now = new Date().toISOString();
   const shouldApplyNow = parsed.data.applyNow ?? false;
 
-  const insertPayload: Record<string, unknown> = {
-    trip_id: tripId,
-    participant_id: parsed.data.participantId,
-    amount_idr: parsed.data.amountIdr,
+  await db.insert(balanceAdjustments).values({
+    id,
+    tripId,
+    participantId: parsed.data.participantId,
+    amountIdr: parsed.data.amountIdr,
     reason: parsed.data.reason ?? null,
-  };
-
-  if (shouldApplyNow) {
-    insertPayload.status = "applied";
-    insertPayload.applied_at = now;
-  }
-
-  const { data, error } = await supabase
-    .from("balance_adjustments")
-    .insert(insertPayload)
-    .select("id")
-    .maybeSingle();
-
-  if (error) {
-    console.error(error);
-    return NextResponse.json(
-      { message: "Gagal menyimpan penyesuaian" },
-      { status: 500 },
-    );
-  }
+    status: shouldApplyNow ? "applied" : "draft",
+    createdBy: currentUser.id,
+    createdAt: now,
+    appliedBy: shouldApplyNow ? currentUser.id : null,
+    appliedAt: shouldApplyNow ? now : null,
+  });
 
   revalidatePath(`/perjalanan/${tripId}`);
 
   return NextResponse.json(
-    { message: "Penyesuaian tersimpan", data },
+    { message: "Penyesuaian tersimpan", data: { id } },
     { status: 201 },
   );
 }

@@ -1,7 +1,20 @@
+import { getDb } from "@/lib/db";
+import { getCurrentUser } from "@/lib/auth";
 import {
-  getSupabaseServer,
-  getSupabaseServiceRole,
-} from "@/lib/supabaseServer";
+  trips,
+  participants,
+  tripLegs,
+  fleetVehicles,
+  legVehicleLinks,
+  vehicleAssignments,
+  expenses,
+  expenseSplits,
+  balanceAdjustments,
+  userPaymentAccounts,
+  tripPaymentAccounts,
+  tripShares,
+} from "@/db/schema";
+import { eq, inArray, desc, asc, and } from "drizzle-orm";
 import {
   Trip,
   Expense,
@@ -57,6 +70,17 @@ export type TripLeg = {
   vehicles: TripLegVehicle[];
 };
 
+export type BalanceAdjustment = {
+  id: string;
+  participantId: string;
+  participantName: string;
+  amountIdr: number;
+  reason?: string | null;
+  status: "draft" | "applied" | "void";
+  createdAt: string;
+  appliedAt?: string | null;
+};
+
 export type TripDetail = {
   trip: {
     id: string;
@@ -80,158 +104,13 @@ export type TripDetail = {
   };
 };
 
-export type BalanceAdjustment = {
-  id: string;
-  participantId: string;
-  participantName: string;
-  amountIdr: number;
-  reason?: string | null;
-  status: "draft" | "applied" | "void";
-  createdAt: string;
-  appliedAt?: string | null;
-};
-
-type TripRow = {
-  id: string;
-  owner_id: string;
-  name: string;
-  origin_city: string | null;
-  destination_city: string | null;
-  start_date: string | null;
-  end_date: string | null;
-  notes?: string | null;
-};
-
-type ExpenseParticipantRow = {
-  id: string;
-  display_name: string;
-};
-
-type ExpenseRow = {
-  id: string;
-  title: string;
-  expense_type?: string | null;
-  notes: string | null;
-  amount_idr: string | number | null;
-  issued_at: string;
-  participants: ExpenseParticipantRow | ExpenseParticipantRow[] | null;
-  is_excluded: boolean;
-  expense_splits?: ExpenseSplitRow[] | null;
-  leg_id: string;
-  vehicle_id: string | null;
-  share_scope: "leg" | "vehicle";
-};
-
-type ExpenseTotalRow = {
-  trip_id: string;
-  amount_idr: string | number | null;
-};
-
-type BalanceViewRow = {
-  participant_id: string;
-  display_name: string;
-  total_paid: string | number | null;
-  total_share: string | number | null;
-  balance_idr: string | number | null;
-  adjustment_idr?: string | number | null;
-};
-
-type ParticipantRow = {
-  id: string;
-  display_name: string;
-  role: string | null;
-};
-
-type AssignmentRow = {
-  participant_id: string;
-  leg_id: string;
-  vehicle_id: string;
-  role: string | null;
-  participants: { id: string; display_name: string } | null;
-};
-
-type LegRow = {
-  id: string;
-  leg_order: number;
-  leg_type: string;
-  origin: string | null;
-  destination: string | null;
-  start_datetime: string | null;
-  end_datetime: string | null;
-};
-
-type VehicleRow = {
-  id: string;
-  trip_id: string;
-  label: string;
-  plate_number: string | null;
-  seat_capacity: number | null;
-  notes: string | null;
-};
-
-type LegVehicleLinkRow = {
-  leg_id: string;
-  vehicle_id: string;
-  departure_at: string | null;
-};
-
-type PaymentAccountRow = {
-  id: string;
-  label: string;
-  channel: "bank" | "ewallet" | "cash" | "other";
-  provider: string | null;
-  account_name: string;
-  account_number: string;
-  instructions: string | null;
-  priority: string | number | null;
-  created_at: string;
-  updated_at: string;
-};
-
-type TripPaymentAccountRow = {
-  id: string;
-  trip_id: string;
-  custom_label: string | null;
-  custom_instructions: string | null;
-  custom_priority: string | number | null;
-  created_at: string;
-  updated_at: string;
-  payment_account: PaymentAccountRow | PaymentAccountRow[] | null;
-};
-
-type ExpenseSplitRow = {
-  participant_id: string;
-  share_weight: string | number | null;
-  share_amount_override: string | number | null;
-  participants: ExpenseParticipantRow | null;
-};
-
-type AdjustmentRow = {
-  id: string;
-  participant_id: string;
-  amount_idr: string | number | null;
-  reason: string | null;
-  status: "draft" | "applied" | "void";
-  created_at: string;
-  applied_at: string | null;
-};
-
 const toNumber = (value: unknown): number => {
-  if (typeof value === "number") {
-    return value;
-  }
-
+  if (typeof value === "number") return value;
   if (typeof value === "string") {
     const parsed = Number(value);
     return Number.isFinite(parsed) ? parsed : 0;
   }
-
-  if (value == null) {
-    return 0;
-  }
-
-  const coerced = Number(value);
-  return Number.isFinite(coerced) ? coerced : 0;
+  return 0;
 };
 
 function formatLocation(origin?: string | null, destination?: string | null) {
@@ -241,535 +120,419 @@ function formatLocation(origin?: string | null, destination?: string | null) {
   return origin ?? destination ?? "Tanpa lokasi";
 }
 
-function mapTripPaymentAttachment(
-  row: TripPaymentAccountRow,
-): TripPaymentAccountAttachment | null {
-  const baseRelation = row.payment_account;
-  const base = Array.isArray(baseRelation)
-    ? baseRelation[0] ?? null
-    : baseRelation;
-  if (!base) {
-    return null;
-  }
-
-  const finalPriority =
-    row.custom_priority != null
-      ? toNumber(row.custom_priority)
-      : toNumber(base.priority);
-  const finalInstructions =
-    row.custom_instructions ?? base.instructions ?? undefined;
-
-  return {
-    id: row.id,
-    paymentAccountId: base.id,
-    label: row.custom_label ?? base.label,
-    channel: base.channel,
-    provider: base.provider,
-    accountName: base.account_name,
-    accountNumber: base.account_number,
-    instructions: finalInstructions,
-    priority: finalPriority,
-    customLabel: row.custom_label ?? undefined,
-    customInstructions: row.custom_instructions ?? undefined,
-    customPriority: row.custom_priority != null ? finalPriority : undefined,
-    attachedAt: row.created_at,
-    updatedAt: row.updated_at,
-  };
-}
-
 export async function fetchTripsSummary(): Promise<TripSummary[]> {
-  const supabase = getSupabaseServer();
-  const { data: authData } = await supabase.auth.getUser();
-  const currentUser = authData.user ?? null;
+  const db = getDb();
+  const currentUser = await getCurrentUser();
   const currentUserId = currentUser?.id ?? null;
   const currentUserEmail = currentUser?.email?.toLowerCase() ?? null;
-  const { data: tripsRaw, error } = await supabase
-    .from("trips")
-    .select(
-      "id, owner_id, name, origin_city, destination_city, start_date, end_date",
-    )
-    .order("start_date", { ascending: false });
 
-  if (error) {
-    throw error;
+  const allTrips = await db
+    .select()
+    .from(trips)
+    .orderBy(desc(trips.startDate))
+    .all();
+  if (!allTrips.length) return [];
+
+  const tripIds = allTrips.map((t) => t.id);
+
+  // 1. Fetch Expense Totals per trip
+  const allExpenses = await db
+    .select({ tripId: expenses.tripId, amountIdr: expenses.amountIdr })
+    .from(expenses)
+    .where(inArray(expenses.tripId, tripIds))
+    .all();
+
+  const totalsMap = new Map<string, number>();
+  for (const exp of allExpenses) {
+    const current = totalsMap.get(exp.tripId) ?? 0;
+    totalsMap.set(exp.tripId, current + toNumber(exp.amountIdr));
   }
 
-  const trips = (tripsRaw ?? []) as TripRow[];
-  const ids = trips.map((trip) => trip.id);
-  const totalsMap = new Map<string, number>();
+  // 2. Fetch Payment Accounts
+  const tripAccounts = await db
+    .select()
+    .from(tripPaymentAccounts)
+    .where(inArray(tripPaymentAccounts.tripId, tripIds))
+    .all();
+
   const hostAccountsMap = new Map<string, TripPaymentAccountAttachment[]>();
+  if (tripAccounts.length) {
+    const accountIds = [
+      ...new Set(tripAccounts.map((a) => a.paymentAccountId)),
+    ];
+    const userAccs = await db
+      .select()
+      .from(userPaymentAccounts)
+      .where(inArray(userPaymentAccounts.id, accountIds))
+      .all();
+    const userAccMap = new Map(userAccs.map((a) => [a.id, a]));
+
+    for (const tAcc of tripAccounts) {
+      const base = userAccMap.get(tAcc.paymentAccountId);
+      if (!base) continue;
+
+      const attachment: TripPaymentAccountAttachment = {
+        id: tAcc.id,
+        paymentAccountId: base.id,
+        label: tAcc.customLabel ?? base.label,
+        channel: base.channel as "bank" | "ewallet" | "cash" | "other",
+        provider: base.provider,
+        accountName: base.accountName,
+        accountNumber: base.accountNumber,
+        instructions: tAcc.customInstructions ?? base.instructions ?? undefined,
+        priority: tAcc.customPriority ?? base.priority,
+        customLabel: tAcc.customLabel ?? undefined,
+        customInstructions: tAcc.customInstructions ?? undefined,
+        customPriority: tAcc.customPriority ?? undefined,
+        attachedAt: tAcc.createdAt,
+        updatedAt: tAcc.updatedAt,
+      };
+
+      const list = hostAccountsMap.get(tAcc.tripId) ?? [];
+      list.push(attachment);
+      hostAccountsMap.set(tAcc.tripId, list);
+    }
+  }
+
+  // 3. Fetch Trip Shares
   const sharesMap = new Map<string, TripShare[]>();
   const editAccessMap = new Map<string, boolean>();
 
-  if (ids.length) {
-    const { data: totalsRaw, error: totalsError } = await supabase
-      .from("expenses")
-      .select("trip_id, amount_idr")
-      .in("trip_id", ids);
+  const sharesRows = await db
+    .select()
+    .from(tripShares)
+    .where(inArray(tripShares.tripId, tripIds))
+    .orderBy(desc(tripShares.createdAt))
+    .all();
 
-    if (totalsError) {
-      throw totalsError;
-    }
-
-    ((totalsRaw ?? []) as ExpenseTotalRow[]).forEach((row) => {
-      const current = totalsMap.get(row.trip_id) ?? 0;
-      totalsMap.set(row.trip_id, current + toNumber(row.amount_idr));
+  for (const s of sharesRows) {
+    const list = sharesMap.get(s.tripId) ?? [];
+    list.push({
+      id: s.id,
+      shared_with_email: s.sharedWithEmail,
+      can_edit: s.canEdit,
+      created_at: s.createdAt,
     });
+    sharesMap.set(s.tripId, list);
 
-    const { data: hostRaw, error: hostError } = await supabase
-      .from("trip_payment_accounts")
-      .select(
-        `
-          id,
-          trip_id,
-          custom_label,
-          custom_instructions,
-          custom_priority,
-          created_at,
-          updated_at,
-          payment_account:user_payment_accounts!inner (
-            id,
-            label,
-            channel,
-            provider,
-            account_name,
-            account_number,
-            instructions,
-            priority,
-            created_at,
-            updated_at
-          )
-        `,
-      )
-      .in("trip_id", ids);
-
-    if (hostError) {
-      throw hostError;
-    }
-
-    ((hostRaw ?? []) as TripPaymentAccountRow[]).forEach((row) => {
-      const mapped = mapTripPaymentAttachment(row);
-      if (!mapped) return;
-      const list = hostAccountsMap.get(row.trip_id) ?? [];
-      list.push(mapped);
-      hostAccountsMap.set(row.trip_id, list);
-    });
-
-    hostAccountsMap.forEach((list, key) => {
-      list.sort((a, b) => {
-        if (a.priority !== b.priority) {
-          return a.priority - b.priority;
-        }
-        return a.attachedAt.localeCompare(b.attachedAt);
-      });
-      hostAccountsMap.set(key, list);
-    });
-
-    const { data: sharesRaw, error: sharesError } = await supabase
-      .from("trip_shares")
-      .select(
-        "id, trip_id, shared_with_email, shared_with_user_id, can_edit, created_at",
-      )
-      .in("trip_id", ids)
-      .order("created_at", { ascending: false });
-
-    if (!sharesError && sharesRaw) {
-      (
-        sharesRaw as Array<{
-          id: string;
-          trip_id: string;
-          shared_with_email: string;
-          shared_with_user_id: string | null;
-          can_edit: boolean;
-          created_at: string;
-        }>
-      ).forEach((share) => {
-        const list = sharesMap.get(share.trip_id) ?? [];
-        list.push({
-          id: share.id,
-          shared_with_email: share.shared_with_email,
-          can_edit: share.can_edit,
-          created_at: share.created_at,
-        });
-        sharesMap.set(share.trip_id, list);
-
-        const normalizedShareEmail =
-          share.shared_with_email?.toLowerCase?.() ?? null;
-        if (currentUserId && share.shared_with_user_id === currentUserId) {
-          if (share.can_edit) {
-            editAccessMap.set(share.trip_id, true);
-          } else if (!editAccessMap.has(share.trip_id)) {
-            editAccessMap.set(share.trip_id, false);
-          }
-        } else if (
-          !share.shared_with_user_id &&
-          currentUserEmail &&
-          normalizedShareEmail === currentUserEmail
-        ) {
-          if (share.can_edit) {
-            editAccessMap.set(share.trip_id, true);
-          } else if (!editAccessMap.has(share.trip_id)) {
-            editAccessMap.set(share.trip_id, false);
-          }
-        }
-      });
+    if (
+      currentUserEmail &&
+      s.sharedWithEmail.toLowerCase() === currentUserEmail
+    ) {
+      if (s.canEdit) editAccessMap.set(s.tripId, true);
+      else if (!editAccessMap.has(s.tripId)) editAccessMap.set(s.tripId, false);
     }
   }
 
-  return trips.map<TripSummary>((trip) => ({
-    id: trip.id,
-    nama: trip.name,
-    lokasi: formatLocation(trip.origin_city, trip.destination_city),
-    originCity: trip.origin_city ?? null,
-    destinationCity: trip.destination_city ?? null,
-    tanggalMulai: trip.start_date ?? "",
-    tanggalSelesai: trip.end_date ?? undefined,
-    totalPengeluaran: totalsMap.get(trip.id) ?? 0,
+  return allTrips.map((t) => ({
+    id: t.id,
+    nama: t.name,
+    lokasi: formatLocation(t.originCity, t.destinationCity),
+    originCity: t.originCity ?? null,
+    destinationCity: t.destinationCity ?? null,
+    tanggalMulai: t.startDate ?? "",
+    tanggalSelesai: t.endDate ?? undefined,
+    totalPengeluaran: totalsMap.get(t.id) ?? 0,
     expenses: [],
-    hostAccounts: hostAccountsMap.get(trip.id) ?? [],
-    isOwner: trip.owner_id === currentUserId,
-    canEdit:
-      trip.owner_id === currentUserId || editAccessMap.get(trip.id) === true,
-    shares: sharesMap.get(trip.id) ?? [],
+    hostAccounts: hostAccountsMap.get(t.id) ?? [],
+    isOwner: t.ownerId === currentUserId,
+    canEdit: t.ownerId === currentUserId || editAccessMap.get(t.id) === true,
+    shares: sharesMap.get(t.id) ?? [],
   }));
 }
 
 export async function fetchTripDetail(
   tripId: string,
 ): Promise<TripDetail | null> {
-  const supabase = getSupabaseServer();
-  const { data: authData } = await supabase.auth.getUser();
-  const currentUser = authData.user ?? null;
+  const db = getDb();
+  const currentUser = await getCurrentUser();
   const currentUserId = currentUser?.id ?? null;
-  const currentUserEmail = currentUser?.email ?? null;
-  const { data: tripRaw, error: tripError } = await supabase
-    .from("trips")
-    .select(
-      "id, owner_id, name, origin_city, destination_city, start_date, end_date, notes",
-    )
-    .eq("id", tripId)
-    .maybeSingle();
+  const currentUserEmail = currentUser?.email?.toLowerCase() ?? null;
 
-  if (tripError) {
-    throw tripError;
-  }
+  const trip = await db.select().from(trips).where(eq(trips.id, tripId)).get();
+  if (!trip) return null;
 
-  const trip = (tripRaw ?? null) as TripRow | null;
-
-  if (!trip) {
-    return null;
-  }
-
-  const isOwner = trip.owner_id === currentUserId;
+  const isOwner = trip.ownerId === currentUserId;
   let shareAllowsEdit = false;
-  let hasShareAccess = false;
 
-  if (!isOwner && (currentUserId || currentUserEmail)) {
-    const orConditions: string[] = [];
-    if (currentUserId) {
-      orConditions.push(`shared_with_user_id.eq.${currentUserId}`);
-    }
-    if (currentUserEmail) {
-      orConditions.push(`shared_with_email.eq.${currentUserEmail}`);
-    }
+  if (!isOwner && currentUserEmail) {
+    const share = await db
+      .select()
+      .from(tripShares)
+      .where(
+        and(
+          eq(tripShares.tripId, tripId),
+          eq(tripShares.sharedWithEmail, currentUserEmail),
+        ),
+      )
+      .get();
 
-    if (orConditions.length) {
-      const { data: shareRow } = await supabase
-        .from("trip_shares")
-        .select("can_edit")
-        .eq("trip_id", tripId)
-        .or(orConditions.join(","))
-        .maybeSingle();
-
-      shareAllowsEdit = Boolean(shareRow?.can_edit);
-      hasShareAccess = Boolean(shareRow);
-    }
+    shareAllowsEdit = Boolean(share?.canEdit);
   }
 
-  const dataClient =
-    !isOwner && hasShareAccess ? getSupabaseServiceRole() : supabase;
-
+  // Fetch all sub-resources concurrently
   const [
-    { data: expensesRaw, error: expenseError },
-    { data: balancesRaw, error: balanceError },
-    { data: participantsRaw, error: participantsError },
-    { data: legsRaw, error: legsError },
-    { data: vehiclesRaw, error: vehiclesError },
-    { data: legVehicleLinksRaw, error: legVehicleLinksError },
-    { data: adjustmentsRaw, error: adjustmentsError },
-    { data: hostAttachmentsRaw, error: hostAttachmentsError },
+    participantsRows,
+    legsRows,
+    vehiclesRows,
+    legLinksRows,
+    assignmentsRows,
+    expensesRows,
+    adjustmentsRows,
+    tAccountsRows,
   ] = await Promise.all([
-    dataClient
-      .from("expenses")
-      .select(
-        `id,
-         title,
-         notes,
-         amount_idr,
-         issued_at,
-        leg_id,
-        vehicle_id,
-        share_scope,
-         is_excluded,
-         participants:participants!expenses_paid_by_fkey (id, display_name),
-         expense_splits (participant_id, share_weight, share_amount_override, participants (id, display_name))`,
-      )
-      .eq("trip_id", tripId)
-      .order("issued_at", { ascending: false })
-      .returns<ExpenseRow[]>(),
-    dataClient
-      .from("trip_balances")
-      .select(
-        "participant_id, display_name, total_paid, total_share, balance_idr",
-      )
-      .eq("trip_id", tripId)
-      .order("balance_idr", { ascending: false })
-      .returns<BalanceViewRow[]>(),
-    dataClient
-      .from("participants")
-      .select("id, display_name, role")
-      .eq("trip_id", tripId)
-      .order("display_name", { ascending: true })
-      .returns<ParticipantRow[]>(),
-    dataClient
-      .from("trip_legs")
-      .select(
-        "id, leg_order, leg_type, origin, destination, start_datetime, end_datetime",
-      )
-      .eq("trip_id", tripId)
-      .order("leg_order", { ascending: true })
-      .returns<LegRow[]>(),
-    dataClient
-      .from("trip_vehicles")
-      .select("id, trip_id, label, plate_number, seat_capacity, notes")
-      .eq("trip_id", tripId)
-      .order("label", { ascending: true })
-      .returns<VehicleRow[]>(),
-    dataClient
-      .from("leg_vehicle_links")
-      .select("leg_id, vehicle_id, departure_at")
-      .eq("trip_id", tripId)
-      .returns<LegVehicleLinkRow[]>(),
-    dataClient
-      .from("balance_adjustments")
-      .select(
-        "id, participant_id, amount_idr, reason, status, created_at, applied_at",
-      )
-      .eq("trip_id", tripId)
-      .order("created_at", { ascending: false })
-      .returns<AdjustmentRow[]>(),
-    dataClient
-      .from("trip_payment_accounts")
-      .select(
-        `
-          id,
-          trip_id,
-          custom_label,
-          custom_instructions,
-          custom_priority,
-          created_at,
-          updated_at,
-          payment_account:user_payment_accounts!inner (
-            id,
-            label,
-            channel,
-            provider,
-            account_name,
-            account_number,
-            instructions,
-            priority,
-            created_at,
-            updated_at
-          )
-        `,
-      )
-      .eq("trip_id", tripId)
-      .order("custom_priority", { ascending: true, nullsFirst: false })
-      .order("created_at", { ascending: true })
-      .returns<TripPaymentAccountRow[]>(),
+    db
+      .select()
+      .from(participants)
+      .where(eq(participants.tripId, tripId))
+      .orderBy(asc(participants.displayName))
+      .all(),
+    db
+      .select()
+      .from(tripLegs)
+      .where(eq(tripLegs.tripId, tripId))
+      .orderBy(asc(tripLegs.legOrder))
+      .all(),
+    db
+      .select()
+      .from(fleetVehicles)
+      .where(eq(fleetVehicles.tripId, tripId))
+      .orderBy(asc(fleetVehicles.label))
+      .all(),
+    db
+      .select()
+      .from(legVehicleLinks)
+      .where(eq(legVehicleLinks.tripId, tripId))
+      .all(),
+    db
+      .select({
+        id: vehicleAssignments.id,
+        legId: vehicleAssignments.legId,
+        vehicleId: vehicleAssignments.vehicleId,
+        participantId: vehicleAssignments.participantId,
+        role: vehicleAssignments.role,
+      })
+      .from(vehicleAssignments)
+      .innerJoin(tripLegs, eq(vehicleAssignments.legId, tripLegs.id))
+      .where(eq(tripLegs.tripId, tripId))
+      .all(),
+    db
+      .select()
+      .from(expenses)
+      .where(eq(expenses.tripId, tripId))
+      .orderBy(desc(expenses.issuedAt))
+      .all(),
+    db
+      .select()
+      .from(balanceAdjustments)
+      .where(eq(balanceAdjustments.tripId, tripId))
+      .orderBy(desc(balanceAdjustments.createdAt))
+      .all(),
+    db
+      .select()
+      .from(tripPaymentAccounts)
+      .where(eq(tripPaymentAccounts.tripId, tripId))
+      .all(),
   ]);
 
-  if (expenseError) {
-    throw expenseError;
+  const participantMap = new Map(participantsRows.map((p) => [p.id, p]));
+  const driverParticipantIds = new Set(
+    assignmentsRows
+      .filter((a) => a.role === "driver")
+      .map((a) => a.participantId),
+  );
+
+  // Fetch expense splits
+  const expenseIds = expensesRows.map((e) => e.id);
+  const splitsRows = expenseIds.length
+    ? await db
+        .select()
+        .from(expenseSplits)
+        .where(inArray(expenseSplits.expenseId, expenseIds))
+        .all()
+    : [];
+
+  const splitsByExpense = new Map<string, typeof splitsRows>();
+  for (const s of splitsRows) {
+    const list = splitsByExpense.get(s.expenseId) ?? [];
+    list.push(s);
+    splitsByExpense.set(s.expenseId, list);
   }
 
-  if (balanceError) {
-    throw balanceError;
-  }
-
-  if (participantsError) {
-    throw participantsError;
-  }
-
-  if (legsError) {
-    throw legsError;
-  }
-
-  if (vehiclesError) {
-    throw vehiclesError;
-  }
-
-  if (legVehicleLinksError) {
-    throw legVehicleLinksError;
-  }
-
-  if (adjustmentsError) {
-    throw adjustmentsError;
-  }
-
-  if (hostAttachmentsError) {
-    throw hostAttachmentsError;
-  }
-
-  const expenses = expensesRaw ?? [];
-  const balances = (balancesRaw ?? []) as BalanceViewRow[];
-  const participants = (participantsRaw ?? []) as ParticipantRow[];
-  const legs = (legsRaw ?? []) as LegRow[];
-  const vehicles = (vehiclesRaw ?? []) as VehicleRow[];
-  const legVehicleLinks = (legVehicleLinksRaw ?? []) as LegVehicleLinkRow[];
-  const adjustments = (adjustmentsRaw ?? []) as AdjustmentRow[];
-  const attachmentRows = (hostAttachmentsRaw ?? []) as TripPaymentAccountRow[];
-  const attachmentList: TripPaymentAccountAttachment[] = attachmentRows
-    .map((row) => mapTripPaymentAttachment(row))
-    .filter((row): row is TripPaymentAccountAttachment => Boolean(row))
-    .sort((a, b) => {
-      if (a.priority !== b.priority) {
-        return a.priority - b.priority;
-      }
-      return a.attachedAt.localeCompare(b.attachedAt);
-    });
-
-  const driverParticipantIds = new Set<string>();
-  let assignments: AssignmentRow[] = [];
-  const legIds = legs.map((leg) => leg.id);
-
-  if (legIds.length) {
-    const { data: assignmentsRaw, error: assignmentsError } = await supabase
-      .from("vehicle_assignments")
-      .select(
-        "participant_id, leg_id, vehicle_id, role, participants(id, display_name)",
-      )
-      .in("leg_id", legIds)
-      .returns<AssignmentRow[]>();
-
-    if (assignmentsError) {
-      throw assignmentsError;
-    }
-
-    assignments = assignmentsRaw ?? [];
-
-    assignments.forEach((assignment) => {
-      if (assignment.role === "driver") {
-        driverParticipantIds.add(assignment.participant_id);
-      }
-    });
-  }
-
-  const mappedExpenses: Expense[] = expenses.map((expense) => {
-    const paidByRaw = Array.isArray(expense.participants)
-      ? expense.participants[0]
-      : expense.participants;
-    const splits: ExpenseSplit[] = (expense.expense_splits ?? []).map(
-      (split) => ({
-        participantId: split.participant_id,
-        participantName: split.participants?.display_name ?? "Tanpa nama",
-        shareWeight: toNumber(split.share_weight),
+  // Map Expenses
+  const mappedExpenses: Expense[] = expensesRows.map((exp) => {
+    const paidByPart = participantMap.get(exp.paidBy);
+    const expSplits = splitsByExpense.get(exp.id) ?? [];
+    const mappedSplits: ExpenseSplit[] = expSplits.map((s) => {
+      const p = participantMap.get(s.participantId);
+      return {
+        participantId: s.participantId,
+        participantName: p?.displayName ?? "Tanpa nama",
+        shareWeight: toNumber(s.shareWeight),
         shareAmountOverride:
-          split.share_amount_override != null
-            ? toNumber(split.share_amount_override)
+          s.shareAmountOverride != null
+            ? toNumber(s.shareAmountOverride)
             : undefined,
-      }),
-    );
+      };
+    });
+
     return {
-      id: expense.id,
-      judul: expense.title,
-      amountIdr: toNumber(expense.amount_idr),
+      id: exp.id,
+      judul: exp.title,
+      amountIdr: toNumber(exp.amountIdr),
       paidBy: {
-        id: paidByRaw?.id ?? "unknown",
-        nama: paidByRaw?.display_name ?? "Tanpa nama",
+        id: exp.paidBy,
+        nama: paidByPart?.displayName ?? "Tanpa nama",
       },
-      expenseType: expense.expense_type ?? undefined,
-      date: expense.issued_at,
-      notes: expense.notes ?? undefined,
-      legId: expense.leg_id,
-      vehicleId: expense.vehicle_id,
-      shareScope: expense.share_scope,
+      expenseType: exp.expenseType ?? undefined,
+      date: exp.issuedAt,
+      notes: exp.notes ?? undefined,
+      legId: exp.legId,
+      vehicleId: exp.vehicleId,
+      shareScope: (exp.vehicleId ? "vehicle" : "leg") as "leg" | "vehicle",
       splitWith: [],
-      isExcluded: expense.is_excluded,
-      splits,
+      isExcluded: exp.isExcluded,
+      splits: mappedSplits,
     };
   });
 
-  const mappedBalances: BalanceRow[] = balances.map((row) => ({
-    participantId: row.participant_id,
-    nama: row.display_name,
-    totalPaid: toNumber(row.total_paid),
-    totalShare: toNumber(row.total_share),
-    balance: toNumber(row.balance_idr),
-    adjustments: toNumber(row.adjustment_idr),
-  }));
+  // Calculate Balances
+  const totalPaidMap = new Map<string, number>();
+  const totalShareMap = new Map<string, number>();
+  const adjustmentMap = new Map<string, number>();
 
-  const mappedParticipants: TripParticipant[] = participants.map(
-    (participant) => ({
-      id: participant.id,
-      nama: participant.display_name,
-      role: participant.role,
-      isDriver: driverParticipantIds.has(participant.id),
-    }),
-  );
+  for (const p of participantsRows) {
+    totalPaidMap.set(p.id, 0);
+    totalShareMap.set(p.id, 0);
+    adjustmentMap.set(p.id, 0);
+  }
 
-  const fleetVehicles: FleetVehicle[] = vehicles.map((vehicle) => ({
-    id: vehicle.id,
-    label: vehicle.label,
-    plateNumber: vehicle.plate_number,
-    seatCapacity: vehicle.seat_capacity,
-    notes: vehicle.notes ?? undefined,
-  }));
-
-  const fleetMap = new Map(
-    fleetVehicles.map((vehicle) => [vehicle.id, vehicle]),
-  );
-
-  const assignmentsByLegVehicle = assignments.reduce<
-    Record<string, TripVehicleAssignment[]>
-  >((acc, assignment) => {
-    const key = `${assignment.leg_id}:${assignment.vehicle_id}`;
-    if (!acc[key]) {
-      acc[key] = [];
+  for (const adj of adjustmentsRows) {
+    if (adj.status === "applied") {
+      const current = adjustmentMap.get(adj.participantId) ?? 0;
+      adjustmentMap.set(adj.participantId, current + toNumber(adj.amountIdr));
     }
+  }
+
+  for (const exp of expensesRows) {
+    if (exp.isExcluded) continue;
+
+    // Paid by credit
+    const currentPaid = totalPaidMap.get(exp.paidBy) ?? 0;
+    totalPaidMap.set(exp.paidBy, currentPaid + toNumber(exp.amountIdr));
+
+    const expSplits = splitsByExpense.get(exp.id) ?? [];
+    if (expSplits.length > 0) {
+      // Manual splits calculation
+      const totalWeight = expSplits.reduce(
+        (acc, s) => acc + toNumber(s.shareWeight),
+        0,
+      );
+      for (const s of expSplits) {
+        let shareAmt = 0;
+        if (s.shareAmountOverride != null) {
+          shareAmt = toNumber(s.shareAmountOverride);
+        } else if (totalWeight > 0) {
+          shareAmt =
+            (toNumber(exp.amountIdr) * toNumber(s.shareWeight)) / totalWeight;
+        }
+        const currentShare = totalShareMap.get(s.participantId) ?? 0;
+        totalShareMap.set(s.participantId, currentShare + shareAmt);
+      }
+    } else {
+      // Auto distribution: Target vehicle or leg assignments, else all participants
+      let targetParticipants: string[] = [];
+      if (exp.vehicleId) {
+        targetParticipants = assignmentsRows
+          .filter((a) => a.legId === exp.legId && a.vehicleId === exp.vehicleId)
+          .map((a) => a.participantId);
+      } else if (exp.legId) {
+        targetParticipants = assignmentsRows
+          .filter((a) => a.legId === exp.legId)
+          .map((a) => a.participantId);
+      }
+
+      if (!targetParticipants.length) {
+        targetParticipants = participantsRows.map((p) => p.id);
+      }
+
+      const perPersonShare = targetParticipants.length
+        ? toNumber(exp.amountIdr) / targetParticipants.length
+        : 0;
+      for (const pid of targetParticipants) {
+        const currentShare = totalShareMap.get(pid) ?? 0;
+        totalShareMap.set(pid, currentShare + perPersonShare);
+      }
+    }
+  }
+
+  const mappedBalances: BalanceRow[] = participantsRows
+    .map((p) => {
+      const totalPaid = totalPaidMap.get(p.id) ?? 0;
+      const totalShare = totalShareMap.get(p.id) ?? 0;
+      const adj = adjustmentMap.get(p.id) ?? 0;
+      return {
+        participantId: p.id,
+        nama: p.displayName,
+        totalPaid,
+        totalShare,
+        balance: totalPaid - totalShare + adj,
+        adjustments: adj,
+      };
+    })
+    .sort((a, b) => b.balance - a.balance);
+
+  const mappedParticipants: TripParticipant[] = participantsRows.map((p) => ({
+    id: p.id,
+    nama: p.displayName,
+    role: p.role,
+    isDriver: driverParticipantIds.has(p.id),
+  }));
+
+  const mappedFleetVehicles: FleetVehicle[] = vehiclesRows.map((v) => ({
+    id: v.id,
+    label: v.label,
+    plateNumber: v.plateNumber,
+    seatCapacity: v.seatCapacity,
+    notes: v.notes ?? undefined,
+  }));
+  const fleetMap = new Map(mappedFleetVehicles.map((v) => [v.id, v]));
+
+  const assignmentsByLegVehicle = assignmentsRows.reduce<
+    Record<string, TripVehicleAssignment[]>
+  >((acc, a) => {
+    const key = `${a.legId}:${a.vehicleId}`;
+    if (!acc[key]) acc[key] = [];
+    const p = participantMap.get(a.participantId);
     acc[key].push({
-      participantId: assignment.participant_id,
-      participantName: assignment.participants?.display_name ?? "Tanpa nama",
-      role: assignment.role,
+      participantId: a.participantId,
+      participantName: p?.displayName ?? "Tanpa nama",
+      role: a.role,
     });
     return acc;
   }, {});
 
-  const legLinks = legVehicleLinks.reduce<
+  const legLinksMap = legLinksRows.reduce<
     Record<string, { vehicleId: string; departureAt: string | null }[]>
   >((acc, link) => {
-    if (!acc[link.leg_id]) {
-      acc[link.leg_id] = [];
-    }
-    acc[link.leg_id].push({
-      vehicleId: link.vehicle_id,
-      departureAt: link.departure_at,
+    if (!acc[link.legId]) acc[link.legId] = [];
+    acc[link.legId].push({
+      vehicleId: link.vehicleId,
+      departureAt: link.departureTime,
     });
     return acc;
   }, {});
 
-  const mappedLegs: TripLeg[] = legs.map((leg) => ({
+  const mappedLegs: TripLeg[] = legsRows.map((leg) => ({
     id: leg.id,
-    order: leg.leg_order,
+    order: leg.legOrder,
     label: formatLocation(leg.origin, leg.destination),
-    start: leg.start_datetime,
-    end: leg.end_datetime,
-    vehicles: (legLinks[leg.id] ?? [])
+    start: leg.startDatetime,
+    end: leg.endDatetime ?? undefined,
+    vehicles: (legLinksMap[leg.id] ?? [])
       .map((link) => {
         const base = fleetMap.get(link.vehicleId);
-        if (!base) {
-          return null;
-        }
+        if (!base) return null;
         const key = `${leg.id}:${link.vehicleId}`;
         return {
           ...base,
@@ -780,27 +543,73 @@ export async function fetchTripDetail(
       .filter(Boolean) as TripLegVehicle[],
   }));
 
-  const participantNameMap = new Map(
-    mappedParticipants.map((p) => [p.id, p.nama]),
-  );
-  const mappedAdjustments: BalanceAdjustment[] = adjustments.map((adj) => ({
-    id: adj.id,
-    participantId: adj.participant_id,
-    participantName: participantNameMap.get(adj.participant_id) ?? "Tanpa nama",
-    amountIdr: toNumber(adj.amount_idr),
-    reason: adj.reason,
-    status: adj.status,
-    createdAt: adj.created_at,
-    appliedAt: adj.applied_at,
-  }));
+  const mappedAdjustments: BalanceAdjustment[] = adjustmentsRows.map((adj) => {
+    const p = participantMap.get(adj.participantId);
+    return {
+      id: adj.id,
+      participantId: adj.participantId,
+      participantName: p?.displayName ?? "Tanpa nama",
+      amountIdr: toNumber(adj.amountIdr),
+      reason: adj.reason,
+      status: adj.status as "draft" | "applied" | "void",
+      createdAt: adj.createdAt,
+      appliedAt: adj.appliedAt,
+    };
+  });
+
+  // Host payment attachments
+  let attachmentList: TripPaymentAccountAttachment[] = [];
+  if (tAccountsRows.length) {
+    const userAccs = await db
+      .select()
+      .from(userPaymentAccounts)
+      .where(
+        inArray(
+          userPaymentAccounts.id,
+          tAccountsRows.map((t) => t.paymentAccountId),
+        ),
+      )
+      .all();
+    const userAccMap = new Map(userAccs.map((a) => [a.id, a]));
+
+    const unFilteredList = tAccountsRows.map((tAcc) => {
+      const base = userAccMap.get(tAcc.paymentAccountId);
+      if (!base) return null;
+      const attachment: TripPaymentAccountAttachment = {
+        id: tAcc.id,
+        paymentAccountId: base.id,
+        label: tAcc.customLabel ?? base.label,
+        channel: base.channel as "bank" | "ewallet" | "cash" | "other",
+        provider: base.provider ?? null,
+        accountName: base.accountName,
+        accountNumber: base.accountNumber,
+        instructions: tAcc.customInstructions ?? base.instructions ?? undefined,
+        priority: tAcc.customPriority ?? base.priority,
+        customLabel: tAcc.customLabel ?? undefined,
+        customInstructions: tAcc.customInstructions ?? undefined,
+        customPriority: tAcc.customPriority ?? undefined,
+        attachedAt: tAcc.createdAt,
+        updatedAt: tAcc.updatedAt,
+      };
+      return attachment;
+    });
+
+    attachmentList = unFilteredList
+      .filter((a): a is TripPaymentAccountAttachment => a !== null)
+      .sort((a, b) =>
+        a.priority !== b.priority
+          ? a.priority - b.priority
+          : a.attachedAt.localeCompare(b.attachedAt),
+      );
+  }
 
   return {
     trip: {
       id: trip.id,
       nama: trip.name,
-      lokasi: formatLocation(trip.origin_city, trip.destination_city),
-      tanggalMulai: trip.start_date ?? "",
-      tanggalSelesai: trip.end_date ?? undefined,
+      lokasi: formatLocation(trip.originCity, trip.destinationCity),
+      tanggalMulai: trip.startDate ?? "",
+      tanggalSelesai: trip.endDate ?? undefined,
       catatan: trip.notes,
     },
     expenses: mappedExpenses,
@@ -808,7 +617,7 @@ export async function fetchTripDetail(
     participants: mappedParticipants,
     legs: mappedLegs,
     adjustments: mappedAdjustments,
-    fleetVehicles,
+    fleetVehicles: mappedFleetVehicles,
     hostAccounts: attachmentList,
     paymentAttachments: attachmentList,
     permissions: {
@@ -825,19 +634,23 @@ export type CommunityStats = {
 };
 
 export async function fetchCommunityStats(): Promise<CommunityStats> {
-  const supabase = getSupabaseServiceRole();
-
-  const [tripsResult, participantsResult, expensesResult] = await Promise.all([
-    supabase.from("trips").select("id", { count: "exact", head: true }),
-    supabase.from("participants").select("id", { count: "exact", head: true }),
-    supabase.from("expenses").select("amount_idr").eq("is_excluded", false),
+  const db = getDb();
+  const [allTrips, allParticipants, allExpenses] = await Promise.all([
+    db.select({ id: trips.id }).from(trips).all(),
+    db.select({ id: participants.id }).from(participants).all(),
+    db
+      .select({ amountIdr: expenses.amountIdr })
+      .from(expenses)
+      .where(eq(expenses.isExcluded, false))
+      .all(),
   ]);
 
-  const totalTrip = tripsResult.count ?? 0;
-  const totalPeserta = participantsResult.count ?? 0;
-  const totalPengeluaran = (
-    (expensesResult.data ?? []) as { amount_idr: string | number | null }[]
-  ).reduce((sum, row) => sum + toNumber(row.amount_idr), 0);
+  const totalTrip = allTrips.length;
+  const totalPeserta = allParticipants.length;
+  const totalPengeluaran = allExpenses.reduce(
+    (sum, row) => sum + toNumber(row.amountIdr),
+    0,
+  );
 
   return { totalTrip, totalPeserta, totalPengeluaran };
 }

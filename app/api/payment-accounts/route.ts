@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getSupabaseServer } from "@/lib/supabaseServer";
+import { getDb } from "@/lib/db";
+import { getCurrentUser } from "@/lib/auth";
+import { userPaymentAccounts } from "@/db/schema";
+import { eq, asc } from "drizzle-orm";
 
 export const runtime = "edge";
 
@@ -22,55 +25,51 @@ function normalizeWhitespace(value?: string | null) {
   return trimmed.length ? trimmed : null;
 }
 
-export async function GET() {
-  const supabase = getSupabaseServer();
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser();
-
-  if (userError || !user) {
+export async function GET(request: Request) {
+  const currentUser = await getCurrentUser(request);
+  if (!currentUser) {
     return NextResponse.json(
       { message: "Tidak terautentikasi" },
       { status: 401 },
     );
   }
 
-  const { data, error } = await supabase
-    .from("user_payment_accounts")
-    .select(
-      "id, label, channel, provider, account_name, account_number, instructions, priority, created_at, updated_at",
+  const db = getDb();
+  const rows = await db
+    .select()
+    .from(userPaymentAccounts)
+    .where(eq(userPaymentAccounts.userId, currentUser.id))
+    .orderBy(
+      asc(userPaymentAccounts.priority),
+      asc(userPaymentAccounts.createdAt),
     )
-    .eq("owner_id", user.id)
-    .order("priority", { ascending: true })
-    .order("created_at", { ascending: true });
+    .all();
 
-  if (error) {
-    console.error(error);
-    return NextResponse.json(
-      { message: "Gagal mengambil data" },
-      { status: 500 },
-    );
-  }
-
-  const accounts = (data ?? []).map((row) => ({
+  const accounts = rows.map((row) => ({
     id: row.id,
     label: row.label,
     channel: row.channel,
     provider: row.provider,
-    accountName: row.account_name,
-    accountNumber: row.account_number,
+    accountName: row.accountName,
+    accountNumber: row.accountNumber,
     instructions: row.instructions ?? undefined,
     priority: row.priority ?? 0,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
   }));
 
   return NextResponse.json({ data: accounts });
 }
 
 export async function POST(request: Request) {
-  const supabase = getSupabaseServer();
+  const currentUser = await getCurrentUser(request);
+  if (!currentUser) {
+    return NextResponse.json(
+      { message: "Tidak terautentikasi" },
+      { status: 401 },
+    );
+  }
+
   const payload = await request.json().catch(() => null);
   const parsed = paymentAccountSchema.safeParse(payload);
 
@@ -81,60 +80,40 @@ export async function POST(request: Request) {
     );
   }
 
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser();
-
-  if (userError || !user) {
-    return NextResponse.json(
-      { message: "Tidak terautentikasi" },
-      { status: 401 },
-    );
-  }
-
   const cleanProvider = normalizeWhitespace(parsed.data.provider);
   const cleanInstructions = normalizeWhitespace(parsed.data.instructions);
+  const db = getDb();
+  const id = crypto.randomUUID();
+  const now = new Date().toISOString();
 
-  const { data, error } = await supabase
-    .from("user_payment_accounts")
-    .insert({
-      owner_id: user.id,
-      label: parsed.data.label.trim(),
-      channel: parsed.data.channel,
-      provider: cleanProvider,
-      account_name: parsed.data.accountName.trim(),
-      account_number: parsed.data.accountNumber.trim(),
-      instructions: cleanInstructions,
-      priority: parsed.data.priority ?? 0,
-    })
-    .select(
-      "id, label, channel, provider, account_name, account_number, instructions, priority, created_at, updated_at",
-    )
-    .single();
-
-  if (error || !data) {
-    console.error(error);
-    return NextResponse.json(
-      { message: "Gagal menyimpan metode pembayaran" },
-      { status: 500 },
-    );
-  }
+  await db.insert(userPaymentAccounts).values({
+    id,
+    userId: currentUser.id,
+    label: parsed.data.label.trim(),
+    channel: parsed.data.channel,
+    provider: cleanProvider,
+    accountName: parsed.data.accountName.trim(),
+    accountNumber: parsed.data.accountNumber.trim(),
+    instructions: cleanInstructions,
+    priority: parsed.data.priority ?? 0,
+    createdAt: now,
+    updatedAt: now,
+  });
 
   return NextResponse.json(
     {
       message: "Metode pembayaran disimpan",
       data: {
-        id: data.id,
-        label: data.label,
-        channel: data.channel,
-        provider: data.provider,
-        accountName: data.account_name,
-        accountNumber: data.account_number,
-        instructions: data.instructions ?? undefined,
-        priority: data.priority ?? 0,
-        createdAt: data.created_at,
-        updatedAt: data.updated_at,
+        id,
+        label: parsed.data.label.trim(),
+        channel: parsed.data.channel,
+        provider: cleanProvider,
+        accountName: parsed.data.accountName.trim(),
+        accountNumber: parsed.data.accountNumber.trim(),
+        instructions: cleanInstructions ?? undefined,
+        priority: parsed.data.priority ?? 0,
+        createdAt: now,
+        updatedAt: now,
       },
     },
     { status: 201 },

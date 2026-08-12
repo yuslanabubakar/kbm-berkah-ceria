@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getSupabaseServer } from "@/lib/supabaseServer";
+import { getDb } from "@/lib/db";
+import { getCurrentUser } from "@/lib/auth";
+import { userPaymentAccounts } from "@/db/schema";
+import { eq, and } from "drizzle-orm";
 
 export const runtime = "edge";
 
@@ -32,9 +35,15 @@ export async function PATCH(
     );
   }
 
-  const supabase = getSupabaseServer();
-  const payload = await request.json().catch(() => null);
+  const currentUser = await getCurrentUser(request);
+  if (!currentUser) {
+    return NextResponse.json(
+      { message: "Tidak terautentikasi" },
+      { status: 401 },
+    );
+  }
 
+  const payload = await request.json().catch(() => null);
   if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
     return NextResponse.json({ message: "Data belum valid" }, { status: 400 });
   }
@@ -47,32 +56,32 @@ export async function PATCH(
     );
   }
 
-  if (!Object.keys(parsed.data).length) {
+  const db = getDb();
+  const existing = await db
+    .select()
+    .from(userPaymentAccounts)
+    .where(
+      and(
+        eq(userPaymentAccounts.id, accountId),
+        eq(userPaymentAccounts.userId, currentUser.id),
+      ),
+    )
+    .get();
+
+  if (!existing) {
     return NextResponse.json(
-      { message: "Tidak ada perubahan" },
-      { status: 400 },
+      { message: "Metode tidak ditemukan" },
+      { status: 404 },
     );
   }
 
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser();
-
-  if (userError || !user) {
-    return NextResponse.json(
-      { message: "Tidak terautentikasi" },
-      { status: 401 },
-    );
-  }
-
-  const updates: Record<string, string | number | null> = {};
+  const updates: Record<string, any> = { updatedAt: new Date().toISOString() };
   if (parsed.data.label !== undefined) updates.label = parsed.data.label.trim();
   if (parsed.data.channel !== undefined) updates.channel = parsed.data.channel;
   if (parsed.data.accountName !== undefined)
-    updates.account_name = parsed.data.accountName.trim();
+    updates.accountName = parsed.data.accountName.trim();
   if (parsed.data.accountNumber !== undefined)
-    updates.account_number = parsed.data.accountNumber.trim();
+    updates.accountNumber = parsed.data.accountNumber.trim();
   if (parsed.data.priority !== undefined)
     updates.priority = parsed.data.priority;
   if (parsed.data.provider !== undefined)
@@ -80,68 +89,25 @@ export async function PATCH(
   if (parsed.data.instructions !== undefined)
     updates.instructions = normalizeString(parsed.data.instructions) ?? null;
 
-  if (!Object.keys(updates).length) {
-    return NextResponse.json(
-      { message: "Tidak ada perubahan" },
-      { status: 400 },
-    );
-  }
+  await db
+    .update(userPaymentAccounts)
+    .set(updates)
+    .where(eq(userPaymentAccounts.id, accountId));
 
-  const { data, error } = await supabase
-    .from("user_payment_accounts")
-    .update(updates)
-    .eq("id", accountId)
-    .eq("owner_id", user.id)
-    .select(
-      `
-        id,
-        label,
-        channel,
-        provider,
-        account_name,
-        account_number,
-        instructions,
-        priority,
-        created_at,
-        updated_at
-      `,
-    )
-    .maybeSingle();
-
-  if (error) {
-    console.error(error);
-    return NextResponse.json(
-      { message: "Gagal memperbarui metode" },
-      { status: 500 },
-    );
-  }
-
-  if (!data) {
-    return NextResponse.json(
-      { message: "Metode tidak ditemukan" },
-      { status: 404 },
-    );
-  }
+  const updated = await db
+    .select()
+    .from(userPaymentAccounts)
+    .where(eq(userPaymentAccounts.id, accountId))
+    .get();
 
   return NextResponse.json({
     message: "Metode diperbarui",
-    data: {
-      id: data.id,
-      label: data.label,
-      channel: data.channel,
-      provider: data.provider,
-      accountName: data.account_name,
-      accountNumber: data.account_number,
-      instructions: data.instructions ?? null,
-      priority: data.priority ?? 0,
-      createdAt: data.created_at,
-      updatedAt: data.updated_at,
-    },
+    data: updated,
   });
 }
 
 export async function DELETE(
-  _request: Request,
+  request: Request,
   { params }: { params: { accountId: string } },
 ) {
   const { accountId } = params;
@@ -152,32 +118,23 @@ export async function DELETE(
     );
   }
 
-  const supabase = getSupabaseServer();
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser();
-
-  if (userError || !user) {
+  const currentUser = await getCurrentUser(request);
+  if (!currentUser) {
     return NextResponse.json(
       { message: "Tidak terautentikasi" },
       { status: 401 },
     );
   }
 
-  const { error } = await supabase
-    .from("user_payment_accounts")
-    .delete()
-    .eq("id", accountId)
-    .eq("owner_id", user.id);
-
-  if (error) {
-    console.error(error);
-    return NextResponse.json(
-      { message: "Gagal menghapus metode pembayaran" },
-      { status: 500 },
+  const db = getDb();
+  await db
+    .delete(userPaymentAccounts)
+    .where(
+      and(
+        eq(userPaymentAccounts.id, accountId),
+        eq(userPaymentAccounts.userId, currentUser.id),
+      ),
     );
-  }
 
   return NextResponse.json({ message: "Metode pembayaran dihapus" });
 }

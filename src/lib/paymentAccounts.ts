@@ -1,68 +1,36 @@
-import { getSupabaseServer } from "@/lib/supabaseServer";
+import { getDb } from "@/lib/db";
+import { getCurrentUser } from "@/lib/auth";
+import { userPaymentAccounts } from "@/db/schema";
+import { eq, desc, asc } from "drizzle-orm";
 import type { HostPaymentChannel, UserPaymentAccount } from "@/types/expense";
-
-function mapUserPaymentAccount(row: {
-  id: string;
-  label: string;
-  channel: string;
-  provider: string | null;
-  account_name: string;
-  account_number: string;
-  instructions: string | null;
-  priority: number | null;
-  created_at: string;
-  updated_at: string;
-}): UserPaymentAccount {
-  return {
-    id: row.id,
-    label: row.label,
-    channel: row.channel as HostPaymentChannel,
-    provider: row.provider,
-    accountName: row.account_name,
-    accountNumber: row.account_number,
-    instructions: row.instructions ?? undefined,
-    priority: row.priority ?? 0,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
-  };
-}
 
 export async function fetchUserPaymentAccounts(): Promise<
   UserPaymentAccount[]
 > {
-  const supabase = getSupabaseServer();
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser();
+  const currentUser = await getCurrentUser();
+  if (!currentUser) return [];
 
-  if (userError || !user) {
-    return [];
-  }
-
-  const { data, error } = await supabase
-    .from("user_payment_accounts")
-    .select(
-      `
-        id,
-        label,
-        channel,
-        provider,
-        account_name,
-        account_number,
-        instructions,
-        priority,
-        created_at,
-        updated_at
-      `,
+  const db = getDb();
+  const rows = await db
+    .select()
+    .from(userPaymentAccounts)
+    .where(eq(userPaymentAccounts.userId, currentUser.id))
+    .orderBy(
+      desc(userPaymentAccounts.priority),
+      asc(userPaymentAccounts.createdAt),
     )
-    .eq("owner_id", user.id)
-    .order("priority", { ascending: false })
-    .order("created_at", { ascending: true });
+    .all();
 
-  if (error || !data) {
-    return [];
-  }
-
-  return data.map(mapUserPaymentAccount);
+  return rows.map((row) => ({
+    id: row.id,
+    label: row.label,
+    channel: row.channel as HostPaymentChannel,
+    provider: row.provider,
+    accountName: row.accountName,
+    accountNumber: row.accountNumber,
+    instructions: row.instructions ?? undefined,
+    priority: row.priority,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+  }));
 }

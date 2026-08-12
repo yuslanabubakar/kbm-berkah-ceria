@@ -1,7 +1,10 @@
 import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getSupabaseServer } from "@/lib/supabaseServer";
+import { getDb } from "@/lib/db";
+import { getCurrentUser } from "@/lib/auth";
+import { fleetVehicles } from "@/db/schema";
+import { eq, and } from "drizzle-orm";
 
 export const runtime = "edge";
 
@@ -16,28 +19,11 @@ const updateVehicleSchema = z
     message: "Tidak ada perubahan",
   });
 
-async function ensureVehicleOwnership(tripId: string, vehicleId: string) {
-  const supabase = getSupabaseServer();
-  const { data, error } = await supabase
-    .from("trip_vehicles")
-    .select("id")
-    .eq("id", vehicleId)
-    .eq("trip_id", tripId)
-    .maybeSingle();
-
-  if (error) {
-    throw error;
-  }
-
-  return data;
-}
-
 export async function PATCH(
   request: Request,
   { params }: { params: { tripId: string; vehicleId: string } },
 ) {
   const { tripId, vehicleId } = params;
-
   if (!tripId || !vehicleId) {
     return NextResponse.json(
       { message: "Parameter tidak lengkap" },
@@ -45,9 +31,16 @@ export async function PATCH(
     );
   }
 
+  const currentUser = await getCurrentUser(request);
+  if (!currentUser) {
+    return NextResponse.json(
+      { message: "Tidak terautentikasi" },
+      { status: 401 },
+    );
+  }
+
   const payload = await request.json().catch(() => null);
   const parsed = updateVehicleSchema.safeParse(payload);
-
   if (!parsed.success) {
     return NextResponse.json(
       {
@@ -58,56 +51,45 @@ export async function PATCH(
     );
   }
 
-  try {
-    const vehicleRow = await ensureVehicleOwnership(tripId, vehicleId);
-    if (!vehicleRow) {
-      return NextResponse.json(
-        { message: "Kendaraan tidak ditemukan" },
-        { status: 404 },
-      );
-    }
-  } catch (error) {
-    console.error(error);
+  const db = getDb();
+  const vehicle = await db
+    .select()
+    .from(fleetVehicles)
+    .where(
+      and(eq(fleetVehicles.id, vehicleId), eq(fleetVehicles.tripId, tripId)),
+    )
+    .get();
+
+  if (!vehicle) {
     return NextResponse.json(
-      { message: "Gagal mengecek kendaraan" },
-      { status: 500 },
+      { message: "Kendaraan tidak ditemukan" },
+      { status: 404 },
     );
   }
 
-  const updateData: Record<string, unknown> = {};
+  const updateData: Record<string, any> = {};
   if (parsed.data.label !== undefined) updateData.label = parsed.data.label;
   if (parsed.data.plateNumber !== undefined)
-    updateData.plate_number = parsed.data.plateNumber ?? null;
+    updateData.plateNumber = parsed.data.plateNumber ?? null;
   if (parsed.data.seatCapacity !== undefined)
-    updateData.seat_capacity = parsed.data.seatCapacity;
+    updateData.seatCapacity = parsed.data.seatCapacity;
   if (parsed.data.notes !== undefined)
     updateData.notes = parsed.data.notes ?? null;
 
-  const supabase = getSupabaseServer();
-  const { error: updateError } = await supabase
-    .from("trip_vehicles")
-    .update(updateData)
-    .eq("id", vehicleId);
-
-  if (updateError) {
-    console.error(updateError);
-    return NextResponse.json(
-      { message: "Gagal memperbarui kendaraan" },
-      { status: 500 },
-    );
-  }
+  await db
+    .update(fleetVehicles)
+    .set(updateData)
+    .where(eq(fleetVehicles.id, vehicleId));
 
   revalidatePath(`/perjalanan/${tripId}`);
-
   return NextResponse.json({ message: "Kendaraan diperbarui" });
 }
 
 export async function DELETE(
-  _request: Request,
+  request: Request,
   { params }: { params: { tripId: string; vehicleId: string } },
 ) {
   const { tripId, vehicleId } = params;
-
   if (!tripId || !vehicleId) {
     return NextResponse.json(
       { message: "Parameter tidak lengkap" },
@@ -115,37 +97,32 @@ export async function DELETE(
     );
   }
 
-  try {
-    const vehicleRow = await ensureVehicleOwnership(tripId, vehicleId);
-    if (!vehicleRow) {
-      return NextResponse.json(
-        { message: "Kendaraan tidak ditemukan" },
-        { status: 404 },
-      );
-    }
-  } catch (error) {
-    console.error(error);
+  const currentUser = await getCurrentUser(request);
+  if (!currentUser) {
     return NextResponse.json(
-      { message: "Gagal mengecek kendaraan" },
-      { status: 500 },
+      { message: "Tidak terautentikasi" },
+      { status: 401 },
     );
   }
 
-  const supabase = getSupabaseServer();
-  const { error: deleteError } = await supabase
-    .from("trip_vehicles")
-    .delete()
-    .eq("id", vehicleId);
+  const db = getDb();
+  const vehicle = await db
+    .select()
+    .from(fleetVehicles)
+    .where(
+      and(eq(fleetVehicles.id, vehicleId), eq(fleetVehicles.tripId, tripId)),
+    )
+    .get();
 
-  if (deleteError) {
-    console.error(deleteError);
+  if (!vehicle) {
     return NextResponse.json(
-      { message: "Gagal menghapus kendaraan" },
-      { status: 500 },
+      { message: "Kendaraan tidak ditemukan" },
+      { status: 404 },
     );
   }
+
+  await db.delete(fleetVehicles).where(eq(fleetVehicles.id, vehicleId));
 
   revalidatePath(`/perjalanan/${tripId}`);
-
   return NextResponse.json({ message: "Kendaraan dihapus" });
 }
