@@ -1,12 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import clsx from "clsx";
+import { MessageCircle, Copy, ExternalLink, Check } from "lucide-react";
 import { format } from "date-fns";
 import { id } from "date-fns/locale";
 import { BalanceRow } from "@/lib/tripQueries";
 import { TripPaymentAccountAttachment } from "@/types/expense";
 import { formatRupiah } from "@/lib/formatCurrency";
+import { useToast } from "@/components/Toast";
 
 type Props = {
   tripName: string;
@@ -14,81 +15,52 @@ type Props = {
   endDate?: string;
   balances: BalanceRow[];
   accounts: TripPaymentAccountAttachment[];
+  onDark?: boolean;
 };
 
 function formatDate(dateStr: string) {
   return format(new Date(dateStr), "EEEE, d MMM yyyy", { locale: id });
 }
 
-export function GenerateWhatsappButton({
-  tripName,
-  startDate,
-  endDate,
-  balances,
-  accounts,
-}: Props) {
-  const [copied, setCopied] = useState(false);
+function buildMessage(
+  tripName: string,
+  startDate: string,
+  endDate?: string,
+  balances: BalanceRow[] = [],
+  accounts: TripPaymentAccountAttachment[] = [],
+): string {
+  const startFormatted = formatDate(startDate);
+  const endFormatted = endDate ? formatDate(endDate) : startFormatted;
 
-  const handleCopy = async () => {
-    // 1. Format Dates
-    const startFormatted = formatDate(startDate);
-    const endFormatted = endDate ? formatDate(endDate) : startFormatted;
+  const debtors = balances
+    .filter((b) => b.balance < 0)
+    .map((b) => `${b.nama}\t- ${formatRupiah(Math.abs(b.balance))}`);
 
-    // 2. Format Bill (Positive balances only = those who need to pay)
-    // The user requested "TAGIHAN", typically meaning those who owe money.
-    // In the app logic: balance < 0 means "Perlu bayar" (Owe), balance > 0 means "Menanggung" (Owed).
-    // Wait, let's check Page.tsx logic:
-    // balance >= 0 ? "Menanggung sebesar" : "Perlu bayar"
-    // So negative balance = User needs to pay system/others.
-    // BUT usually a bill is for people who need to PAY.
-    // Let's filter for balance < 0 (Perlu bayar).
-    // The previous request example showed "person 1 - Rp. xxx".
+  const billSection =
+    debtors.length > 0
+      ? debtors.join("\n")
+      : "Tidak ada tagihan yang perlu dibayar.";
 
-    // Let's double check the balances logic from page.tsx:
-    // saldo.balance >= 0 ? "Menanggung sebesar" : "Perlu bayar"
-    // So if I am negative, I need to pay.
-    const debtors = balances
-      .filter((b) => b.balance < 0)
-      .map((b) => {
-        // Remove minus sign for display
-        const amount = formatRupiah(Math.abs(b.balance));
-        return `${b.nama}\t- ${amount}`;
-      });
+  const creditors = balances
+    .filter((b) => b.balance > 0)
+    .map((b) => `${b.nama}\t+ ${formatRupiah(b.balance)}`);
 
-    const billSection =
-      debtors.length > 0
-        ? debtors.join("\n")
-        : "Tidak ada tagihan yang perlu dibayar.";
+  const creditSection =
+    creditors.length > 0
+      ? creditors.join("\n")
+      : "Tidak ada yang perlu menerima pengembalian.";
 
-    // 3. Format Creditors (Positive balances = those who receive money)
-    const creditors = balances
-      .filter((b) => b.balance > 0)
-      .map((b) => {
-        const amount = formatRupiah(b.balance);
-        return `${b.nama}\t+ ${amount}`;
-      });
+  const paymentMethods = accounts.map(
+    (acc, i) =>
+      `${i + 1}. ${acc.label} (${acc.provider || acc.channel})\n   ${acc.accountNumber} a.n ${acc.accountName}`,
+  );
 
-    const creditSection =
-      creditors.length > 0
-        ? creditors.join("\n")
-        : "Tidak ada yang perlu menerima pengembalian.";
+  const paymentSection =
+    paymentMethods.length > 0
+      ? paymentMethods.join("\n\n")
+      : "Belum ada metode pembayaran.";
 
-    // 4. Format Payment Methods
-    const paymentMethods = accounts.map((acc, index) => {
-      const bankName = acc.provider || acc.channel; // e.g. "BCA", "GoPay"
-      const number = acc.accountNumber;
-      const name = acc.accountName;
-      // Format: 1. BCA - 123456 a.n Name
-      return `${index + 1}. ${acc.label} (${bankName})\n   ${number} a.n ${name}`;
-    });
-
-    const paymentSection =
-      paymentMethods.length > 0
-        ? paymentMethods.join("\n\n")
-        : "Belum ada metode pembayaran.";
-
-    // 5. Construct Message
-    const text = `Bismillaah,
+  return `Bismillaah,
 Semangat Pagi Pelanggan ${tripName},
 
 Berikut adalah total tagihan untuk perjalanan Anda bersama kami pada Hari ${startFormatted} s/d Hari ${endFormatted}.
@@ -111,34 +83,77 @@ Sekian. Semoga berkenan. Terima kasih.
 
 Salam,
 Manajemen KBM Berkah Ceria`;
+}
 
+export function GenerateWhatsappButton({
+  tripName,
+  startDate,
+  endDate,
+  balances,
+  accounts,
+  onDark = false,
+}: Props) {
+  const [copied, setCopied] = useState(false);
+  const showToast = useToast();
+
+  const getMessage = () =>
+    buildMessage(tripName, startDate, endDate, balances, accounts);
+
+  const handleCopy = async () => {
     try {
-      await navigator.clipboard.writeText(text);
+      await navigator.clipboard.writeText(getMessage());
       setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-
-      // Optional: Open WhatsApp with the text pre-filled?
-      // const encoded = encodeURIComponent(text);
-      // window.open(`https://wa.me/?text=${encoded}`, "_blank");
-      // For now just copy is safer and often preferred for "checking before sending".
-    } catch (err) {
-      console.error("Failed to copy", err);
-      alert("Gagal menyalin ke clipboard");
+      showToast("Pesan tagihan berhasil disalin ke clipboard!", "success");
+      setTimeout(() => setCopied(false), 2500);
+    } catch {
+      showToast("Gagal menyalin ke clipboard", "error");
     }
   };
 
+  const handleOpenWa = () => {
+    const encoded = encodeURIComponent(getMessage());
+    window.open(`https://wa.me/?text=${encoded}`, "_blank", "noreferrer");
+  };
+
+  const copyStyle = onDark
+    ? {
+        background: copied
+          ? "rgba(255,255,255,0.30)"
+          : "rgba(255,255,255,0.15)",
+        color: "#ffffff",
+        border: "1px solid rgba(255,255,255,0.35)",
+      }
+    : {
+        background: copied
+          ? "rgba(16, 185, 129, 0.15)"
+          : "rgba(37, 211, 102, 0.10)",
+        color: copied ? "#047857" : "#059669",
+        border: `1px solid ${copied ? "rgba(16, 185, 129, 0.4)" : "rgba(37, 211, 102, 0.3)"}`,
+      };
+
   return (
-    <button
-      type="button"
-      onClick={handleCopy}
-      className={clsx(
-        "inline-flex items-center gap-2 rounded-2xl border border-emerald-600 px-4 py-2 text-sm font-semibold",
-        "text-emerald-600 hover:bg-emerald-50 transition-colors",
-        copied && "bg-emerald-100 text-emerald-800",
-      )}
-    >
-      <span className="text-lg">💬</span>
-      {copied ? "Tersalin!" : "Salin Tagihan WA"}
-    </button>
+    <div className="flex flex-wrap gap-2">
+      {/* Copy button */}
+      <button
+        type="button"
+        onClick={handleCopy}
+        className="inline-flex items-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-semibold transition-all duration-200 hover:-translate-y-0.5"
+        style={copyStyle}
+      >
+        {copied ? <Check size={15} /> : <Copy size={15} />}
+        {copied ? "Tersalin!" : "Salin Tagihan"}
+      </button>
+
+      {/* Open WhatsApp button */}
+      <button
+        type="button"
+        onClick={handleOpenWa}
+        className="btn-wa inline-flex"
+      >
+        <MessageCircle size={15} />
+        Buka WhatsApp
+        <ExternalLink size={13} className="opacity-70" />
+      </button>
+    </div>
   );
 }

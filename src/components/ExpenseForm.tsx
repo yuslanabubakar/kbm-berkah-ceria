@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import clsx from "clsx";
 import { useRouter } from "next/navigation";
 import { formatRupiah } from "@/lib/formatCurrency";
+import { useToast } from "@/components/Toast";
 import type {
   TripLeg,
   TripParticipant,
@@ -15,6 +16,8 @@ import {
   formatLegDateRange,
   buildLegVehicleOptions,
   type LegVehicleOption,
+  EXPENSE_CATEGORIES,
+  detectCategory,
 } from "@/components/expenseFormUtils";
 
 type ExpenseFormProps = {
@@ -25,6 +28,7 @@ type ExpenseFormProps = {
 
 export function ExpenseForm({ tripId, participants, legs }: ExpenseFormProps) {
   const router = useRouter();
+  const showToast = useToast();
   const legVehicleOptions = useMemo<LegVehicleOption[]>(
     () => buildLegVehicleOptions(legs),
     [legs],
@@ -32,7 +36,6 @@ export function ExpenseForm({ tripId, participants, legs }: ExpenseFormProps) {
 
   const scrollToField = (fieldName: string) => {
     if (typeof document === "undefined") return;
-
     document
       .querySelector<HTMLElement>(`[data-field="${fieldName}"]`)
       ?.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -49,11 +52,13 @@ export function ExpenseForm({ tripId, participants, legs }: ExpenseFormProps) {
     paidById: defaultPaidBy,
     shareScope: "leg",
   });
+  const [categoryId, setCategoryId] = useState("lainnya");
+  const [autoDetected, setAutoDetected] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [status, setStatus] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  // Food-stop state: per-participant food bill amounts (participantId → amount)
+  // Food-stop state
   const [isFoodStop, setIsFoodStop] = useState(false);
   const [foodStopAmounts, setFoodStopAmounts] = useState<
     Record<string, number>
@@ -71,7 +76,6 @@ export function ExpenseForm({ tripId, participants, legs }: ExpenseFormProps) {
   );
   const vehicleScopeDisabled = !values.vehicleId;
 
-  // Participants in the selected vehicle (needed for food stop mode)
   const vehicleParticipants = useMemo<TripVehicleAssignment[]>(() => {
     if (!values.vehicleId) return [];
     return (
@@ -89,6 +93,16 @@ export function ExpenseForm({ tripId, participants, legs }: ExpenseFormProps) {
     [vehicleParticipants, foodStopAmounts],
   );
 
+  const handleJudulChange = (title: string) => {
+    setValues((prev) => ({ ...prev, judul: title }));
+    setErrors((prev) => ({ ...prev, judul: "" }));
+    setStatus(null);
+    // Auto-detect category
+    const detected = detectCategory(title);
+    setCategoryId(detected);
+    setAutoDetected(detected !== "lainnya" && title.length >= 3);
+  };
+
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
@@ -97,7 +111,6 @@ export function ExpenseForm({ tripId, participants, legs }: ExpenseFormProps) {
       return;
     }
 
-    // Build splits for food-stop mode
     const splits = isFoodStop
       ? vehicleParticipants
           .filter((p) => (foodStopAmounts[p.participantId] ?? 0) > 0)
@@ -115,17 +128,15 @@ export function ExpenseForm({ tripId, participants, legs }: ExpenseFormProps) {
       return;
     }
 
-    // Use foodStopTotal as amountIdr when in food-stop mode so the schema validates correctly.
     const valuesToParse = isFoodStop
       ? { ...values, amountIdr: foodStopTotal, shareScope: "vehicle" as const }
       : values;
+
     const parse = expenseFormSchema.safeParse(valuesToParse);
     if (!parse.success) {
       const fieldErrors: Record<string, string> = {};
       parse.error.issues.forEach((issue) => {
-        if (issue.path[0]) {
-          fieldErrors[String(issue.path[0])] = issue.message;
-        }
+        if (issue.path[0]) fieldErrors[String(issue.path[0])] = issue.message;
       });
       setErrors(fieldErrors);
       const firstField = Object.keys(fieldErrors)[0];
@@ -133,9 +144,7 @@ export function ExpenseForm({ tripId, participants, legs }: ExpenseFormProps) {
         ? fieldErrors[firstField]
         : "Data belum lengkap";
       setStatus(firstMessage);
-      if (firstField) {
-        scrollToField(firstField);
-      }
+      if (firstField) scrollToField(firstField);
       return;
     }
 
@@ -173,55 +182,126 @@ export function ExpenseForm({ tripId, participants, legs }: ExpenseFormProps) {
         paidById: defaultPaidBy,
         shareScope: "leg",
       });
+      setCategoryId("lainnya");
+      setAutoDetected(false);
       setErrors({});
       setIsFoodStop(false);
       setFoodStopAmounts({});
-      setStatus("Berhasil disimpan");
+      showToast("Pengeluaran berhasil ditambahkan!", "success");
       router.refresh();
     } catch (error) {
       console.error(error);
+      showToast("Ada kendala, coba lagi ya", "error");
       setStatus("Ada kendala, coba lagi ya");
     } finally {
       setLoading(false);
     }
   };
 
+  const inputStyle = {
+    background: "var(--bg-secondary)",
+    border: "1px solid var(--border-color)",
+    color: "var(--text-primary)",
+  };
+
   return (
     <form
       onSubmit={handleSubmit}
-      className="space-y-4 rounded-2xl border bg-white/80 p-5 shadow-sm"
+      className="space-y-5 rounded-3xl p-5"
+      style={{
+        background: "var(--bg-card)",
+        border: "1px solid var(--border-color)",
+      }}
     >
       {!participants.length && (
-        <p className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-700">
+        <p className="rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-700">
           Tambahkan peserta dulu sebelum mencatat pengeluaran.
         </p>
       )}
       {!legVehicleOptions.length && (
-        <p className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-700">
+        <p className="rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-700">
           Buat leg perjalanan dulu supaya biaya tahu context-nya.
         </p>
       )}
 
+      {/* ── Judul ──────────────────────── */}
       <div data-field="judul">
-        <label className="text-sm font-medium">Judul pengeluaran</label>
+        <label
+          className="mb-1 block text-sm font-semibold"
+          style={{ color: "var(--text-secondary)" }}
+        >
+          Judul Pengeluaran
+        </label>
         <input
           type="text"
           value={values.judul}
-          onChange={(e) => {
-            setValues((prev) => ({ ...prev, judul: e.target.value }));
-            setErrors((prev) => ({ ...prev, judul: "" }));
-            setStatus(null);
-          }}
-          className="mt-1 w-full rounded-xl border px-3 py-2"
-          placeholder="Contoh: sewa van"
+          onChange={(e) => handleJudulChange(e.target.value)}
+          className="input-field"
+          placeholder="Contoh: Bensin Pertamax, Nasi Padang Ampera..."
         />
-        {errors.judul && <p className="text-sm text-red-500">{errors.judul}</p>}
+        {autoDetected && (
+          <p className="mt-1 text-xs" style={{ color: "#047857" }}>
+            ✨ Kategori terdeteksi otomatis
+          </p>
+        )}
+        {errors.judul && (
+          <p className="mt-1 text-xs text-red-500">{errors.judul}</p>
+        )}
       </div>
 
+      {/* ── Category Pills ─────────────── */}
+      <div>
+        <label
+          className="mb-2 block text-sm font-semibold"
+          style={{ color: "var(--text-secondary)" }}
+        >
+          Kategori
+        </label>
+        <div className="flex flex-wrap gap-2">
+          {EXPENSE_CATEGORIES.map((cat) => {
+            const active = categoryId === cat.id;
+            return (
+              <button
+                key={cat.id}
+                type="button"
+                onClick={() => {
+                  setCategoryId(cat.id);
+                  setAutoDetected(false);
+                }}
+                className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition-all duration-200"
+                style={{
+                  background: active ? cat.color + "22" : "var(--bg-muted)",
+                  color: active ? cat.color : "var(--text-secondary)",
+                  border: active
+                    ? `1.5px solid ${cat.color}55`
+                    : "1.5px solid var(--border-color)",
+                  transform: active ? "scale(1.05)" : "scale(1)",
+                }}
+              >
+                <span>{cat.emoji}</span>
+                {cat.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* ── Amount ─────────────────────── */}
       <div data-field="amountIdr">
-        <label className="text-sm font-medium">Total (IDR)</label>
+        <label
+          className="mb-1 block text-sm font-semibold"
+          style={{ color: "var(--text-secondary)" }}
+        >
+          Total (IDR)
+        </label>
         {isFoodStop ? (
-          <p className="mt-1 rounded-xl border bg-slate-50 px-3 py-2 text-sm text-slate-500">
+          <p
+            className="rounded-xl px-3 py-2.5 text-sm"
+            style={{
+              background: "var(--bg-muted)",
+              color: "var(--text-muted)",
+            }}
+          >
             Dihitung otomatis dari tagihan per orang
           </p>
         ) : (
@@ -238,54 +318,67 @@ export function ExpenseForm({ tripId, participants, legs }: ExpenseFormProps) {
                 setErrors((prev) => ({ ...prev, amountIdr: "" }));
                 setStatus(null);
               }}
-              className="mt-1 w-full rounded-xl border px-3 py-2"
+              className="input-field"
               placeholder="0"
               min={0}
               step={0.01}
             />
             {values.amountIdr > 0 && (
-              <p className="text-sm text-slate-500">
+              <p
+                className="mt-1 text-xs font-semibold"
+                style={{ color: "#2E5AAC" }}
+              >
                 {formatRupiah(values.amountIdr)}
               </p>
             )}
           </>
         )}
         {errors.amountIdr && (
-          <p className="text-sm text-red-500">{errors.amountIdr}</p>
+          <p className="mt-1 text-xs text-red-500">{errors.amountIdr}</p>
         )}
       </div>
 
+      {/* ── Paid By + Leg ──────────────── */}
       <div className="grid gap-4 sm:grid-cols-2">
         <div data-field="paidById">
-          <label className="text-sm font-medium">Dibayar oleh</label>
+          <label
+            className="mb-1 block text-sm font-semibold"
+            style={{ color: "var(--text-secondary)" }}
+          >
+            Dibayar oleh
+          </label>
           <select
             value={values.paidById}
             onChange={(e) => {
               setValues((prev) => ({ ...prev, paidById: e.target.value }));
               setErrors((prev) => ({ ...prev, paidById: "" }));
-              setStatus(null);
             }}
-            className="mt-1 w-full rounded-xl border px-3 py-2"
+            className="input-field"
             disabled={!participants.length}
           >
-            {participants.map((participant) => (
-              <option key={participant.id} value={participant.id}>
-                {participant.nama}
+            {participants.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.nama}
               </option>
             ))}
           </select>
           {errors.paidById && (
-            <p className="text-sm text-red-500">{errors.paidById}</p>
+            <p className="mt-1 text-xs text-red-500">{errors.paidById}</p>
           )}
         </div>
 
         <div data-field="legId">
-          <label className="text-sm font-medium">Leg & kendaraan</label>
+          <label
+            className="mb-1 block text-sm font-semibold"
+            style={{ color: "var(--text-secondary)" }}
+          >
+            Leg & Kendaraan
+          </label>
           <select
             value={`${values.legId}::${values.vehicleId ?? "none"}`}
             onChange={(e) => {
               const target = legVehicleOptions.find(
-                (option) => option.key === e.target.value,
+                (o) => o.key === e.target.value,
               );
               if (!target) return;
               setValues((prev) => ({
@@ -304,85 +397,86 @@ export function ExpenseForm({ tripId, participants, legs }: ExpenseFormProps) {
                 shareScope: "",
                 foodStop: "",
               }));
-              setStatus(null);
             }}
-            className="mt-1 w-full rounded-xl border px-3 py-2"
+            className="input-field"
             disabled={!legVehicleOptions.length}
           >
-            {legVehicleOptions.map((option) => (
-              <option key={option.key} value={option.key}>
-                {option.label}
+            {legVehicleOptions.map((o) => (
+              <option key={o.key} value={o.key}>
+                {o.label}
               </option>
             ))}
           </select>
           {errors.legId && (
-            <p className="text-sm text-red-500">{errors.legId}</p>
+            <p className="mt-1 text-xs text-red-500">{errors.legId}</p>
           )}
         </div>
       </div>
 
+      {/* ── Share Scope ────────────────── */}
       <div data-field="shareScope">
-        <label className="text-sm font-medium">Cara pembagian biaya</label>
-        <div className="mt-2 flex flex-wrap gap-3">
-          <label
-            className={clsx(
-              "flex items-center gap-2 text-sm",
-              isFoodStop ? "text-slate-300" : "text-slate-600",
-            )}
-          >
-            <input
-              type="radio"
-              name="shareScope"
-              value="leg"
-              checked={values.shareScope === "leg"}
-              onChange={() => {
-                setValues((prev) => ({ ...prev, shareScope: "leg" }));
-                setErrors((prev) => ({ ...prev, shareScope: "" }));
-                setStatus(null);
-              }}
-              disabled={isFoodStop}
-            />
-            Semua penumpang leg ini
-          </label>
-          <label
-            className={clsx(
-              "flex items-center gap-2 text-sm",
-              vehicleScopeDisabled || isFoodStop
-                ? "text-slate-300"
-                : "text-slate-600",
-            )}
-          >
-            <input
-              type="radio"
-              name="shareScope"
-              value="vehicle"
-              checked={values.shareScope === "vehicle"}
-              onChange={() => {
-                setValues((prev) => ({
-                  ...prev,
-                  shareScope: vehicleScopeDisabled ? "leg" : "vehicle",
-                }));
-                setErrors((prev) => ({ ...prev, shareScope: "" }));
-                setStatus(null);
-              }}
-              disabled={vehicleScopeDisabled || isFoodStop}
-            />
-            Penumpang kendaraan ini
-          </label>
+        <label
+          className="mb-2 block text-sm font-semibold"
+          style={{ color: "var(--text-secondary)" }}
+        >
+          Cara pembagian biaya
+        </label>
+        <div className="flex flex-wrap gap-3">
+          {(["leg", "vehicle"] as const).map((scope) => {
+            const disabled =
+              scope === "vehicle" && (vehicleScopeDisabled || isFoodStop);
+            const checked = values.shareScope === scope;
+            return (
+              <label
+                key={scope}
+                className={clsx(
+                  "flex cursor-pointer items-center gap-2 rounded-xl px-3 py-2 text-sm transition-all",
+                  disabled && "opacity-40 cursor-not-allowed",
+                  checked && !disabled ? "font-semibold" : "",
+                )}
+                style={{
+                  background:
+                    checked && !disabled
+                      ? "rgba(46, 90, 172, 0.10)"
+                      : "var(--bg-muted)",
+                  color:
+                    checked && !disabled ? "#2E5AAC" : "var(--text-secondary)",
+                  border: `1px solid ${checked && !disabled ? "rgba(46, 90, 172, 0.3)" : "var(--border-color)"}`,
+                }}
+              >
+                <input
+                  type="radio"
+                  name="shareScope"
+                  value={scope}
+                  checked={checked}
+                  onChange={() => {
+                    if (disabled) return;
+                    setValues((prev) => ({ ...prev, shareScope: scope }));
+                    setErrors((prev) => ({ ...prev, shareScope: "" }));
+                  }}
+                  disabled={disabled || isFoodStop}
+                  className="sr-only"
+                />
+                {scope === "leg"
+                  ? "Semua penumpang leg ini"
+                  : "Penumpang kendaraan ini"}
+              </label>
+            );
+          })}
         </div>
-        <p className="mt-1 text-xs text-slate-500">
-          Pilih opsi &quot;Semua penumpang leg ini&quot; untuk BBM/tol per leg,
-          atau batasi ke kendaraan tertentu untuk biaya khusus mobil.
-        </p>
         {errors.shareScope && (
-          <p className="text-sm text-red-500">{errors.shareScope}</p>
+          <p className="mt-1 text-xs text-red-500">{errors.shareScope}</p>
         )}
       </div>
 
-      {/* Food stop toggle */}
+      {/* ── Food Stop ──────────────────── */}
       <div
         data-field="foodStop"
-        className="rounded-xl border border-orange-200 bg-orange-50 p-4"
+        className="rounded-2xl p-4"
+        style={{
+          background: "rgba(251, 191, 36, 0.06)",
+          border: "1px solid rgba(245, 158, 11, 0.2)",
+        }}
       >
         <label
           className={clsx(
@@ -407,19 +501,19 @@ export function ExpenseForm({ tripId, participants, legs }: ExpenseFormProps) {
             disabled={vehicleScopeDisabled}
             className="h-4 w-4 rounded"
           />
-          <span className="text-sm font-medium text-orange-800">
-            Pemberhentian makan
+          <span className="text-sm font-semibold" style={{ color: "#d97706" }}>
+            🍽️ Pemberhentian makan
           </span>
         </label>
-        <p className="mt-1 text-xs text-orange-700">
-          Aktifkan jika satu orang bayar duluan dan tiap peserta punya tagihan
-          berbeda. Total dihitung otomatis dari input per orang.
+        <p className="mt-1 text-xs" style={{ color: "#a16207" }}>
+          Aktifkan jika tiap peserta punya tagihan berbeda. Total dihitung
+          otomatis dari input per orang.
         </p>
 
         {isFoodStop && (
           <div className="mt-3 space-y-2">
             {vehicleParticipants.length === 0 ? (
-              <p className="text-sm text-orange-700">
+              <p className="text-sm" style={{ color: "#a16207" }}>
                 Tidak ada peserta di kendaraan ini.
               </p>
             ) : (
@@ -429,7 +523,10 @@ export function ExpenseForm({ tripId, participants, legs }: ExpenseFormProps) {
                     key={p.participantId}
                     className="flex items-center gap-3"
                   >
-                    <span className="w-32 truncate text-sm text-slate-700">
+                    <span
+                      className="w-28 truncate text-sm"
+                      style={{ color: "var(--text-primary)" }}
+                    >
                       {p.participantName}
                     </span>
                     <input
@@ -451,76 +548,89 @@ export function ExpenseForm({ tripId, participants, legs }: ExpenseFormProps) {
                         setStatus(null);
                       }}
                       placeholder="0"
-                      className="flex-1 rounded-lg border px-3 py-1.5 text-sm"
+                      className="input-field flex-1 text-sm"
                     />
                     {(foodStopAmounts[p.participantId] ?? 0) > 0 && (
-                      <span className="w-28 text-right text-xs text-slate-500">
+                      <span
+                        className="w-28 text-right text-xs font-medium"
+                        style={{ color: "var(--text-muted)" }}
+                      >
                         {formatRupiah(foodStopAmounts[p.participantId])}
                       </span>
                     )}
                   </div>
                 ))}
-                <div className="mt-2 flex justify-between border-t pt-2 text-sm font-semibold text-slate-800">
+                <div
+                  className="mt-2 flex justify-between border-t pt-2 text-sm font-bold"
+                  style={{
+                    borderColor: "var(--border-color)",
+                    color: "var(--text-primary)",
+                  }}
+                >
                   <span>Total tagihan</span>
-                  <span>{formatRupiah(foodStopTotal)}</span>
+                  <span style={{ color: "#2E5AAC" }}>
+                    {formatRupiah(foodStopTotal)}
+                  </span>
                 </div>
               </>
             )}
             {errors.foodStop && (
-              <p className="text-sm text-red-500">{errors.foodStop}</p>
+              <p className="text-xs text-red-500">{errors.foodStop}</p>
             )}
           </div>
         )}
       </div>
 
+      {/* ── Jadwal Leg ─────────────────── */}
       <div>
-        <label className="text-sm font-medium">Jadwal leg</label>
+        <label
+          className="mb-1 block text-sm font-semibold"
+          style={{ color: "var(--text-secondary)" }}
+        >
+          Jadwal leg
+        </label>
         <input
           type="text"
           value={legScheduleText}
           disabled
-          className="mt-1 w-full rounded-xl border bg-slate-50 px-3 py-2 text-sm text-slate-600"
+          className="input-field"
+          style={{ background: "var(--bg-muted)", color: "var(--text-muted)" }}
         />
       </div>
 
+      {/* ── Notes ──────────────────────── */}
       <div data-field="catatan">
-        <label className="text-sm font-medium">Catatan (opsional)</label>
+        <label
+          className="mb-1 block text-sm font-semibold"
+          style={{ color: "var(--text-secondary)" }}
+        >
+          Catatan (opsional)
+        </label>
         <textarea
           value={values.catatan || ""}
           onChange={(e) => {
             setValues((prev) => ({ ...prev, catatan: e.target.value }));
             setErrors((prev) => ({ ...prev, catatan: "" }));
-            setStatus(null);
           }}
-          className="mt-1 h-24 w-full rounded-xl border px-3 py-2"
-          placeholder="Siapa aja ikut, info tambahan, dll"
+          className="input-field h-20 resize-none"
+          placeholder="Info tambahan, siapa aja ikut, dll"
         />
         {errors.catatan && (
-          <p className="text-sm text-red-500">{errors.catatan}</p>
+          <p className="mt-1 text-xs text-red-500">{errors.catatan}</p>
         )}
       </div>
 
+      {/* ── Submit ─────────────────────── */}
       <button
         type="submit"
         disabled={formDisabled}
-        className="w-full rounded-xl bg-brand-blue px-4 py-2 font-semibold text-white transition hover:bg-brand-coral disabled:cursor-progress disabled:opacity-60"
+        className="btn-primary w-full justify-center py-3 text-base disabled:cursor-progress disabled:opacity-60"
       >
-        {loading ? "Lagi nyimpen..." : "Tambah pengeluaran"}
+        {loading ? "Menyimpan..." : "Tambah Pengeluaran"}
       </button>
 
-      {status && (
-        <p
-          className={clsx(
-            "text-center text-sm",
-            loading
-              ? "text-slate-600"
-              : errors.foodStop || Object.values(errors).some(Boolean)
-                ? "text-red-500"
-                : "text-slate-600",
-          )}
-        >
-          {status}
-        </p>
+      {status && !loading && (
+        <p className="text-center text-sm text-red-500">{status}</p>
       )}
     </form>
   );

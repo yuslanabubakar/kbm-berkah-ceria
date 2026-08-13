@@ -5,6 +5,7 @@ import { AddPaymentAccountForm } from "@/components/AddPaymentAccountForm";
 import { EditPaymentAccountForm } from "@/components/EditPaymentAccountForm";
 import { PaymentAccountsList } from "@/components/PaymentAccountsList";
 import type { UserPaymentAccount } from "@/types/expense";
+import { Plus, CreditCard } from "lucide-react";
 
 type Props = {
   accounts: UserPaymentAccount[];
@@ -13,9 +14,8 @@ type Props = {
 
 function sortAccounts(list: UserPaymentAccount[]) {
   return [...list].sort((a, b) => {
-    if ((a.priority ?? 0) !== (b.priority ?? 0)) {
+    if ((a.priority ?? 0) !== (b.priority ?? 0))
       return (b.priority ?? 0) - (a.priority ?? 0);
-    }
     return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
   });
 }
@@ -27,21 +27,14 @@ export function UserPaymentAccountsManager({ accounts, onChange }: Props) {
   const [showForm, setShowForm] = useState(sortedAccounts.length === 0);
 
   useEffect(() => {
-    if (sortedAccounts.length === 0) {
-      setShowForm(true);
-    }
+    if (sortedAccounts.length === 0) setShowForm(true);
   }, [sortedAccounts.length]);
 
   useEffect(() => {
     if (editingAccount) {
-      const latest = sortedAccounts.find(
-        (account) => account.id === editingAccount.id,
-      );
-      if (!latest) {
-        setEditingAccount(null);
-      } else if (latest !== editingAccount) {
-        setEditingAccount(latest);
-      }
+      const latest = sortedAccounts.find((a) => a.id === editingAccount.id);
+      if (!latest) setEditingAccount(null);
+      else if (latest !== editingAccount) setEditingAccount(latest);
     }
   }, [editingAccount, sortedAccounts]);
 
@@ -68,50 +61,79 @@ export function UserPaymentAccountsManager({ accounts, onChange }: Props) {
     onChange(
       sortAccounts(sortedAccounts.filter((item) => item.id !== accountId)),
     );
-    if (editingAccount?.id === accountId) {
-      setEditingAccount(null);
-    }
+    if (editingAccount?.id === accountId) setEditingAccount(null);
   }
 
   return (
-    <div className="space-y-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+    <div className="space-y-5">
+      {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="text-xl font-semibold text-slate-900">
-            Metode pembayaran saya
-          </h2>
-          <p className="text-sm text-slate-500">
-            Simpan rekening dan e-wallet di sini, lalu lampirkan ke setiap trip.
-          </p>
+        <div className="flex items-center gap-2">
+          <div
+            className="flex h-9 w-9 items-center justify-center rounded-xl"
+            style={{ background: "rgba(46, 90, 172, 0.12)" }}
+          >
+            <CreditCard size={18} style={{ color: "#2E5AAC" }} />
+          </div>
+          <div>
+            <h2
+              className="text-base font-bold"
+              style={{ color: "var(--text-primary)" }}
+            >
+              Metode Pembayaran
+            </h2>
+            <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+              Simpan rekening dan e-wallet, lalu lampirkan ke trip
+            </p>
+          </div>
         </div>
         <button
           type="button"
           onClick={() => {
-            setShowForm((prev) => !prev);
+            setShowForm((p) => !p);
             setEditingAccount(null);
           }}
-          className="rounded-xl bg-brand-blue px-4 py-2 text-sm font-semibold text-white hover:bg-brand-blue/90"
+          className="btn-primary text-xs"
         >
-          {showForm ? "Tutup" : "+ Tambah metode"}
+          <Plus size={14} />
+          {showForm ? "Tutup" : "Tambah Rekening"}
         </button>
       </div>
 
+      {/* Add Form */}
       {showForm && (
-        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+        <div
+          className="rounded-2xl p-4 animate-slide-down"
+          style={{
+            background: "var(--bg-muted)",
+            border: "1px solid var(--border-color)",
+          }}
+        >
           <AddPaymentAccountForm onSuccess={handleAdded} />
         </div>
       )}
 
+      {/* Edit Form */}
       {editingAccount && (
-        <div className="rounded-2xl border border-brand-blue bg-blue-50 p-4">
+        <div
+          className="rounded-2xl p-4 animate-slide-down"
+          style={{
+            background: "rgba(46, 90, 172, 0.06)",
+            border: "1px solid rgba(46, 90, 172, 0.2)",
+          }}
+        >
           <div className="mb-3 flex items-center justify-between">
-            <h3 className="font-semibold text-slate-900">
+            <h3
+              className="text-sm font-bold"
+              style={{ color: "var(--text-primary)" }}
+            >
               Edit metode pembayaran
             </h3>
             <button
               type="button"
               onClick={() => setEditingAccount(null)}
-              className="text-sm text-slate-600 hover:text-slate-800"
+              className="text-xs font-medium"
+              style={{ color: "var(--text-muted)" }}
             >
               Batal
             </button>

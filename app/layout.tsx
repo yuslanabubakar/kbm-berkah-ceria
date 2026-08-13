@@ -1,40 +1,36 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import Link from "next/link";
-import { AuthToolbar } from "@/components/AuthToolbar";
+import { Navbar } from "@/components/Navbar";
+import { ThemeProvider } from "@/components/ThemeProvider";
+import { ToastProvider } from "@/components/Toast";
 
 export const metadata: Metadata = {
   title: "KBM Berkah Ceria",
-  description: "Catat dan bagi biaya perjalanan pakai Rupiah dengan mudah"
+  description: "Catat dan bagi biaya perjalanan pakai Rupiah dengan mudah",
+  keywords: ["perjalanan", "split bill", "biaya bersama", "rupiah"],
+  openGraph: {
+    title: "KBM Berkah Ceria",
+    description: "Catat dan bagi biaya perjalanan pakai Rupiah dengan mudah",
+    type: "website",
+  },
 };
 
 export default function RootLayout({
-  children
+  children,
 }: {
   children: React.ReactNode;
 }) {
   return (
-    <html lang="id">
-      <body className="antialiased text-slate-900">
-        <header className="sticky top-0 z-10 border-b bg-white/90 backdrop-blur">
-          <nav className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-6 py-4">
-            <div className="flex items-center gap-8">
-              <Link href="/" className="text-lg font-semibold text-brand-blue">
-                KBM Berkah Ceria
-              </Link>
-              <div className="flex gap-4 text-sm font-medium">
-                <Link href="/dashboard" className="hover:text-brand-coral">
-                  Dashboard
-                </Link>
-                <Link href="/ringkasan" className="hover:text-brand-coral">
-                  Ringkasan
-                </Link>
-              </div>
-            </div>
-            <AuthToolbar />
-          </nav>
-        </header>
-        <main className="mx-auto max-w-5xl px-6 py-10">{children}</main>
+    <html lang="id" suppressHydrationWarning>
+      <body className="antialiased">
+        <ThemeProvider>
+          <ToastProvider>
+            <Navbar />
+            <main className="mx-auto max-w-5xl px-4 py-8 md:px-6 md:py-10">
+              {children}
+            </main>
+          </ToastProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

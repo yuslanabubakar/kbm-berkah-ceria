@@ -7,6 +7,14 @@ import { Trip } from "@/types/expense";
 import { formatRupiah } from "@/lib/formatCurrency";
 import { differenceInDays, format } from "date-fns";
 import { id } from "date-fns/locale";
+import {
+  MoreHorizontal,
+  Pencil,
+  Trash2,
+  ArrowRight,
+  MapPin,
+  Calendar,
+} from "lucide-react";
 
 type EditTripFormState = {
   name: string;
@@ -19,9 +27,7 @@ type EditTripFormState = {
 const toDateInputValue = (value?: string) => {
   if (!value) return "";
   const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) {
-    return "";
-  }
+  if (Number.isNaN(parsed.getTime())) return "";
   return format(parsed, "yyyy-MM-dd");
 };
 
@@ -30,9 +36,25 @@ const buildEditState = (trip: Trip): EditTripFormState => ({
   originCity: trip.originCity ?? "",
   destinationCity: trip.destinationCity ?? "",
   startDate: toDateInputValue(trip.tanggalMulai),
-  endDate: toDateInputValue(trip.tanggalSelesai)
+  endDate: toDateInputValue(trip.tanggalSelesai),
 });
 
+/* ── Status Badge ───────────── */
+function StatusBadge({ tanggalSelesai }: { tanggalSelesai?: string }) {
+  const now = new Date();
+  const ended = tanggalSelesai && new Date(tanggalSelesai) < now;
+  if (ended) {
+    return <span className="badge badge-gray">Selesai</span>;
+  }
+  return (
+    <span className="badge badge-emerald flex items-center gap-1">
+      <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse-soft" />
+      Aktif
+    </span>
+  );
+}
+
+/* ── Trip Card ──────────────── */
 export function TripCard({ trip }: { trip: Trip }) {
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -41,7 +63,9 @@ export function TripCard({ trip }: { trip: Trip }) {
   const [editStatus, setEditStatus] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isSavingEdit, setIsSavingEdit] = useState(false);
-  const [editForm, setEditForm] = useState<EditTripFormState>(() => buildEditState(trip));
+  const [editForm, setEditForm] = useState<EditTripFormState>(() =>
+    buildEditState(trip),
+  );
   const menuRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -49,9 +73,7 @@ export function TripCard({ trip }: { trip: Trip }) {
   }, [trip]);
 
   useEffect(() => {
-    if (!menuOpen) {
-      return;
-    }
+    if (!menuOpen) return;
     const handleClickOutside = (event: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
         setMenuOpen(false);
@@ -61,108 +83,246 @@ export function TripCard({ trip }: { trip: Trip }) {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [menuOpen]);
 
-  const durasi = differenceInDays(
-    new Date(trip.tanggalSelesai ?? Date.now()),
-    new Date(trip.tanggalMulai)
-  ) + 1;
+  const durasi =
+    differenceInDays(
+      new Date(trip.tanggalSelesai ?? Date.now()),
+      new Date(trip.tanggalMulai),
+    ) + 1;
+
+  const hasRoute = trip.originCity || trip.destinationCity;
 
   return (
     <>
-      <article className="relative flex flex-col rounded-2xl border border-slate-200 bg-white/80 p-5 shadow-sm transition hover:-translate-y-1 hover:border-brand-blue">
-        {trip.canEdit && (
-          <div className="absolute right-4 top-4" ref={menuRef}>
-            <button
-              type="button"
-              aria-haspopup="menu"
-              aria-expanded={menuOpen}
-              onClick={(event) => {
-                event.stopPropagation();
-                setMenuOpen((prev) => !prev);
-              }}
-              className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-lg font-semibold text-slate-500 shadow-sm hover:text-slate-900"
-            >
-              ⋯
-            </button>
-            {menuOpen && (
-              <div className="mt-2 w-48 rounded-2xl border border-slate-100 bg-white p-2 text-sm text-slate-600 shadow-xl">
+      <article
+        className="glass-card group relative flex flex-col rounded-3xl transition-all duration-300 hover:-translate-y-1 overflow-hidden"
+        style={{ cursor: "default" }}
+      >
+        {/* Top accent line */}
+        <div
+          className="h-1 w-full"
+          style={{ background: "linear-gradient(90deg, #2E5AAC, #FF7B6A)" }}
+        />
+
+        <div className="flex flex-col flex-1 p-5">
+          {/* Header row */}
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex-1 min-w-0">
+              <StatusBadge tanggalSelesai={trip.tanggalSelesai} />
+              <h3
+                className="mt-2 text-base font-bold leading-tight truncate"
+                style={{ color: "var(--text-primary)" }}
+              >
+                {trip.nama}
+              </h3>
+              {/* Route badge */}
+              {hasRoute && (
+                <div
+                  className="mt-1.5 flex items-center gap-1.5 text-xs"
+                  style={{ color: "var(--text-secondary)" }}
+                >
+                  <MapPin size={12} />
+                  <span className="truncate">
+                    {trip.originCity ?? trip.lokasi}
+                    {trip.destinationCity && ` → ${trip.destinationCity}`}
+                  </span>
+                </div>
+              )}
+              {!hasRoute && trip.lokasi && (
+                <div
+                  className="mt-1 flex items-center gap-1 text-xs"
+                  style={{ color: "var(--text-secondary)" }}
+                >
+                  <MapPin size={12} />
+                  {trip.lokasi}
+                </div>
+              )}
+            </div>
+
+            {/* 3-dot menu (if editable) */}
+            {trip.canEdit && (
+              <div className="relative shrink-0" ref={menuRef}>
                 <button
                   type="button"
-                  className="flex w-full items-center justify-between rounded-xl px-3 py-2 hover:bg-slate-50"
-                  onClick={() => {
-                    setMenuOpen(false);
-                    setEditStatus(null);
-                    setShowEditModal(true);
+                  aria-label="Opsi trip"
+                  aria-haspopup="menu"
+                  aria-expanded={menuOpen}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setMenuOpen((p) => !p);
+                  }}
+                  className="flex h-8 w-8 items-center justify-center rounded-xl transition-all duration-200 hover:scale-105"
+                  style={{
+                    background: "var(--bg-muted)",
+                    border: "1px solid var(--border-color)",
+                    color: "var(--text-muted)",
                   }}
                 >
-                  Edit perjalanan
-                  <span className="text-xs text-slate-400">⌘E</span>
+                  <MoreHorizontal size={16} />
                 </button>
-                <button
-                  type="button"
-                  className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-rose-600 hover:bg-rose-50"
-                  onClick={async () => {
-                    if (isDeleting) return;
-                    if (typeof window !== "undefined") {
-                      const confirmed = window.confirm(`Hapus perjalanan ${trip.nama}?`);
-                      if (!confirmed) {
+
+                {menuOpen && (
+                  <div
+                    className="absolute right-0 top-full z-20 mt-1.5 w-44 animate-slide-down rounded-2xl p-1 shadow-glass"
+                    style={{
+                      background: "var(--bg-card)",
+                      border: "1px solid var(--border-color)",
+                      backdropFilter: "blur(16px)",
+                    }}
+                  >
+                    <button
+                      type="button"
+                      className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium transition-colors"
+                      style={{ color: "var(--text-primary)" }}
+                      onMouseEnter={(e) => {
+                        (
+                          e.currentTarget as HTMLButtonElement
+                        ).style.background = "var(--bg-muted)";
+                      }}
+                      onMouseLeave={(e) => {
+                        (
+                          e.currentTarget as HTMLButtonElement
+                        ).style.background = "transparent";
+                      }}
+                      onClick={() => {
                         setMenuOpen(false);
-                        return;
-                      }
-                    }
-                    setMenuOpen(false);
-                    setActionMessage(null);
-                    setIsDeleting(true);
-                    const response = await fetch(`/api/trips/${trip.id}`, {
-                      method: "DELETE"
-                    });
-                    setIsDeleting(false);
-                    if (!response.ok) {
-                      const error = await response.json().catch(() => ({}));
-                      setActionMessage(error.message || "Gagal menghapus perjalanan.");
-                      return;
-                    }
-                    router.refresh();
-                  }}
-                  disabled={isDeleting}
-                >
-                  {isDeleting ? "Menghapus..." : "Hapus perjalanan"}
-                </button>
+                        setEditStatus(null);
+                        setShowEditModal(true);
+                      }}
+                    >
+                      <Pencil size={14} />
+                      Edit perjalanan
+                    </button>
+                    <button
+                      type="button"
+                      className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium transition-colors"
+                      style={{ color: "#e11d48" }}
+                      onMouseEnter={(e) => {
+                        (
+                          e.currentTarget as HTMLButtonElement
+                        ).style.background = "rgba(225, 29, 72, 0.08)";
+                      }}
+                      onMouseLeave={(e) => {
+                        (
+                          e.currentTarget as HTMLButtonElement
+                        ).style.background = "transparent";
+                      }}
+                      onClick={async () => {
+                        if (isDeleting) return;
+                        if (!window.confirm(`Hapus perjalanan ${trip.nama}?`)) {
+                          setMenuOpen(false);
+                          return;
+                        }
+                        setMenuOpen(false);
+                        setActionMessage(null);
+                        setIsDeleting(true);
+                        const response = await fetch(`/api/trips/${trip.id}`, {
+                          method: "DELETE",
+                        });
+                        setIsDeleting(false);
+                        if (!response.ok) {
+                          const error = await response.json().catch(() => ({}));
+                          setActionMessage(
+                            error.message || "Gagal menghapus perjalanan.",
+                          );
+                          return;
+                        }
+                        router.refresh();
+                      }}
+                      disabled={isDeleting}
+                    >
+                      <Trash2 size={14} />
+                      {isDeleting ? "Menghapus..." : "Hapus perjalanan"}
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </div>
-        )}
-        <Link href={`/perjalanan/${trip.id}`} className="block space-y-3 pr-4">
-          <div className="flex items-center justify-between">
-            <div className="pr-4">
-              <p className="text-sm uppercase tracking-wide text-slate-500">{trip.lokasi}</p>
-              <h3 className="text-xl font-semibold text-slate-900">{trip.nama}</h3>
-            </div>
-            <div className="flex flex-col items-end gap-2">
-              <span className="rounded-full border px-3 py-1 text-xs text-slate-500">{durasi} hari</span>
-              {!trip.canEdit && (
-                <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                  Hanya lihat
-                </span>
-              )}
-            </div>
+
+          {/* Date + duration row */}
+          <div
+            className="mt-3 flex items-center gap-2 text-xs"
+            style={{ color: "var(--text-muted)" }}
+          >
+            <Calendar size={12} />
+            <span>
+              {format(new Date(trip.tanggalMulai), "d MMM", { locale: id })}
+              {trip.tanggalSelesai &&
+                ` – ${format(new Date(trip.tanggalSelesai), "d MMM yyyy", { locale: id })}`}
+            </span>
+            <span
+              className="rounded-full px-2 py-0.5 text-[10px] font-semibold"
+              style={{
+                background: "var(--bg-muted)",
+                color: "var(--text-muted)",
+              }}
+            >
+              {durasi}h
+            </span>
           </div>
-          <p className="text-sm text-slate-600">
-            {format(new Date(trip.tanggalMulai), "d MMM", { locale: id })} -
-            {" "}
-            {trip.tanggalSelesai
-              ? format(new Date(trip.tanggalSelesai), "d MMM yyyy", { locale: id })
-              : "berjalan"}
-          </p>
-          <p className="text-2xl font-bold text-brand-blue">{formatRupiah(trip.totalPengeluaran)}</p>
-          <p className="text-sm text-slate-500">total pengeluaran</p>
-        </Link>
-        {actionMessage && <p className="mt-3 text-xs text-rose-600">{actionMessage}</p>}
+
+          {/* Spending */}
+          <div className="mt-4">
+            <p
+              className="text-[11px] uppercase tracking-wider font-semibold"
+              style={{ color: "var(--text-muted)" }}
+            >
+              Total pengeluaran
+            </p>
+            <p
+              className="mt-0.5 text-2xl font-extrabold"
+              style={{ color: "#2E5AAC" }}
+            >
+              {formatRupiah(trip.totalPengeluaran)}
+            </p>
+          </div>
+
+          {actionMessage && (
+            <p className="mt-2 text-xs" style={{ color: "#e11d48" }}>
+              {actionMessage}
+            </p>
+          )}
+
+          {/* Read-only badge */}
+          {!trip.canEdit && (
+            <span className="badge badge-gray mt-3 self-start text-[10px]">
+              Hanya Lihat
+            </span>
+          )}
+
+          {/* CTA link */}
+          <Link
+            href={`/perjalanan/${trip.id}`}
+            className="mt-4 flex items-center justify-between rounded-xl px-4 py-2.5 text-xs font-semibold transition-all duration-200 group/link"
+            style={{
+              background: "rgba(46, 90, 172, 0.08)",
+              color: "#2E5AAC",
+            }}
+            onMouseEnter={(e) => {
+              (e.currentTarget as HTMLAnchorElement).style.background =
+                "rgba(46, 90, 172, 0.15)";
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLAnchorElement).style.background =
+                "rgba(46, 90, 172, 0.08)";
+            }}
+          >
+            <span>Lihat Detail Trip</span>
+            <ArrowRight
+              size={14}
+              className="transition-transform group-hover/link:translate-x-1"
+            />
+          </Link>
+        </div>
       </article>
 
+      {/* Edit Modal */}
       {showEditModal && (
         <TripEditModal
           formState={editForm}
-          onChange={(field, value) => setEditForm((prev) => ({ ...prev, [field]: value }))}
+          onChange={(field, value) =>
+            setEditForm((prev) => ({ ...prev, [field]: value }))
+          }
           onClose={() => {
             if (!isSavingEdit) {
               setShowEditModal(false);
@@ -184,8 +344,8 @@ export function TripCard({ trip }: { trip: Trip }) {
                 originCity: editForm.originCity.trim() || null,
                 destinationCity: editForm.destinationCity.trim() || null,
                 startDate: editForm.startDate || null,
-                endDate: editForm.endDate || null
-              })
+                endDate: editForm.endDate || null,
+              }),
             });
             setIsSavingEdit(false);
             if (!response.ok) {
@@ -205,6 +365,7 @@ export function TripCard({ trip }: { trip: Trip }) {
   );
 }
 
+/* ── Edit Modal ────────────── */
 type TripEditModalProps = {
   formState: EditTripFormState;
   onChange: (field: keyof EditTripFormState, value: string) => void;
@@ -214,74 +375,121 @@ type TripEditModalProps = {
   statusMessage: string | null;
 };
 
-function TripEditModal({ formState, onChange, onClose, onSubmit, isSaving, statusMessage }: TripEditModalProps) {
+function TripEditModal({
+  formState,
+  onChange,
+  onClose,
+  onSubmit,
+  isSaving,
+  statusMessage,
+}: TripEditModalProps) {
   return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/40 p-4">
-      <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl">
-        <h3 className="text-lg font-semibold text-slate-900">Edit perjalanan</h3>
+    <div className="fixed inset-0 z-40 flex items-end justify-center bg-slate-900/40 p-4 backdrop-blur-sm md:items-center">
+      <div
+        className="w-full max-w-md animate-slide-up rounded-3xl p-6"
+        style={{
+          background: "var(--bg-card)",
+          border: "1px solid var(--border-color)",
+          backdropFilter: "blur(20px)",
+          boxShadow: "0 20px 60px rgba(0,0,0,0.2)",
+        }}
+      >
+        <h3
+          className="text-lg font-bold"
+          style={{ color: "var(--text-primary)" }}
+        >
+          Edit perjalanan
+        </h3>
         <div className="mt-4 space-y-3">
-          <label className="block text-sm font-medium text-slate-700">
+          <label
+            className="block text-sm font-medium"
+            style={{ color: "var(--text-secondary)" }}
+          >
             Nama perjalanan
             <input
               type="text"
-              className="mt-1 w-full rounded-xl border px-3 py-2"
+              className="input-field mt-1"
               value={formState.name}
-              onChange={(event) => onChange("name", event.target.value)}
+              onChange={(e) => onChange("name", e.target.value)}
             />
           </label>
           <div className="grid gap-3 md:grid-cols-2">
-            <label className="block text-sm font-medium text-slate-700">
+            <label
+              className="block text-sm font-medium"
+              style={{ color: "var(--text-secondary)" }}
+            >
               Kota asal
               <input
                 type="text"
-                className="mt-1 w-full rounded-xl border px-3 py-2"
+                className="input-field mt-1"
                 value={formState.originCity}
-                onChange={(event) => onChange("originCity", event.target.value)}
+                onChange={(e) => onChange("originCity", e.target.value)}
               />
             </label>
-            <label className="block text-sm font-medium text-slate-700">
+            <label
+              className="block text-sm font-medium"
+              style={{ color: "var(--text-secondary)" }}
+            >
               Kota tujuan
               <input
                 type="text"
-                className="mt-1 w-full rounded-xl border px-3 py-2"
+                className="input-field mt-1"
                 value={formState.destinationCity}
-                onChange={(event) => onChange("destinationCity", event.target.value)}
+                onChange={(e) => onChange("destinationCity", e.target.value)}
               />
             </label>
           </div>
           <div className="grid gap-3 md:grid-cols-2">
-            <label className="block text-sm font-medium text-slate-700">
+            <label
+              className="block text-sm font-medium"
+              style={{ color: "var(--text-secondary)" }}
+            >
               Tanggal mulai
               <input
                 type="date"
-                className="mt-1 w-full rounded-xl border px-3 py-2"
+                className="input-field mt-1"
                 value={formState.startDate}
-                onChange={(event) => onChange("startDate", event.target.value)}
+                onChange={(e) => onChange("startDate", e.target.value)}
               />
             </label>
-            <label className="block text-sm font-medium text-slate-700">
+            <label
+              className="block text-sm font-medium"
+              style={{ color: "var(--text-secondary)" }}
+            >
               Tanggal selesai
               <input
                 type="date"
-                className="mt-1 w-full rounded-xl border px-3 py-2"
+                className="input-field mt-1"
                 value={formState.endDate}
-                onChange={(event) => onChange("endDate", event.target.value)}
+                onChange={(e) => onChange("endDate", e.target.value)}
               />
             </label>
           </div>
         </div>
-        {statusMessage && <p className="mt-4 text-sm text-slate-500">{statusMessage}</p>}
-        <div className="mt-6 flex justify-end gap-3">
-          <button type="button" className="text-sm font-semibold text-slate-500" onClick={onClose} disabled={isSaving}>
+        {statusMessage && (
+          <p
+            className="mt-3 text-sm"
+            style={{ color: isSaving ? "var(--text-muted)" : "#e11d48" }}
+          >
+            {statusMessage}
+          </p>
+        )}
+        <div className="mt-5 flex justify-end gap-3">
+          <button
+            type="button"
+            className="btn-ghost text-sm"
+            onClick={onClose}
+            disabled={isSaving}
+          >
             Batal
           </button>
           <button
             type="button"
-            className="rounded-2xl bg-brand-blue px-5 py-2 text-sm font-semibold text-white disabled:opacity-60"
+            className="btn-primary text-sm"
             onClick={onSubmit}
             disabled={isSaving}
           >
-            {isSaving ? "Menyimpan..." : "Simpan perubahan"}
+            {isSaving ? "Menyimpan..." : "Simpan"}
           </button>
         </div>
       </div>
