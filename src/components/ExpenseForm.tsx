@@ -385,10 +385,7 @@ export function ExpenseForm({ tripId, participants, legs }: ExpenseFormProps) {
                 ...prev,
                 legId: target.legId,
                 vehicleId: target.vehicleId,
-                shareScope:
-                  prev.shareScope === "vehicle" && !target.vehicleId
-                    ? "leg"
-                    : prev.shareScope,
+                shareScope: target.vehicleId ? "vehicle" : "leg",
               }));
               setFoodStopAmounts({});
               setErrors((prev) => ({
@@ -464,6 +461,11 @@ export function ExpenseForm({ tripId, participants, legs }: ExpenseFormProps) {
             );
           })}
         </div>
+        <p className="mt-2 text-xs" style={{ color: "var(--text-muted)" }}>
+          {values.shareScope === "leg"
+            ? "💡 Dibagi rata ke seluruh penumpang di leg ini (lintas mobil, supir diskon 50%)."
+            : "💡 Hanya ditanggung oleh penumpang di mobil terpilih (supir diskon 50%)."}
+        </p>
         {errors.shareScope && (
           <p className="mt-1 text-xs text-red-500">{errors.shareScope}</p>
         )}

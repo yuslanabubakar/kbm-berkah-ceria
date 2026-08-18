@@ -812,18 +812,24 @@ export function VehicleManager({
   };
 
   return (
-    <section className="rounded-3xl border border-dashed bg-white/80 p-6 shadow-sm">
+    <section className="glass-card rounded-3xl p-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <p className="text-sm uppercase tracking-wide text-slate-400">
+          <p
+            className="text-xs uppercase tracking-wide font-semibold"
+            style={{ color: "var(--text-muted)" }}
+          >
             Armada & penumpang
           </p>
-          <h2 className="text-xl font-semibold text-slate-900">
-            Kelola kendaraan perjalanan
+          <h2
+            className="text-xl font-bold"
+            style={{ color: "var(--text-primary)" }}
+          >
+            Kelola Kendaraan Perjalanan
           </h2>
         </div>
         <div className="flex flex-col items-end gap-3">
-          <span className="rounded-full bg-brand-blue/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-brand-blue">
+          <span className="badge badge-blue text-xs uppercase tracking-wide">
             Host mode
           </span>
           <div className="flex flex-wrap justify-end gap-2">
@@ -850,17 +856,29 @@ export function VehicleManager({
         <p className="mt-2 text-sm text-slate-500">{statusMessage}</p>
       )}
 
-      <div className="mt-6 rounded-2xl border bg-white p-4">
+      <div
+        className="mt-6 rounded-2xl p-5"
+        style={{
+          background: "var(--bg-muted)",
+          border: "1px solid var(--border-color)",
+        }}
+      >
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-xs uppercase tracking-wide text-slate-400">
+            <p
+              className="text-xs uppercase tracking-wide font-semibold"
+              style={{ color: "var(--text-muted)" }}
+            >
               Armada terdaftar
             </p>
-            <h3 className="text-lg font-semibold text-slate-900">
+            <h3
+              className="text-base font-bold"
+              style={{ color: "var(--text-primary)" }}
+            >
               Daftar kendaraan trip
             </h3>
           </div>
-          <span className="text-sm text-slate-500">
+          <span className="text-xs" style={{ color: "var(--text-muted)" }}>
             {fleet.length} kendaraan
           </span>
         </div>
@@ -869,20 +887,33 @@ export function VehicleManager({
             {fleet.map((vehicle) => (
               <li
                 key={vehicle.id}
-                className="rounded-2xl border bg-slate-50 p-4"
+                className="rounded-xl p-4"
+                style={{
+                  background: "var(--bg-card)",
+                  border: "1px solid var(--border-color)",
+                }}
               >
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <p className="text-base font-semibold text-slate-900">
-                      {vehicle.label}
+                    <p
+                      className="text-sm font-bold"
+                      style={{ color: "var(--text-primary)" }}
+                    >
+                      🚗 {vehicle.label}
                     </p>
                     {vehicle.plateNumber && (
-                      <p className="text-sm text-slate-500">
+                      <p
+                        className="text-xs font-mono"
+                        style={{ color: "var(--text-muted)" }}
+                      >
                         Plat {vehicle.plateNumber}
                       </p>
                     )}
                     {vehicle.seatCapacity && (
-                      <p className="text-xs text-slate-500">
+                      <p
+                        className="text-xs"
+                        style={{ color: "var(--text-secondary)" }}
+                      >
                         {vehicle.seatCapacity} kursi
                       </p>
                     )}
@@ -1236,23 +1267,33 @@ export function VehicleManager({
       <div className="mt-6 space-y-6">
         {hasLegs ? (
           legs.map((leg) => (
-            <div key={leg.id} className="rounded-2xl border bg-white p-4">
+            <div
+              key={leg.id}
+              className="rounded-2xl p-5"
+              style={{
+                background: "var(--bg-muted)",
+                border: "1px solid var(--border-color)",
+              }}
+            >
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
-                  <p className="text-xs uppercase tracking-wide text-slate-400">
+                  <span className="badge badge-blue text-[10px] mb-1">
                     Leg {leg.order}
-                  </p>
-                  <h3 className="text-lg font-semibold text-slate-900">
+                  </span>
+                  <h3
+                    className="text-base font-bold"
+                    style={{ color: "var(--text-primary)" }}
+                  >
                     {leg.label}
                   </h3>
-                  <p className="text-xs text-slate-500">
+                  <p className="text-xs" style={{ color: "var(--text-muted)" }}>
                     {formatScheduleLabel(leg.start)}
                   </p>
                 </div>
                 <button
                   type="button"
                   onClick={() => handleOpenLinkForm(leg.id)}
-                  className="text-sm font-semibold text-brand-blue"
+                  className="btn-secondary text-xs"
                 >
                   + Hubungkan kendaraan
                 </button>
@@ -1262,38 +1303,57 @@ export function VehicleManager({
                   leg.vehicles.map((vehicle) => (
                     <div
                       key={vehicle.id}
-                      className="rounded-2xl border bg-slate-50 p-4"
+                      className="rounded-xl p-4"
+                      style={{
+                        background: "var(--bg-card)",
+                        border: "1px solid var(--border-color)",
+                      }}
                     >
                       <div className="flex items-start justify-between">
                         <div>
-                          <p className="text-sm text-slate-500">Kendaraan</p>
-                          <p className="text-lg font-semibold text-slate-900">
-                            {vehicle.label}
+                          <p
+                            className="text-xs"
+                            style={{ color: "var(--text-muted)" }}
+                          >
+                            Kendaraan
+                          </p>
+                          <p
+                            className="text-sm font-bold"
+                            style={{ color: "var(--text-primary)" }}
+                          >
+                            🚗 {vehicle.label}
                           </p>
                           {vehicle.plateNumber && (
-                            <p className="text-xs text-slate-500">
+                            <p
+                              className="text-xs font-mono"
+                              style={{ color: "var(--text-muted)" }}
+                            >
                               Plat {vehicle.plateNumber}
                             </p>
                           )}
-                          <p className="text-xs text-slate-500">
+                          <p
+                            className="text-xs"
+                            style={{ color: "var(--text-secondary)" }}
+                          >
                             Berangkat:{" "}
                             {formatScheduleLabel(vehicle.departureTime)}
                           </p>
                           <button
                             type="button"
-                            className="mt-1 text-xs font-semibold text-brand-blue"
+                            className="mt-1.5 text-xs font-semibold"
+                            style={{ color: "#2E5AAC" }}
                             onClick={() => handleOpenScheduleForm(leg, vehicle)}
                           >
                             Atur jadwal kendaraan
                           </button>
                         </div>
                         <div className="text-right">
-                          <span className="text-xs font-semibold text-slate-500 block">
+                          <span className="badge badge-gray text-[10px] block">
                             {vehicle.assignments.length} orang
                           </span>
                           <button
                             type="button"
-                            className="mt-1 text-xs text-rose-500"
+                            className="mt-2 text-xs text-rose-500 hover:underline"
                             onClick={() =>
                               handleUnlinkVehicle(leg.id, vehicle.id)
                             }
@@ -1307,34 +1367,29 @@ export function VehicleManager({
                           vehicle.assignments.map((assignment) => (
                             <li
                               key={assignment.participantId}
-                              className="rounded-xl bg-white px-3 py-2"
+                              className="rounded-xl px-3 py-2"
+                              style={{
+                                background: "var(--bg-muted)",
+                                border: "1px solid var(--border-color)",
+                              }}
                             >
                               <div className="flex items-center justify-between gap-3">
-                                <p className="font-medium text-slate-900">
+                                <p
+                                  className="font-medium text-xs"
+                                  style={{ color: "var(--text-primary)" }}
+                                >
                                   {assignment.participantName}
                                   {assignment.role === "driver" && (
-                                    <span className="ml-2 rounded-full bg-slate-200 px-2 py-0.5 text-xs font-semibold text-slate-600">
+                                    <span className="ml-2 badge badge-blue text-[10px]">
                                       Supir
                                     </span>
                                   )}
                                 </p>
-                                <div className="flex flex-col items-end gap-1">
+                                <div className="flex items-center gap-2">
                                   <button
                                     type="button"
-                                    className="text-xs text-rose-500"
-                                    onClick={() =>
-                                      handleDeleteAssignment(
-                                        leg.id,
-                                        vehicle.id,
-                                        assignment.participantId,
-                                      )
-                                    }
-                                  >
-                                    Hapus
-                                  </button>
-                                  <button
-                                    type="button"
-                                    className="text-xs text-brand-blue"
+                                    className="text-xs hover:underline"
+                                    style={{ color: "#2E5AAC" }}
                                     onClick={() =>
                                       handleUpdateAssignmentRole(
                                         leg.id,
@@ -1347,15 +1402,34 @@ export function VehicleManager({
                                     }
                                   >
                                     {assignment.role === "driver"
-                                      ? "Jadikan penumpang"
-                                      : "Jadikan supir"}
+                                      ? "Set Penumpang"
+                                      : "Set Supir"}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="text-xs text-rose-500 hover:underline"
+                                    onClick={() =>
+                                      handleDeleteAssignment(
+                                        leg.id,
+                                        vehicle.id,
+                                        assignment.participantId,
+                                      )
+                                    }
+                                  >
+                                    Hapus
                                   </button>
                                 </div>
                               </div>
                             </li>
                           ))
                         ) : (
-                          <li className="rounded-xl border border-dashed border-slate-200 px-3 py-2 text-slate-500">
+                          <li
+                            className="rounded-xl p-3 text-center text-xs"
+                            style={{
+                              background: "var(--bg-muted)",
+                              color: "var(--text-muted)",
+                            }}
+                          >
                             Belum ada peserta.
                           </li>
                         )}
@@ -1363,7 +1437,7 @@ export function VehicleManager({
                     </div>
                   ))
                 ) : (
-                  <p className="text-sm text-slate-500">
+                  <p className="text-xs" style={{ color: "var(--text-muted)" }}>
                     Belum ada kendaraan untuk leg ini.
                   </p>
                 )}
@@ -1371,7 +1445,14 @@ export function VehicleManager({
             </div>
           ))
         ) : (
-          <p className="rounded-2xl border border-dashed border-slate-200 p-6 text-center text-sm text-slate-500">
+          <p
+            className="rounded-2xl p-6 text-center text-sm"
+            style={{
+              background: "var(--bg-muted)",
+              color: "var(--text-muted)",
+              border: "1px dashed var(--border-strong)",
+            }}
+          >
             Belum ada leg. Tambahkan leg terlebih dahulu untuk mulai menempatkan
             kendaraan dan peserta.
           </p>
@@ -1379,16 +1460,28 @@ export function VehicleManager({
       </div>
 
       {showVehicleForm && (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/40 p-4">
-          <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl">
-            <h3 className="text-lg font-semibold text-slate-900">
-              Tambah kendaraan trip
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in">
+          <div
+            className="w-full max-w-md rounded-3xl p-6 shadow-2xl animate-scale-up"
+            style={{
+              background: "var(--bg-card)",
+              border: "1px solid var(--border-color)",
+            }}
+          >
+            <h3
+              className="text-lg font-bold"
+              style={{ color: "var(--text-primary)" }}
+            >
+              Tambah Kendaraan Trip
             </h3>
-            <label className="mt-4 block text-sm font-medium text-slate-700">
-              Nama kendaraan
+            <label
+              className="mt-4 block text-xs font-semibold mb-1"
+              style={{ color: "var(--text-secondary)" }}
+            >
+              Nama Kendaraan
               <input
                 type="text"
-                className="mt-1 w-full rounded-xl border px-3 py-2"
+                className="input-field mt-1"
                 value={vehicleFormState.label}
                 onChange={(event) =>
                   setVehicleFormState((prev) => ({
@@ -1396,13 +1489,17 @@ export function VehicleManager({
                     label: event.target.value,
                   }))
                 }
+                placeholder="Contoh: Avanza Hitam, Innova Reborn"
               />
             </label>
-            <label className="mt-3 block text-sm font-medium text-slate-700">
-              Plat kendaraan
+            <label
+              className="mt-3 block text-xs font-semibold mb-1"
+              style={{ color: "var(--text-secondary)" }}
+            >
+              Plat Kendaraan
               <input
                 type="text"
-                className="mt-1 w-full rounded-xl border px-3 py-2 uppercase"
+                className="input-field mt-1 uppercase font-mono"
                 value={vehicleFormState.plateNumber}
                 onChange={(event) =>
                   setVehicleFormState((prev) => ({
@@ -1410,15 +1507,19 @@ export function VehicleManager({
                     plateNumber: event.target.value,
                   }))
                 }
+                placeholder="D 1234 ABC"
               />
             </label>
-            <label className="mt-3 block text-sm font-medium text-slate-700">
-              Kapasitas kursi
+            <label
+              className="mt-3 block text-xs font-semibold mb-1"
+              style={{ color: "var(--text-secondary)" }}
+            >
+              Kapasitas Kursi
               <input
                 type="number"
                 min={1}
                 max={50}
-                className="mt-1 w-full rounded-xl border px-3 py-2"
+                className="input-field mt-1"
                 value={vehicleFormState.seatCapacity}
                 onChange={(event) =>
                   setVehicleFormState((prev) => ({
@@ -1428,11 +1529,14 @@ export function VehicleManager({
                 }
               />
             </label>
-            <label className="mt-3 block text-sm font-medium text-slate-700">
+            <label
+              className="mt-3 block text-xs font-semibold mb-1"
+              style={{ color: "var(--text-secondary)" }}
+            >
               Catatan
               <textarea
-                className="mt-1 w-full rounded-xl border px-3 py-2"
-                rows={3}
+                className="input-field mt-1"
+                rows={2}
                 value={vehicleFormState.notes}
                 onChange={(event) =>
                   setVehicleFormState((prev) => ({
@@ -1442,21 +1546,21 @@ export function VehicleManager({
                 }
               />
             </label>
-            <div className="mt-6 flex justify-end gap-3">
+            <div className="mt-6 flex justify-end gap-2">
               <button
                 type="button"
-                className="text-sm font-semibold text-slate-500"
+                className="btn-secondary text-xs"
                 onClick={() => setShowVehicleForm(false)}
               >
                 Batal
               </button>
               <button
                 type="button"
-                className="rounded-2xl bg-brand-blue px-5 py-2 text-sm font-semibold text-white"
+                className="btn-primary text-xs"
                 onClick={handleSaveVehicle}
                 disabled={savingVehicle}
               >
-                {savingVehicle ? "Menyimpan..." : "Simpan"}
+                {savingVehicle ? "Menyimpan..." : "Simpan Kendaraan"}
               </button>
             </div>
           </div>
@@ -1464,16 +1568,28 @@ export function VehicleManager({
       )}
 
       {showLegForm && (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/40 p-4">
-          <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl">
-            <h3 className="text-lg font-semibold text-slate-900">
-              Tambah leg perjalanan
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in">
+          <div
+            className="w-full max-w-md rounded-3xl p-6 shadow-2xl animate-scale-up"
+            style={{
+              background: "var(--bg-card)",
+              border: "1px solid var(--border-color)",
+            }}
+          >
+            <h3
+              className="text-lg font-bold"
+              style={{ color: "var(--text-primary)" }}
+            >
+              Tambah Leg Perjalanan
             </h3>
-            <label className="mt-4 block text-sm font-medium text-slate-700">
-              Asal (origin)
+            <label
+              className="mt-4 block text-xs font-semibold mb-1"
+              style={{ color: "var(--text-secondary)" }}
+            >
+              Asal (Origin)
               <input
                 type="text"
-                className="mt-1 w-full rounded-xl border px-3 py-2"
+                className="input-field mt-1"
                 value={legFormState.origin}
                 onChange={(event) =>
                   setLegFormState((prev) => ({
@@ -1481,13 +1597,17 @@ export function VehicleManager({
                     origin: event.target.value,
                   }))
                 }
+                placeholder="Contoh: Bandung"
               />
             </label>
-            <label className="mt-3 block text-sm font-medium text-slate-700">
-              Tujuan (destination)
+            <label
+              className="mt-3 block text-xs font-semibold mb-1"
+              style={{ color: "var(--text-secondary)" }}
+            >
+              Tujuan (Destination)
               <input
                 type="text"
-                className="mt-1 w-full rounded-xl border px-3 py-2"
+                className="input-field mt-1"
                 value={legFormState.destination}
                 onChange={(event) =>
                   setLegFormState((prev) => ({
@@ -1495,14 +1615,18 @@ export function VehicleManager({
                     destination: event.target.value,
                   }))
                 }
+                placeholder="Contoh: Jakarta"
               />
             </label>
-            <div className="mt-3 grid gap-4 md:grid-cols-2">
-              <label className="block text-sm font-medium text-slate-700">
-                Tanggal leg
+            <div className="mt-3 grid gap-3 md:grid-cols-2">
+              <label
+                className="block text-xs font-semibold mb-1"
+                style={{ color: "var(--text-secondary)" }}
+              >
+                Tanggal Leg
                 <input
                   type="date"
-                  className="mt-1 w-full rounded-xl border px-3 py-2"
+                  className="input-field mt-1"
                   value={legFormState.startDate}
                   onChange={(event) =>
                     setLegFormState((prev) => ({
@@ -1512,11 +1636,14 @@ export function VehicleManager({
                   }
                 />
               </label>
-              <label className="block text-sm font-medium text-slate-700">
-                Jam leg
+              <label
+                className="block text-xs font-semibold mb-1"
+                style={{ color: "var(--text-secondary)" }}
+              >
+                Jam Leg
                 <input
                   type="time"
-                  className="mt-1 w-full rounded-xl border px-3 py-2"
+                  className="input-field mt-1"
                   value={legFormState.startTime}
                   onChange={(event) =>
                     setLegFormState((prev) => ({
@@ -1527,11 +1654,14 @@ export function VehicleManager({
                 />
               </label>
             </div>
-            <label className="mt-3 block text-sm font-medium text-slate-700">
+            <label
+              className="mt-3 block text-xs font-semibold mb-1"
+              style={{ color: "var(--text-secondary)" }}
+            >
               Catatan
               <textarea
-                className="mt-1 w-full rounded-xl border px-3 py-2"
-                rows={3}
+                className="input-field mt-1"
+                rows={2}
                 value={legFormState.notes}
                 onChange={(event) =>
                   setLegFormState((prev) => ({
@@ -1541,21 +1671,21 @@ export function VehicleManager({
                 }
               />
             </label>
-            <div className="mt-6 flex justify-end gap-3">
+            <div className="mt-6 flex justify-end gap-2">
               <button
                 type="button"
-                className="text-sm font-semibold text-slate-500"
+                className="btn-secondary text-xs"
                 onClick={() => setShowLegForm(false)}
               >
                 Batal
               </button>
               <button
                 type="button"
-                className="rounded-2xl bg-brand-blue px-5 py-2 text-sm font-semibold text-white"
+                className="btn-primary text-xs"
                 onClick={handleSaveLeg}
                 disabled={savingLeg}
               >
-                {savingLeg ? "Menyimpan..." : "Simpan"}
+                {savingLeg ? "Menyimpan..." : "Simpan Leg"}
               </button>
             </div>
           </div>
@@ -1563,24 +1693,39 @@ export function VehicleManager({
       )}
 
       {showScheduleForm && (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/40 p-4">
-          <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl">
-            <h3 className="text-lg font-semibold text-slate-900">
-              Atur jadwal kendaraan
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in">
+          <div
+            className="w-full max-w-md rounded-3xl p-6 shadow-2xl animate-scale-up"
+            style={{
+              background: "var(--bg-card)",
+              border: "1px solid var(--border-color)",
+            }}
+          >
+            <h3
+              className="text-lg font-bold"
+              style={{ color: "var(--text-primary)" }}
+            >
+              Atur Jadwal Kendaraan
             </h3>
-            <p className="text-sm text-slate-500">
+            <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>
               Leg {scheduleContext?.leg.order ?? "-"} ·{" "}
               {scheduleContext?.leg.label ?? "Tanpa nama"}
             </p>
-            <p className="text-sm text-slate-500">
-              Kendaraan: {scheduleContext?.vehicle.label ?? "Tanpa nama"}
+            <p
+              className="text-xs mb-3 font-semibold"
+              style={{ color: "var(--text-primary)" }}
+            >
+              🚗 Kendaraan: {scheduleContext?.vehicle.label ?? "Tanpa nama"}
             </p>
-            <div className="mt-4 grid gap-4 md:grid-cols-2">
-              <label className="block text-sm font-medium text-slate-700">
-                Tanggal leg
+            <div className="mt-4 grid gap-3 md:grid-cols-2">
+              <label
+                className="block text-xs font-semibold mb-1"
+                style={{ color: "var(--text-secondary)" }}
+              >
+                Tanggal
                 <input
                   type="date"
-                  className="mt-1 w-full rounded-xl border px-3 py-2"
+                  className="input-field mt-1"
                   value={scheduleFormState.startDate}
                   onChange={(event) =>
                     setScheduleFormState((prev) => ({
@@ -1590,11 +1735,14 @@ export function VehicleManager({
                   }
                 />
               </label>
-              <label className="block text-sm font-medium text-slate-700">
-                Jam leg
+              <label
+                className="block text-xs font-semibold mb-1"
+                style={{ color: "var(--text-secondary)" }}
+              >
+                Jam
                 <input
                   type="time"
-                  className="mt-1 w-full rounded-xl border px-3 py-2"
+                  className="input-field mt-1"
                   value={scheduleFormState.startTime}
                   onChange={(event) =>
                     setScheduleFormState((prev) => ({
@@ -1605,27 +1753,30 @@ export function VehicleManager({
                 />
               </label>
             </div>
-            <p className="mt-2 text-xs text-slate-500">
+            <p
+              className="mt-2 text-[11px]"
+              style={{ color: "var(--text-muted)" }}
+            >
               Kosongkan dua kolom ini jika jadwal belum ditentukan.
             </p>
             {scheduleMessage && (
-              <p className="mt-3 text-sm text-slate-600">{scheduleMessage}</p>
+              <p className="mt-3 text-xs text-amber-500">{scheduleMessage}</p>
             )}
-            <div className="mt-6 flex justify-end gap-3">
+            <div className="mt-6 flex justify-end gap-2">
               <button
                 type="button"
-                className="text-sm font-semibold text-slate-500"
+                className="btn-secondary text-xs"
                 onClick={handleCloseScheduleForm}
               >
                 Batal
               </button>
               <button
                 type="button"
-                className="rounded-2xl bg-brand-blue px-5 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                className="btn-primary text-xs"
                 onClick={handleSaveSchedule}
                 disabled={savingSchedule}
               >
-                {savingSchedule ? "Menyimpan..." : "Simpan jadwal"}
+                {savingSchedule ? "Menyimpan..." : "Simpan Jadwal"}
               </button>
             </div>
           </div>
@@ -1633,19 +1784,34 @@ export function VehicleManager({
       )}
 
       {showLinkForm && (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/40 p-4">
-          <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl">
-            <h3 className="text-lg font-semibold text-slate-900">
-              Pilih kendaraan untuk leg
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in">
+          <div
+            className="w-full max-w-md rounded-3xl p-6 shadow-2xl animate-scale-up"
+            style={{
+              background: "var(--bg-card)",
+              border: "1px solid var(--border-color)",
+            }}
+          >
+            <h3
+              className="text-lg font-bold"
+              style={{ color: "var(--text-primary)" }}
+            >
+              Pilih Kendaraan untuk Leg
             </h3>
-            <p className="text-sm text-slate-500">
+            <p
+              className="text-xs mt-1 mb-4"
+              style={{ color: "var(--text-muted)" }}
+            >
               Leg {legs.find((leg) => leg.id === linkLegId)?.order ?? "-"} ·{" "}
               {legs.find((leg) => leg.id === linkLegId)?.label ?? "Tanpa nama"}
             </p>
-            <label className="mt-4 block text-sm font-medium text-slate-700">
-              Kendaraan trip
+            <label
+              className="block text-xs font-semibold mb-1"
+              style={{ color: "var(--text-secondary)" }}
+            >
+              Kendaraan Trip
               <select
-                className="mt-1 w-full rounded-xl border px-3 py-2"
+                className="input-field mt-1"
                 value={selectedVehicleId}
                 onChange={(event) => setSelectedVehicleId(event.target.value)}
               >
@@ -1657,17 +1823,17 @@ export function VehicleManager({
                 ))}
               </select>
             </label>
-            <div className="mt-6 flex justify-end gap-3">
+            <div className="mt-6 flex justify-end gap-2">
               <button
                 type="button"
-                className="text-sm font-semibold text-slate-500"
+                className="btn-secondary text-xs"
                 onClick={() => setShowLinkForm(false)}
               >
                 Batal
               </button>
               <button
                 type="button"
-                className="rounded-2xl bg-brand-blue px-5 py-2 text-sm font-semibold text-white disabled:opacity-50"
+                className="btn-primary text-xs"
                 onClick={handleLinkVehicle}
                 disabled={!selectedVehicleId || linkingVehicle}
               >

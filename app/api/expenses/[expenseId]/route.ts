@@ -87,6 +87,7 @@ export async function PATCH(request: Request, { params }: Params) {
         paidBy: parsed.data.paidBy,
         legId: parsed.data.legId,
         vehicleId: parsed.data.vehicleId ?? null,
+        shareScope: parsed.data.shareScope,
         notes: parsed.data.catatan ?? null,
       })
       .where(eq(expenses.id, params.expenseId));

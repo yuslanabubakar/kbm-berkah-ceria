@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { TripParticipant } from "@/lib/tripQueries";
+import { Users, UserPlus, Check, Trash2, Shield } from "lucide-react";
+import { useToast } from "@/components/Toast";
 
 type ParticipantManagerProps = {
   tripId: string;
@@ -19,27 +21,39 @@ function toEditable(participants: TripParticipant[]): EditableParticipant[] {
   return participants.map((participant) => ({
     id: participant.id,
     name: participant.nama,
-    isDriver: Boolean(participant.isDriver)
+    isDriver: Boolean(participant.isDriver),
   }));
 }
 
-export function ParticipantManager({ tripId, participants }: ParticipantManagerProps) {
+export function ParticipantManager({
+  tripId,
+  participants,
+}: ParticipantManagerProps) {
   const router = useRouter();
-  const [rows, setRows] = useState<EditableParticipant[]>(() => toEditable(participants));
+  const showToast = useToast();
+  const [rows, setRows] = useState<EditableParticipant[]>(() =>
+    toEditable(participants),
+  );
   const [newName, setNewName] = useState("");
   const [newIsDriver, setNewIsDriver] = useState(false);
-  const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
 
-  const lastParticipantId = useMemo(() => (participants.length === 1 ? participants[0]?.id : null), [participants]);
+  const lastParticipantId = useMemo(
+    () => (participants.length === 1 ? participants[0]?.id : null),
+    [participants],
+  );
 
   useEffect(() => {
     setRows(toEditable(participants));
   }, [participants]);
 
-  const handleRowChange = (participantId: string, field: "name" | "isDriver", value: string | boolean) => {
+  const handleRowChange = (
+    participantId: string,
+    field: "name" | "isDriver",
+    value: string | boolean,
+  ) => {
     setRows((prev) =>
       prev.map((row) => {
         if (row.id !== participantId) return row;
@@ -50,7 +64,7 @@ export function ParticipantManager({ tripId, participants }: ParticipantManagerP
           return { ...row, isDriver: value };
         }
         return row;
-      })
+      }),
     );
   };
 
@@ -59,176 +73,307 @@ export function ParticipantManager({ tripId, participants }: ParticipantManagerP
     if (!row) return;
 
     if (!row.name.trim()) {
-      setStatusMessage("Nama peserta tidak boleh kosong.");
+      showToast("Nama peserta tidak boleh kosong", "error");
       return;
     }
 
     setSavingId(participantId);
-    setStatusMessage("Menyimpan perubahan peserta...");
 
-    const response = await fetch(`/api/trips/${tripId}/participants/${participantId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: row.name.trim(), isDriver: row.isDriver })
-    });
+    try {
+      const response = await fetch(
+        `/api/trips/${tripId}/participants/${participantId}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: row.name.trim(),
+            isDriver: row.isDriver,
+          }),
+        },
+      );
 
-    setSavingId(null);
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        throw new Error(error.message || "Gagal memperbarui peserta.");
+      }
 
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
-      setStatusMessage(error.message || "Gagal memperbarui peserta.");
-      return;
+      showToast("Peserta berhasil diperbarui", "success");
+      router.refresh();
+    } catch (err) {
+      showToast(
+        err instanceof Error ? err.message : "Terjadi kesalahan",
+        "error",
+      );
+    } finally {
+      setSavingId(null);
     }
-
-    setStatusMessage("Peserta diperbarui.");
-    router.refresh();
   };
 
   const handleDelete = async (participantId: string) => {
-    if (!window.confirm("Hapus peserta ini dari perjalanan?")) {
-      return;
-    }
+    if (!window.confirm("Hapus peserta ini dari perjalanan?")) return;
 
     setDeletingId(participantId);
-    setStatusMessage("Menghapus peserta...");
 
-    const response = await fetch(`/api/trips/${tripId}/participants/${participantId}`, {
-      method: "DELETE"
-    });
+    try {
+      const response = await fetch(
+        `/api/trips/${tripId}/participants/${participantId}`,
+        { method: "DELETE" },
+      );
 
-    setDeletingId(null);
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        throw new Error(error.message || "Gagal menghapus peserta.");
+      }
 
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
-      setStatusMessage(error.message || "Gagal menghapus peserta.");
-      return;
+      showToast("Peserta berhasil dihapus", "success");
+      router.refresh();
+    } catch (err) {
+      showToast(
+        err instanceof Error ? err.message : "Terjadi kesalahan",
+        "error",
+      );
+    } finally {
+      setDeletingId(null);
     }
-
-    setStatusMessage("Peserta dihapus.");
-    router.refresh();
   };
 
-  const handleCreate = async () => {
+  const handleCreate = async (e: React.FormEvent) => {
+    e.preventDefault();
     if (!newName.trim()) {
-      setStatusMessage("Isi nama peserta baru terlebih dahulu.");
+      showToast("Isi nama peserta baru terlebih dahulu", "error");
       return;
     }
 
     setCreating(true);
-    setStatusMessage("Menambahkan peserta...");
 
-    const response = await fetch(`/api/trips/${tripId}/participants`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: newName.trim(), isDriver: newIsDriver })
-    });
+    try {
+      const response = await fetch(`/api/trips/${tripId}/participants`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: newName.trim(), isDriver: newIsDriver }),
+      });
 
-    setCreating(false);
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        throw new Error(error.message || "Gagal menambahkan peserta.");
+      }
 
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
-      setStatusMessage(error.message || "Gagal menambahkan peserta.");
-      return;
+      setNewName("");
+      setNewIsDriver(false);
+      showToast("Peserta berhasil ditambahkan", "success");
+      router.refresh();
+    } catch (err) {
+      showToast(
+        err instanceof Error ? err.message : "Terjadi kesalahan",
+        "error",
+      );
+    } finally {
+      setCreating(false);
     }
-
-    setNewName("");
-    setNewIsDriver(false);
-    setStatusMessage("Peserta ditambahkan.");
-    router.refresh();
   };
 
   return (
-    <div className="rounded-3xl border border-dashed bg-white/70 p-6 shadow-sm">
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <p className="text-sm uppercase tracking-wide text-slate-400">Pengaturan peserta</p>
-          <h2 className="text-xl font-semibold text-slate-900">Kelola daftar penumpang</h2>
-        </div>
-        <span className="rounded-full bg-slate-100 px-3 py-1 text-sm text-slate-600">Hanya host yang bisa ubah</span>
-      </div>
-
-      <div className="grid gap-6 lg:grid-cols-2">
-        <div className="rounded-2xl border bg-white p-4">
-          <h3 className="font-semibold">Tambah peserta baru</h3>
-          <p className="text-sm text-slate-500">Peserta baru belum otomatis terpasang di kendaraan manapun.</p>
-          <div className="mt-3 space-y-3">
-            <label className="text-sm font-medium">
-              Nama
-              <input
-                type="text"
-                value={newName}
-                onChange={(e) => setNewName(e.target.value)}
-                className="mt-1 w-full rounded-xl border px-3 py-2"
-                placeholder="Contoh: Andi"
-              />
-            </label>
-            <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" checked={newIsDriver} onChange={(e) => setNewIsDriver(e.target.checked)} />
-              Tandai sebagai supir
-            </label>
-            <button
-              type="button"
-              onClick={handleCreate}
-              disabled={creating}
-              className="w-full rounded-xl bg-brand-blue px-4 py-2 text-sm font-semibold text-white hover:bg-brand-coral disabled:opacity-60"
+    <section className="glass-card rounded-3xl p-6">
+      {/* Header */}
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
+        <div className="flex items-center gap-2.5">
+          <div
+            className="flex h-9 w-9 items-center justify-center rounded-xl"
+            style={{ background: "rgba(46, 90, 172, 0.12)" }}
+          >
+            <Users size={18} style={{ color: "#2E5AAC" }} />
+          </div>
+          <div>
+            <h2
+              className="text-lg font-bold"
+              style={{ color: "var(--text-primary)" }}
             >
-              Tambahkan peserta
-            </button>
+              Kelola Daftar Penumpang
+            </h2>
+            <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+              Atur nama penumpang dan peran supir untuk pembagian biaya
+            </p>
           </div>
         </div>
+        <span className="badge badge-blue text-xs flex items-center gap-1">
+          <Shield size={12} />
+          Host Mode
+        </span>
+      </div>
 
-        <div className="rounded-2xl border bg-white p-4">
-          <h3 className="font-semibold">Peserta terdaftar</h3>
-          <p className="text-sm text-slate-500">Ubah nama atau status supir kapan saja.</p>
-          <ul className="mt-3 space-y-3">
+      <div className="grid gap-6 md:grid-cols-2">
+        {/* Tambah Peserta Baru */}
+        <form
+          onSubmit={handleCreate}
+          className="rounded-2xl p-5 flex flex-col justify-between"
+          style={{
+            background: "var(--bg-muted)",
+            border: "1px solid var(--border-color)",
+          }}
+        >
+          <div>
+            <div className="flex items-center gap-2 mb-2">
+              <UserPlus size={16} style={{ color: "#2E5AAC" }} />
+              <h3
+                className="font-bold text-sm"
+                style={{ color: "var(--text-primary)" }}
+              >
+                Tambah Peserta Baru
+              </h3>
+            </div>
+            <p className="text-xs mb-4" style={{ color: "var(--text-muted)" }}>
+              Peserta baru dapat langsung dipasangkan ke kendaraan di bagian
+              Armada.
+            </p>
+
+            <div className="space-y-3">
+              <div>
+                <label
+                  className="block text-xs font-semibold mb-1"
+                  style={{ color: "var(--text-secondary)" }}
+                >
+                  Nama Peserta
+                </label>
+                <input
+                  type="text"
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  className="input-field"
+                  placeholder="Contoh: Andi, Budi, dll"
+                />
+              </div>
+
+              <label className="flex items-center gap-2.5 cursor-pointer pt-1">
+                <input
+                  type="checkbox"
+                  checked={newIsDriver}
+                  onChange={(e) => setNewIsDriver(e.target.checked)}
+                  className="h-4 w-4 rounded"
+                />
+                <span
+                  className="text-xs font-semibold"
+                  style={{ color: "var(--text-primary)" }}
+                >
+                  🚗 Tandai sebagai supir (diskon 50% biaya leg)
+                </span>
+              </label>
+            </div>
+          </div>
+
+          <button
+            type="submit"
+            disabled={creating}
+            className="btn-primary w-full justify-center mt-5 text-sm disabled:opacity-60"
+          >
+            {creating ? "Menambahkan..." : "+ Tambahkan Peserta"}
+          </button>
+        </form>
+
+        {/* Daftar Peserta Terdaftar */}
+        <div
+          className="rounded-2xl p-5"
+          style={{
+            background: "var(--bg-muted)",
+            border: "1px solid var(--border-color)",
+          }}
+        >
+          <div className="flex items-center justify-between mb-3">
+            <h3
+              className="font-bold text-sm"
+              style={{ color: "var(--text-primary)" }}
+            >
+              Peserta Terdaftar ({rows.length})
+            </h3>
+            <span className="text-xs" style={{ color: "var(--text-muted)" }}>
+              Simpan per baris
+            </span>
+          </div>
+
+          <div className="space-y-3 max-h-[380px] overflow-y-auto pr-1">
             {rows.map((row) => (
-              <li key={row.id} className="rounded-xl border px-3 py-3">
-                <label className="text-xs font-semibold text-slate-500">
-                  Nama
+              <div
+                key={row.id}
+                className="rounded-xl p-3.5"
+                style={{
+                  background: "var(--bg-card)",
+                  border: "1px solid var(--border-color)",
+                }}
+              >
+                <div className="flex items-center gap-2">
                   <input
                     type="text"
                     value={row.name}
-                    onChange={(e) => handleRowChange(row.id, "name", e.target.value)}
-                    className="mt-1 w-full rounded-lg border px-3 py-2 text-sm"
+                    onChange={(e) =>
+                      handleRowChange(row.id, "name", e.target.value)
+                    }
+                    className="input-field text-sm flex-1 py-1.5"
                   />
-                </label>
-                <label className="mt-2 flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={row.isDriver}
-                    onChange={(e) => handleRowChange(row.id, "isDriver", e.target.checked)}
-                  />
-                  Supir untuk perjalanan ini
-                </label>
-                <div className="mt-3 flex gap-2">
                   <button
                     type="button"
                     onClick={() => handleSave(row.id)}
                     disabled={savingId === row.id}
-                    className="flex-1 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                    className="flex h-8 w-8 items-center justify-center rounded-xl transition-all disabled:opacity-50"
+                    style={{
+                      background: "rgba(16, 185, 129, 0.15)",
+                      color: "#047857",
+                      border: "1px solid rgba(16, 185, 129, 0.3)",
+                    }}
+                    title="Simpan nama & status"
                   >
-                    Simpan
+                    <Check size={14} />
                   </button>
                   <button
                     type="button"
                     onClick={() => handleDelete(row.id)}
-                    disabled={deletingId === row.id || row.id === lastParticipantId}
-                    className="rounded-lg border border-rose-200 px-3 py-2 text-sm font-semibold text-rose-600 disabled:opacity-60"
+                    disabled={
+                      deletingId === row.id || row.id === lastParticipantId
+                    }
+                    className="flex h-8 w-8 items-center justify-center rounded-xl transition-all disabled:opacity-30"
+                    style={{
+                      background: "rgba(225, 29, 72, 0.08)",
+                      color: "#e11d48",
+                    }}
+                    title="Hapus peserta"
                   >
-                    Hapus
+                    <Trash2 size={14} />
                   </button>
                 </div>
+
+                <label className="mt-2 flex items-center gap-2 cursor-pointer text-xs">
+                  <input
+                    type="checkbox"
+                    checked={row.isDriver}
+                    onChange={(e) =>
+                      handleRowChange(row.id, "isDriver", e.target.checked)
+                    }
+                    className="h-3.5 w-3.5 rounded"
+                  />
+                  <span style={{ color: "var(--text-secondary)" }}>
+                    Supir perjalanan
+                  </span>
+                </label>
+
                 {row.id === lastParticipantId && (
-                  <p className="mt-1 text-xs text-slate-500">Minimal harus ada satu peserta dalam perjalanan.</p>
+                  <p
+                    className="mt-1 text-[11px]"
+                    style={{ color: "var(--text-muted)" }}
+                  >
+                    Minimal harus ada satu peserta dalam perjalanan.
+                  </p>
                 )}
-              </li>
+              </div>
             ))}
-            {!rows.length && <li className="text-sm text-slate-500">Belum ada peserta.</li>}
-          </ul>
+            {!rows.length && (
+              <p
+                className="text-sm text-center py-4"
+                style={{ color: "var(--text-muted)" }}
+              >
+                Belum ada peserta.
+              </p>
+            )}
+          </div>
         </div>
       </div>
-
-      {statusMessage && <p className="mt-4 text-sm text-slate-600">{statusMessage}</p>}
-    </div>
+    </section>
   );
 }

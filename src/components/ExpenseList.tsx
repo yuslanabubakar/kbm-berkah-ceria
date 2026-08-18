@@ -506,6 +506,11 @@ function ExpenseEditDialog({
               Penumpang kendaraan ini
             </label>
           </div>
+          <p className="mt-1 text-xs text-slate-500">
+            {values.shareScope === "leg"
+              ? "💡 Dibagi rata ke seluruh penumpang di leg ini (lintas mobil, supir diskon 50%)."
+              : "💡 Hanya ditanggung oleh penumpang di mobil terpilih (supir diskon 50%)."}
+          </p>
           {errors.shareScope && (
             <p className="text-sm text-rose-600">{errors.shareScope}</p>
           )}

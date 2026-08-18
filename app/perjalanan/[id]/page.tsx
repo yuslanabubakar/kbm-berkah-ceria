@@ -266,23 +266,23 @@ export default async function PerjalananDetailPage({
               Pengeluaran hanya bisa ditambahkan oleh pembuat perjalanan.
             </div>
           )}
-
-          {isOwner && (
-            <ParticipantManager
-              tripId={detail.trip.id}
-              participants={detail.participants}
-            />
-          )}
         </div>
       </div>
 
+      {/* Host Controls */}
       {isOwner && (
-        <VehicleManager
-          tripId={detail.trip.id}
-          legs={detail.legs}
-          participants={detail.participants}
-          fleet={detail.fleetVehicles}
-        />
+        <div className="space-y-8">
+          <ParticipantManager
+            tripId={detail.trip.id}
+            participants={detail.participants}
+          />
+          <VehicleManager
+            tripId={detail.trip.id}
+            legs={detail.legs}
+            participants={detail.participants}
+            fleet={detail.fleetVehicles}
+          />
+        </div>
       )}
     </section>
   );

@@ -84,6 +84,7 @@ export async function POST(request: Request) {
       amountIdr,
       notes: parsed.data.catatan ?? null,
       expenseType: hasSplits ? "makan" : "lainnya",
+      shareScope: hasSplits ? "vehicle" : parsed.data.shareScope,
       issuedAt: now,
       createdBy: currentUser.id,
       isExcluded: false,

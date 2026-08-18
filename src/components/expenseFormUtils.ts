@@ -200,6 +200,15 @@ export function buildLegVehicleOptions(legs: TripLeg[]): LegVehicleOption[] {
   const options: LegVehicleOption[] = [];
 
   legs.forEach((leg) => {
+    if (leg.vehicles.length > 1) {
+      options.push({
+        key: `${leg.id}::none`,
+        legId: leg.id,
+        vehicleId: null,
+        label: `${leg.order}. ${leg.label} · Semua kendaraan`,
+      });
+    }
+
     if (leg.vehicles.length) {
       leg.vehicles.forEach((vehicle, index) => {
         const suffix =

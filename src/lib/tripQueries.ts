@@ -311,6 +311,7 @@ export async function fetchTripDetail(
         vehicleId: vehicleAssignments.vehicleId,
         participantId: vehicleAssignments.participantId,
         role: vehicleAssignments.role,
+        allocationOverride: vehicleAssignments.allocationOverride,
       })
       .from(vehicleAssignments)
       .innerJoin(tripLegs, eq(vehicleAssignments.legId, tripLegs.id))
@@ -389,7 +390,8 @@ export async function fetchTripDetail(
       notes: exp.notes ?? undefined,
       legId: exp.legId,
       vehicleId: exp.vehicleId,
-      shareScope: (exp.vehicleId ? "vehicle" : "leg") as "leg" | "vehicle",
+      shareScope: ((exp.shareScope as "leg" | "vehicle") ||
+        (exp.vehicleId ? "vehicle" : "leg")) as "leg" | "vehicle",
       splitWith: [],
       isExcluded: exp.isExcluded,
       splits: mappedSplits,
@@ -440,28 +442,47 @@ export async function fetchTripDetail(
         totalShareMap.set(s.participantId, currentShare + shareAmt);
       }
     } else {
-      // Auto distribution: Target vehicle or leg assignments, else all participants
-      let targetParticipants: string[] = [];
-      if (exp.vehicleId) {
-        targetParticipants = assignmentsRows
-          .filter((a) => a.legId === exp.legId && a.vehicleId === exp.vehicleId)
-          .map((a) => a.participantId);
-      } else if (exp.legId) {
-        targetParticipants = assignmentsRows
-          .filter((a) => a.legId === exp.legId)
-          .map((a) => a.participantId);
+      // Auto distribution: Target vehicle or leg assignments with driver discount (50% weight)
+      const isVehicleScope =
+        exp.shareScope === "vehicle" && Boolean(exp.vehicleId);
+
+      const matchingAssignments = isVehicleScope
+        ? assignmentsRows.filter(
+            (a) => a.legId === exp.legId && a.vehicleId === exp.vehicleId,
+          )
+        : exp.legId
+          ? assignmentsRows.filter((a) => a.legId === exp.legId)
+          : [];
+
+      const participantWeightMap = new Map<string, number>();
+
+      if (matchingAssignments.length > 0) {
+        for (const a of matchingAssignments) {
+          const w =
+            a.allocationOverride != null
+              ? toNumber(a.allocationOverride)
+              : a.role === "driver"
+                ? 0.5
+                : 1.0;
+          participantWeightMap.set(a.participantId, w);
+        }
+      } else {
+        // Fallback if no vehicle assignments on this leg: distribute to all participants
+        for (const p of participantsRows) {
+          participantWeightMap.set(p.id, p.isDriver ? 0.5 : 1.0);
+        }
       }
 
-      if (!targetParticipants.length) {
-        targetParticipants = participantsRows.map((p) => p.id);
-      }
+      const totalWeight = Array.from(participantWeightMap.values()).reduce(
+        (sum, w) => sum + w,
+        0,
+      );
 
-      const perPersonShare = targetParticipants.length
-        ? toNumber(exp.amountIdr) / targetParticipants.length
-        : 0;
-      for (const pid of targetParticipants) {
+      const expAmount = toNumber(exp.amountIdr);
+      for (const [pid, w] of participantWeightMap.entries()) {
+        const shareAmt = totalWeight > 0 ? (expAmount * w) / totalWeight : 0;
         const currentShare = totalShareMap.get(pid) ?? 0;
-        totalShareMap.set(pid, currentShare + perPersonShare);
+        totalShareMap.set(pid, currentShare + shareAmt);
       }
     }
   }
