@@ -14,7 +14,11 @@ export function AuthToolbar() {
   };
 
   if (loading) {
-    return <span className="text-sm text-slate-500">Memuat akun...</span>;
+    return (
+      <span className="text-xs" style={{ color: "var(--text-muted)" }}>
+        Memuat akun...
+      </span>
+    );
   }
 
   if (!user) {

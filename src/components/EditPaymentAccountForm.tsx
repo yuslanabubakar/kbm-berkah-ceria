@@ -67,13 +67,23 @@ export function EditPaymentAccountForm({
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       {error && (
-        <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600">
+        <div
+          className="rounded-2xl p-3 text-sm"
+          style={{
+            background: "rgba(225, 29, 72, 0.08)",
+            color: "#e11d48",
+            border: "1px solid rgba(225, 29, 72, 0.2)",
+          }}
+        >
           {error}
         </div>
       )}
 
       <div>
-        <label className="block text-sm font-medium text-slate-700">
+        <label
+          className="block text-xs font-semibold mb-1"
+          style={{ color: "var(--text-secondary)" }}
+        >
           Label / Nama Akun <span className="text-red-500">*</span>
         </label>
         <input
@@ -83,12 +93,15 @@ export function EditPaymentAccountForm({
           value={formData.label}
           onChange={(e) => setFormData({ ...formData, label: e.target.value })}
           placeholder="BCA Utama, GoPay Pribadi, dll"
-          className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-brand-blue focus:outline-none"
+          className="input-field"
         />
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-slate-700">
+        <label
+          className="block text-xs font-semibold mb-1"
+          style={{ color: "var(--text-secondary)" }}
+        >
           Jenis Akun <span className="text-red-500">*</span>
         </label>
         <select
@@ -99,7 +112,7 @@ export function EditPaymentAccountForm({
               channel: e.target.value as PaymentChannel,
             })
           }
-          className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-brand-blue focus:outline-none"
+          className="input-field"
         >
           <option value="bank">Bank Transfer</option>
           <option value="ewallet">E-Wallet / QRIS</option>
@@ -110,7 +123,10 @@ export function EditPaymentAccountForm({
 
       {(formData.channel === "bank" || formData.channel === "ewallet") && (
         <div>
-          <label className="block text-sm font-medium text-slate-700">
+          <label
+            className="block text-xs font-semibold mb-1"
+            style={{ color: "var(--text-secondary)" }}
+          >
             Nama Bank / Provider
           </label>
           <input
@@ -121,13 +137,16 @@ export function EditPaymentAccountForm({
               setFormData({ ...formData, provider: e.target.value })
             }
             placeholder="BCA, Mandiri, GoPay, OVO, dll"
-            className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-brand-blue focus:outline-none"
+            className="input-field"
           />
         </div>
       )}
 
       <div>
-        <label className="block text-sm font-medium text-slate-700">
+        <label
+          className="block text-xs font-semibold mb-1"
+          style={{ color: "var(--text-secondary)" }}
+        >
           Nama Pemilik Rekening <span className="text-red-500">*</span>
         </label>
         <input
@@ -139,12 +158,15 @@ export function EditPaymentAccountForm({
             setFormData({ ...formData, accountName: e.target.value })
           }
           placeholder="Nama sesuai rekening"
-          className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-brand-blue focus:outline-none"
+          className="input-field"
         />
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-slate-700">
+        <label
+          className="block text-xs font-semibold mb-1"
+          style={{ color: "var(--text-secondary)" }}
+        >
           Nomor Rekening / HP <span className="text-red-500">*</span>
         </label>
         <input
@@ -156,12 +178,15 @@ export function EditPaymentAccountForm({
             setFormData({ ...formData, accountNumber: e.target.value })
           }
           placeholder="1234567890"
-          className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-brand-blue focus:outline-none"
+          className="input-field"
         />
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-slate-700">
+        <label
+          className="block text-xs font-semibold mb-1"
+          style={{ color: "var(--text-secondary)" }}
+        >
           Instruksi Tambahan
         </label>
         <textarea
@@ -172,15 +197,18 @@ export function EditPaymentAccountForm({
           }
           placeholder="Misal: Transfer sebelum H-1, tambahkan kode unik, dll"
           rows={2}
-          className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-brand-blue focus:outline-none"
+          className="input-field resize-none"
         />
-        <p className="mt-1 text-xs text-slate-500">
+        <p className="mt-1 text-xs" style={{ color: "var(--text-muted)" }}>
           {formData.instructions.length}/280 karakter
         </p>
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-slate-700">
+        <label
+          className="block text-xs font-semibold mb-1"
+          style={{ color: "var(--text-secondary)" }}
+        >
           Prioritas (opsional)
         </label>
         <input
@@ -194,18 +222,18 @@ export function EditPaymentAccountForm({
               priority: parseInt(e.target.value) || 0,
             })
           }
-          className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-brand-blue focus:outline-none"
+          className="input-field"
         />
-        <p className="mt-1 text-xs text-slate-500">
+        <p className="mt-1 text-xs" style={{ color: "var(--text-muted)" }}>
           Semakin tinggi, semakin diutamakan
         </p>
       </div>
 
-      <div className="flex gap-2">
+      <div className="flex gap-2 pt-2">
         <button
           type="submit"
           disabled={loading}
-          className="flex-1 rounded-lg bg-brand-blue px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-blue/90 disabled:opacity-50"
+          className="btn-primary flex-1 justify-center !py-2.5 text-sm disabled:opacity-50"
         >
           {loading ? "Menyimpan..." : "Simpan Perubahan"}
         </button>
@@ -214,7 +242,7 @@ export function EditPaymentAccountForm({
             type="button"
             onClick={onCancel}
             disabled={loading}
-            className="rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+            className="btn-ghost !px-4 !py-2.5 text-sm disabled:opacity-50"
           >
             Batal
           </button>

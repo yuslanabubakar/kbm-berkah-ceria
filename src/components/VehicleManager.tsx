@@ -853,7 +853,12 @@ export function VehicleManager({
       </div>
 
       {statusMessage && (
-        <p className="mt-2 text-sm text-slate-500">{statusMessage}</p>
+        <p
+          className="mt-2 text-xs font-medium"
+          style={{ color: "var(--text-secondary)" }}
+        >
+          {statusMessage}
+        </p>
       )}
 
       <div
@@ -923,8 +928,8 @@ export function VehicleManager({
                     className={clsx(
                       "text-xs font-semibold",
                       deletingVehicleId === vehicle.id
-                        ? "text-slate-400"
-                        : "text-rose-600",
+                        ? "opacity-50"
+                        : "text-rose-600 hover:underline",
                     )}
                     onClick={() => handleDeleteVehicle(vehicle.id)}
                     disabled={deletingVehicleId === vehicle.id}
@@ -935,13 +940,18 @@ export function VehicleManager({
                   </button>
                 </div>
                 {vehicle.notes && (
-                  <p className="mt-2 text-xs text-slate-500">{vehicle.notes}</p>
+                  <p
+                    className="mt-2 text-xs"
+                    style={{ color: "var(--text-secondary)" }}
+                  >
+                    {vehicle.notes}
+                  </p>
                 )}
               </li>
             ))}
           </ul>
         ) : (
-          <p className="mt-4 text-sm text-slate-500">
+          <p className="mt-4 text-xs" style={{ color: "var(--text-muted)" }}>
             Belum ada kendaraan. Tambah kendaraan trip terlebih dahulu.
           </p>
         )}
@@ -1022,30 +1032,45 @@ export function VehicleManager({
                 })}
               </ul>
             ) : (
-              <p className="mt-3 text-sm text-slate-500">
+              <p
+                className="mt-3 text-xs"
+                style={{ color: "var(--text-muted)" }}
+              >
                 Belum ada peserta terdaftar pada trip ini.
               </p>
             )}
 
             {selectedParticipantIds.length > 0 && hasLegs && (
-              <div className="mt-4 rounded-2xl border border-dashed border-brand-blue/40 bg-brand-blue/5 p-4">
+              <div
+                className="mt-4 rounded-2xl border border-dashed p-4"
+                style={{
+                  background: "rgba(46, 90, 172, 0.08)",
+                  borderColor: "#2e5aac",
+                }}
+              >
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="text-sm font-semibold text-slate-900">
+                  <p
+                    className="text-sm font-bold"
+                    style={{ color: "var(--text-primary)" }}
+                  >
                     {selectedParticipantIds.length} peserta siap ditempatkan
                   </p>
                   <button
                     type="button"
-                    className="text-xs font-semibold text-rose-500"
+                    className="text-xs font-semibold text-rose-500 hover:underline"
                     onClick={clearSelectedParticipants}
                   >
                     Bersihkan pilihan
                   </button>
                 </div>
                 <div className="mt-3 grid gap-3 md:grid-cols-2">
-                  <label className="block text-sm font-medium text-slate-700">
+                  <label
+                    className="block text-xs font-semibold"
+                    style={{ color: "var(--text-secondary)" }}
+                  >
                     Pilih leg tujuan
                     <select
-                      className="mt-1 w-full rounded-xl border px-3 py-2"
+                      className="input-field mt-1"
                       value={bulkLegId}
                       onChange={(event) => setBulkLegId(event.target.value)}
                     >
@@ -1056,10 +1081,13 @@ export function VehicleManager({
                       ))}
                     </select>
                   </label>
-                  <label className="block text-sm font-medium text-slate-700">
+                  <label
+                    className="block text-xs font-semibold"
+                    style={{ color: "var(--text-secondary)" }}
+                  >
                     Pilih kendaraan
                     <select
-                      className="mt-1 w-full rounded-xl border px-3 py-2"
+                      className="input-field mt-1"
                       value={bulkVehicleId}
                       onChange={(event) => setBulkVehicleId(event.target.value)}
                       disabled={
@@ -1089,7 +1117,7 @@ export function VehicleManager({
                 <button
                   type="button"
                   className={clsx(
-                    "mt-4 w-full rounded-xl bg-brand-blue px-4 py-2 text-sm font-semibold text-white",
+                    "btn-primary mt-4 w-full justify-center !py-2.5 text-sm",
                     (!bulkLegId || !bulkVehicleId) && "opacity-50",
                   )}
                   onClick={handleBulkAssign}
@@ -1101,21 +1129,33 @@ export function VehicleManager({
             )}
           </div>
           <div className="space-y-4">
-            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-              <p className="text-xs uppercase tracking-wide text-slate-400">
+            <div
+              className="rounded-2xl border p-4"
+              style={{
+                background: "var(--bg-secondary)",
+                borderColor: "var(--border-color)",
+              }}
+            >
+              <p className="text-xs uppercase font-bold tracking-wider text-blue-600 dark:text-blue-400">
                 Tambah peserta
               </p>
-              <h4 className="text-lg font-semibold text-slate-900">
+              <h4
+                className="text-lg font-bold mt-1"
+                style={{ color: "var(--text-primary)" }}
+              >
                 Masukkan penumpang baru
               </h4>
-              <p className="text-sm text-slate-500">
+              <p className="text-xs" style={{ color: "var(--text-muted)" }}>
                 Peserta baru belum otomatis ditempatkan pada kendaraan.
               </p>
-              <label className="mt-3 block text-sm font-medium text-slate-700">
+              <label
+                className="mt-3 block text-xs font-semibold"
+                style={{ color: "var(--text-secondary)" }}
+              >
                 Nama peserta
                 <input
                   type="text"
-                  className="mt-1 w-full rounded-xl border px-3 py-2"
+                  className="input-field mt-1"
                   value={newParticipantName}
                   onChange={(event) =>
                     setNewParticipantName(event.target.value)
@@ -1125,7 +1165,7 @@ export function VehicleManager({
               </label>
               <button
                 type="button"
-                className="mt-4 w-full rounded-xl bg-brand-blue px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                className="btn-primary mt-4 w-full justify-center !py-2.5 text-sm disabled:opacity-60"
                 onClick={handleCreateParticipant}
                 disabled={participantCreating}
               >
@@ -1282,10 +1322,13 @@ export function VehicleManager({
                       ))}
                   </select>
                 </label>
-                <label className="mt-3 block text-sm font-medium text-slate-700">
+                <label
+                  className="mt-3 block text-xs font-semibold"
+                  style={{ color: "var(--text-secondary)" }}
+                >
                   Peran di kendaraan
                   <select
-                    className="mt-1 w-full rounded-xl border px-3 py-2"
+                    className="input-field mt-1"
                     value={movingParticipantRole}
                     onChange={(event) =>
                       setMovingParticipantRole(
@@ -1300,7 +1343,7 @@ export function VehicleManager({
                 <button
                   type="button"
                   className={clsx(
-                    "mt-4 w-full rounded-xl bg-brand-blue px-4 py-2 text-sm font-semibold text-white",
+                    "btn-primary mt-4 w-full justify-center !py-2.5 text-sm",
                     (!targetVehicleId || !targetLegId) && "opacity-50",
                   )}
                   onClick={handleMoveParticipant}

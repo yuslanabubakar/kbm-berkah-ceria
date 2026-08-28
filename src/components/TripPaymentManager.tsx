@@ -370,19 +370,29 @@ export function TripPaymentManager({
           }}
         >
           {userAccounts.length === 0 ? (
-            <p className="text-sm text-slate-500">
+            <p className="text-xs" style={{ color: "var(--text-muted)" }}>
               Belum ada metode pembayaran pribadi. Tambahkan dulu di bagian atas
               dashboard.
             </p>
           ) : (
             <form onSubmit={handleAttach} className="space-y-4">
               {attachForm.error && (
-                <p className="rounded-lg bg-red-50 p-3 text-sm text-red-600">
+                <div
+                  className="rounded-2xl p-3 text-sm"
+                  style={{
+                    background: "rgba(225, 29, 72, 0.08)",
+                    color: "#e11d48",
+                    border: "1px solid rgba(225, 29, 72, 0.2)",
+                  }}
+                >
                   {attachForm.error}
-                </p>
+                </div>
               )}
               <div>
-                <label className="block text-sm font-medium text-slate-700">
+                <label
+                  className="block text-xs font-semibold mb-1"
+                  style={{ color: "var(--text-secondary)" }}
+                >
                   Pilih metode
                 </label>
                 <select
@@ -394,7 +404,7 @@ export function TripPaymentManager({
                       error: undefined,
                     }))
                   }
-                  className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                  className="input-field"
                 >
                   <option value="">-- Pilih salah satu --</option>
                   {availableAccounts.map((account) => (
@@ -404,14 +414,20 @@ export function TripPaymentManager({
                   ))}
                 </select>
                 {availableAccounts.length === 0 && (
-                  <p className="mt-1 text-xs text-slate-500">
+                  <p
+                    className="mt-1 text-xs"
+                    style={{ color: "var(--text-muted)" }}
+                  >
                     Semua metode sudah dilampirkan ke trip ini.
                   </p>
                 )}
               </div>
 
               <div className="grid gap-4 md:grid-cols-2">
-                <label className="text-sm font-medium text-slate-700">
+                <label
+                  className="text-xs font-semibold"
+                  style={{ color: "var(--text-secondary)" }}
+                >
                   Label khusus
                   <input
                     type="text"
@@ -423,11 +439,14 @@ export function TripPaymentManager({
                         customLabel: event.target.value,
                       }))
                     }
-                    className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                    className="input-field mt-1"
                     placeholder="Kosongkan untuk pakai nama asli"
                   />
                 </label>
-                <label className="text-sm font-medium text-slate-700">
+                <label
+                  className="text-xs font-semibold"
+                  style={{ color: "var(--text-secondary)" }}
+                >
                   Prioritas khusus
                   <input
                     type="number"
@@ -440,13 +459,16 @@ export function TripPaymentManager({
                         customPriority: event.target.value,
                       }))
                     }
-                    className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                    className="input-field mt-1"
                     placeholder="Kosongkan untuk ikut prioritas asli"
                   />
                 </label>
               </div>
 
-              <label className="block text-sm font-medium text-slate-700">
+              <label
+                className="block text-xs font-semibold"
+                style={{ color: "var(--text-secondary)" }}
+              >
                 Instruksi khusus
                 <textarea
                   value={attachForm.customInstructions}
@@ -458,7 +480,7 @@ export function TripPaymentManager({
                   }
                   maxLength={280}
                   rows={2}
-                  className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                  className="input-field mt-1 resize-none"
                   placeholder="Kosongkan untuk menggunakan catatan bawaan"
                 />
               </label>
@@ -466,9 +488,9 @@ export function TripPaymentManager({
               <button
                 type="submit"
                 disabled={attachForm.loading || availableAccounts.length === 0}
-                className="w-full rounded-lg bg-brand-blue px-4 py-2 text-sm font-semibold text-white hover:bg-brand-blue/90 disabled:opacity-50"
+                className="btn-primary w-full justify-center !py-2.5 text-sm disabled:opacity-50"
               >
-                {attachForm.loading ? "Menyimpan..." : "Lampirkan ke trip"}
+                {attachForm.loading ? "Melampirkan..." : "Lampirkan ke Trip"}
               </button>
             </form>
           )}
@@ -476,7 +498,13 @@ export function TripPaymentManager({
       )}
 
       {isEmpty ? (
-        <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-6 text-center text-sm text-slate-500">
+        <div
+          className="rounded-2xl border border-dashed p-6 text-center text-xs"
+          style={{
+            borderColor: "var(--border-color)",
+            color: "var(--text-muted)",
+          }}
+        >
           Belum ada metode pembayaran yang dilampirkan. Tambahkan metode pribadi
           lalu lampirkan ke trip ini.
         </div>
@@ -563,7 +591,10 @@ export function TripPaymentManager({
                       !attachment.customLabel &&
                       !attachment.customInstructions &&
                       attachment.priority === baseAccount.priority && (
-                        <p className="text-xs text-slate-400">
+                        <p
+                          className="text-xs"
+                          style={{ color: "var(--text-muted)" }}
+                        >
                           Menggunakan pengaturan bawaan
                         </p>
                       )}
@@ -597,7 +628,10 @@ export function TripPaymentManager({
                       </p>
                     )}
                     <div className="grid gap-3 md:grid-cols-2">
-                      <label className="text-sm font-medium text-slate-700">
+                      <label
+                        className="text-xs font-semibold"
+                        style={{ color: "var(--text-secondary)" }}
+                      >
                         Label khusus
                         <input
                           type="text"
@@ -612,10 +646,13 @@ export function TripPaymentManager({
                                 },
                             )
                           }
-                          className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                          className="input-field mt-1"
                         />
                       </label>
-                      <label className="text-sm font-medium text-slate-700">
+                      <label
+                        className="text-xs font-semibold"
+                        style={{ color: "var(--text-secondary)" }}
+                      >
                         Prioritas khusus
                         <input
                           type="number"
@@ -631,12 +668,15 @@ export function TripPaymentManager({
                                 },
                             )
                           }
-                          className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                          className="input-field mt-1"
                           placeholder="Kosongkan untuk pakai bawaan"
                         />
                       </label>
                     </div>
-                    <label className="text-sm font-medium text-slate-700">
+                    <label
+                      className="text-xs font-semibold"
+                      style={{ color: "var(--text-secondary)" }}
+                    >
                       Instruksi khusus
                       <textarea
                         value={editForm.customInstructions}
@@ -651,14 +691,14 @@ export function TripPaymentManager({
                         }
                         rows={2}
                         maxLength={280}
-                        className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                        className="input-field mt-1 resize-none"
                       />
                     </label>
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 pt-1">
                       <button
                         type="submit"
                         disabled={editForm.loading}
-                        className="flex-1 rounded-lg bg-brand-blue px-4 py-2 text-sm font-semibold text-white hover:bg-brand-blue/90 disabled:opacity-60"
+                        className="btn-primary flex-1 justify-center !py-2 text-xs disabled:opacity-60"
                       >
                         {editForm.loading ? "Menyimpan..." : "Simpan perubahan"}
                       </button>
@@ -666,12 +706,15 @@ export function TripPaymentManager({
                         type="button"
                         onClick={handleCancelEdit}
                         disabled={editForm.loading}
-                        className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                        className="btn-ghost !px-4 !py-2 text-xs disabled:opacity-50"
                       >
                         Batal
                       </button>
                     </div>
-                    <p className="text-xs text-slate-500">
+                    <p
+                      className="text-xs"
+                      style={{ color: "var(--text-muted)" }}
+                    >
                       Kosongkan semua field untuk kembali ke pengaturan bawaan
                       akun.
                     </p>

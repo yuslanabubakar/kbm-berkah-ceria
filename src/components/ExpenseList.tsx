@@ -65,7 +65,13 @@ export function ExpenseList({
 
   if (!expenses.length) {
     return (
-      <div className="rounded-2xl border border-dashed p-6 text-center text-slate-500">
+      <div
+        className="rounded-2xl border border-dashed p-6 text-center text-xs"
+        style={{
+          borderColor: "var(--border-color)",
+          color: "var(--text-muted)",
+        }}
+      >
         Belum ada pengeluaran. Yuk catat pertama!
       </div>
     );
