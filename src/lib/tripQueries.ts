@@ -15,7 +15,7 @@ import {
   tripShares,
 } from "@/db/schema";
 import { eq, inArray, desc, asc, and } from "drizzle-orm";
-import {
+import type {
   Trip,
   Expense,
   ExpenseSplit,

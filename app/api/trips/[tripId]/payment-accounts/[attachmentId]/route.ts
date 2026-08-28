@@ -1,7 +1,10 @@
 import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getSupabaseServer } from "@/lib/supabaseServer";
+import { getDb } from "@/lib/db";
+import { getCurrentUser } from "@/lib/auth";
+import { trips, tripPaymentAccounts, userPaymentAccounts } from "@/db/schema";
+import { eq, and } from "drizzle-orm";
 import type { TripPaymentAccountAttachment } from "@/types/expense";
 
 export const runtime = "edge";
@@ -26,102 +29,6 @@ function normalizeOptionalString(value?: string | null) {
   return trimmed.length ? trimmed : null;
 }
 
-function mapAttachment(row: {
-  id: string;
-  trip_id: string;
-  custom_label: string | null;
-  custom_instructions: string | null;
-  custom_priority: number | string | null;
-  created_at: string;
-  updated_at: string;
-  payment_account:
-    | {
-        id: string;
-        label: string;
-        channel: "bank" | "ewallet" | "cash" | "other";
-        provider: string | null;
-        account_name: string;
-        account_number: string;
-        instructions: string | null;
-        priority: number | string | null;
-        created_at: string;
-        updated_at: string;
-      }
-    | Array<{
-        id: string;
-        label: string;
-        channel: "bank" | "ewallet" | "cash" | "other";
-        provider: string | null;
-        account_name: string;
-        account_number: string;
-        instructions: string | null;
-        priority: number | string | null;
-        created_at: string;
-        updated_at: string;
-      }>
-    | null;
-}): TripPaymentAccountAttachment | null {
-  const relation = row.payment_account;
-  const base = Array.isArray(relation) ? relation[0] ?? null : relation;
-  if (!base) {
-    return null;
-  }
-
-  const basePriority =
-    typeof base.priority === "number"
-      ? base.priority
-      : Number(base.priority ?? 0);
-  const customPriority =
-    row.custom_priority != null
-      ? typeof row.custom_priority === "number"
-        ? row.custom_priority
-        : Number(row.custom_priority || 0)
-      : null;
-
-  const finalPriority = customPriority ?? basePriority;
-  const finalInstructions =
-    row.custom_instructions ?? base.instructions ?? undefined;
-
-  return {
-    id: row.id,
-    paymentAccountId: base.id,
-    label: row.custom_label ?? base.label,
-    channel: base.channel,
-    provider: base.provider,
-    accountName: base.account_name,
-    accountNumber: base.account_number,
-    instructions: finalInstructions,
-    priority: finalPriority,
-    customLabel: row.custom_label ?? undefined,
-    customInstructions: row.custom_instructions ?? undefined,
-    customPriority: customPriority ?? undefined,
-    attachedAt: row.created_at,
-    updatedAt: row.updated_at,
-  };
-}
-
-async function verifyOwner(
-  supabase: ReturnType<typeof getSupabaseServer>,
-  tripId: string,
-  userId: string,
-) {
-  const { data, error } = await supabase
-    .from("trips")
-    .select("id, owner_id")
-    .eq("id", tripId)
-    .maybeSingle();
-
-  if (error) {
-    throw error;
-  }
-
-  if (!data || data.owner_id !== userId) {
-    return false;
-  }
-
-  return true;
-}
-
 export async function PATCH(
   request: Request,
   { params }: { params: { tripId: string; attachmentId: string } },
@@ -135,6 +42,14 @@ export async function PATCH(
     );
   }
 
+  const currentUser = await getCurrentUser(request);
+  if (!currentUser) {
+    return NextResponse.json(
+      { message: "Tidak terautentikasi" },
+      { status: 401 },
+    );
+  }
+
   const payload = await request.json().catch(() => null);
   const parsed = updateSchema.safeParse(payload ?? {});
 
@@ -145,101 +60,105 @@ export async function PATCH(
     );
   }
 
-  const supabase = getSupabaseServer();
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser();
+  const db = getDb();
 
-  if (userError || !user) {
+  const trip = await db.select().from(trips).where(eq(trips.id, tripId)).get();
+  if (!trip) {
     return NextResponse.json(
-      { message: "Tidak terautentikasi" },
-      { status: 401 },
+      { message: "Perjalanan tidak ditemukan" },
+      { status: 404 },
     );
   }
 
-  try {
-    const isOwner = await verifyOwner(supabase, tripId, user.id);
-    if (!isOwner) {
-      return NextResponse.json(
-        { message: "Tidak diizinkan mengubah metode pembayaran" },
-        { status: 403 },
-      );
-    }
-  } catch (error) {
-    console.error(error);
-    return NextResponse.json(
-      { message: "Gagal memeriksa perjalanan" },
-      { status: 500 },
-    );
-  }
-
-  const updates: Record<string, string | number | null> = {};
-
-  if (parsed.data.customLabel !== undefined) {
-    updates.custom_label = normalizeOptionalString(parsed.data.customLabel);
-  }
-  if (parsed.data.customInstructions !== undefined) {
-    updates.custom_instructions = normalizeOptionalString(
-      parsed.data.customInstructions,
-    );
-  }
-  if (parsed.data.customPriority !== undefined) {
-    updates.custom_priority = parsed.data.customPriority ?? null;
-  }
-
-  const { data, error } = await supabase
-    .from("trip_payment_accounts")
-    .update(updates)
-    .eq("id", attachmentId)
-    .eq("trip_id", tripId)
-    .select(
-      `
-        id,
-        trip_id,
-        custom_label,
-        custom_instructions,
-        custom_priority,
-        created_at,
-        updated_at,
-        payment_account:user_payment_accounts!inner (
-          id,
-          label,
-          channel,
-          provider,
-          account_name,
-          account_number,
-          instructions,
-          priority,
-          created_at,
-          updated_at
-        )
-      `,
+  const existingAttachment = await db
+    .select()
+    .from(tripPaymentAccounts)
+    .where(
+      and(
+        eq(tripPaymentAccounts.id, attachmentId),
+        eq(tripPaymentAccounts.tripId, tripId),
+      ),
     )
-    .maybeSingle();
+    .get();
 
-  if (error) {
-    console.error(error);
-    return NextResponse.json(
-      { message: "Gagal memperbarui lampiran" },
-      { status: 500 },
-    );
-  }
-
-  if (!data) {
+  if (!existingAttachment) {
     return NextResponse.json(
       { message: "Lampiran tidak ditemukan" },
       { status: 404 },
     );
   }
 
-  const attachment = mapAttachment(data);
-  if (!attachment) {
-    return NextResponse.json(
-      { message: "Gagal memproses lampiran" },
-      { status: 500 },
+  const now = new Date().toISOString();
+  const updates: {
+    customLabel?: string | null;
+    customInstructions?: string | null;
+    customPriority?: number | null;
+    updatedAt: string;
+  } = {
+    updatedAt: now,
+  };
+
+  if (parsed.data.customLabel !== undefined) {
+    updates.customLabel = normalizeOptionalString(parsed.data.customLabel);
+  }
+  if (parsed.data.customInstructions !== undefined) {
+    updates.customInstructions = normalizeOptionalString(
+      parsed.data.customInstructions,
     );
   }
+  if (parsed.data.customPriority !== undefined) {
+    updates.customPriority = parsed.data.customPriority ?? null;
+  }
+
+  await db
+    .update(tripPaymentAccounts)
+    .set(updates)
+    .where(
+      and(
+        eq(tripPaymentAccounts.id, attachmentId),
+        eq(tripPaymentAccounts.tripId, tripId),
+      ),
+    );
+
+  const updatedRow = await db
+    .select()
+    .from(tripPaymentAccounts)
+    .where(eq(tripPaymentAccounts.id, attachmentId))
+    .get();
+
+  const baseAccount = await db
+    .select()
+    .from(userPaymentAccounts)
+    .where(eq(userPaymentAccounts.id, updatedRow!.paymentAccountId))
+    .get();
+
+  if (!baseAccount) {
+    return NextResponse.json(
+      { message: "Metode pembayaran tidak ditemukan" },
+      { status: 404 },
+    );
+  }
+
+  const finalPriority = updatedRow!.customPriority ?? baseAccount.priority ?? 0;
+  const finalInstructions =
+    updatedRow!.customInstructions ?? baseAccount.instructions ?? undefined;
+
+  const attachment: TripPaymentAccountAttachment = {
+    id: updatedRow!.id,
+    paymentAccountId: baseAccount.id,
+    label: updatedRow!.customLabel ?? baseAccount.label,
+    channel: baseAccount.channel as "bank" | "ewallet" | "cash" | "other",
+    provider: baseAccount.provider ?? null,
+    accountName: baseAccount.accountName,
+    accountNumber: baseAccount.accountNumber,
+    instructions: finalInstructions,
+    priority: finalPriority,
+    customLabel: updatedRow!.customLabel ?? undefined,
+    customInstructions: updatedRow!.customInstructions ?? undefined,
+    customPriority: updatedRow!.customPriority ?? undefined,
+    attachedAt: updatedRow!.createdAt,
+    updatedAt: updatedRow!.updatedAt,
+  };
 
   revalidatePath("/");
   revalidatePath(`/perjalanan/${tripId}`);
@@ -251,7 +170,7 @@ export async function PATCH(
 }
 
 export async function DELETE(
-  _request: Request,
+  request: Request,
   { params }: { params: { tripId: string; attachmentId: string } },
 ) {
   const { tripId, attachmentId } = params;
@@ -263,48 +182,32 @@ export async function DELETE(
     );
   }
 
-  const supabase = getSupabaseServer();
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser();
-
-  if (userError || !user) {
+  const currentUser = await getCurrentUser(request);
+  if (!currentUser) {
     return NextResponse.json(
       { message: "Tidak terautentikasi" },
       { status: 401 },
     );
   }
 
-  try {
-    const isOwner = await verifyOwner(supabase, tripId, user.id);
-    if (!isOwner) {
-      return NextResponse.json(
-        { message: "Tidak diizinkan mengubah metode pembayaran" },
-        { status: 403 },
-      );
-    }
-  } catch (error) {
-    console.error(error);
+  const db = getDb();
+
+  const trip = await db.select().from(trips).where(eq(trips.id, tripId)).get();
+  if (!trip) {
     return NextResponse.json(
-      { message: "Gagal memeriksa perjalanan" },
-      { status: 500 },
+      { message: "Perjalanan tidak ditemukan" },
+      { status: 404 },
     );
   }
 
-  const { error } = await supabase
-    .from("trip_payment_accounts")
-    .delete()
-    .eq("id", attachmentId)
-    .eq("trip_id", tripId);
-
-  if (error) {
-    console.error(error);
-    return NextResponse.json(
-      { message: "Gagal melepas metode pembayaran" },
-      { status: 500 },
+  await db
+    .delete(tripPaymentAccounts)
+    .where(
+      and(
+        eq(tripPaymentAccounts.id, attachmentId),
+        eq(tripPaymentAccounts.tripId, tripId),
+      ),
     );
-  }
 
   revalidatePath("/");
   revalidatePath(`/perjalanan/${tripId}`);

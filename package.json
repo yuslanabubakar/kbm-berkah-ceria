@@ -12,6 +12,7 @@
     "format": "prettier --write .",
     "prettier:write": "cross-env PRETTIER_NO_GLOB=1 prettier --ignore-unknown --no-error-on-unmatched-pattern --write",
     "typecheck": "tsc --noEmit",
+    "test": "node --import ./tests/helpers/register-loader.mjs --test tests/**/*.test.ts",
     "prepare": "husky install"
   },
   "dependencies": {
