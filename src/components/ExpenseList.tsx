@@ -105,32 +105,36 @@ export function ExpenseList({
     <>
       <ul className="space-y-4">
         {expenses.map((expense) => (
-          <li
-            key={expense.id}
-            className="rounded-2xl border bg-white/90 p-4 shadow-sm"
-          >
+          <li key={expense.id} className="glass-card rounded-2xl p-4 shadow-sm">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <div className="flex items-center gap-2">
-                  <p className="text-base font-semibold text-slate-900">
+                  <p
+                    className="text-base font-semibold"
+                    style={{ color: "var(--text-primary)" }}
+                  >
                     {expense.judul}
                   </p>
                   {expense.isExcluded && (
-                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-600">
-                      Dikecualikan
-                    </span>
+                    <span className="badge badge-gray">Dikecualikan</span>
                   )}
                 </div>
-                <p className="text-sm text-slate-500">
+                <p
+                  className="text-sm mt-0.5"
+                  style={{ color: "var(--text-secondary)" }}
+                >
                   {format(new Date(expense.date), "d MMM yyyy", { locale: id })}{" "}
                   · ditanggung sementara oleh {expense.paidBy.nama}
                 </p>
-                <p className="text-xs text-slate-400">
+                <p
+                  className="text-xs mt-0.5"
+                  style={{ color: "var(--text-muted)" }}
+                >
                   {getScopeLabel(expense)}
                 </p>
               </div>
               <div className="text-right">
-                <p className="text-lg font-semibold text-brand-blue">
+                <p className="text-lg font-semibold text-brand-blue dark:text-blue-400">
                   {formatRupiah(expense.amountIdr)}
                 </p>
                 {canEdit && (
@@ -138,14 +142,14 @@ export function ExpenseList({
                     <button
                       type="button"
                       onClick={() => setEditingExpense(expense)}
-                      className="rounded-full border px-2 py-0.5 text-slate-600 transition hover:border-slate-400 hover:text-slate-900"
+                      className="btn-ghost !px-2.5 !py-0.5 !text-xs !rounded-full"
                     >
                       Edit
                     </button>
                     <button
                       type="button"
                       onClick={() => setDeleteTarget(expense)}
-                      className="rounded-full border border-transparent px-2 py-0.5 text-rose-600 transition hover:border-rose-200 hover:bg-rose-50"
+                      className="rounded-full border border-transparent px-2.5 py-0.5 text-xs text-rose-600 transition hover:border-rose-200 hover:bg-rose-50 dark:hover:bg-rose-950/30"
                     >
                       Hapus
                     </button>
@@ -154,17 +158,31 @@ export function ExpenseList({
               </div>
             </div>
             {expense.notes && (
-              <p className="mt-2 text-sm text-slate-600">{expense.notes}</p>
+              <p
+                className="mt-2 text-sm"
+                style={{ color: "var(--text-secondary)" }}
+              >
+                {expense.notes}
+              </p>
             )}
             {hasDetailedSplits(expense) && (
-              <div className="mt-3 rounded-xl bg-slate-50 p-3">
+              <div
+                className="mt-3 rounded-xl p-3"
+                style={{
+                  background: "var(--bg-muted)",
+                  border: "1px solid var(--border-color)",
+                }}
+              >
                 <div className="mb-2 flex items-center justify-between gap-2">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  <p
+                    className="text-xs font-semibold uppercase tracking-wide"
+                    style={{ color: "var(--text-muted)" }}
+                  >
                     {expense.expenseType === "makan"
                       ? "Rincian tagihan makan"
                       : "Rincian pembagian biaya"}
                   </p>
-                  <p className="text-xs text-slate-400">
+                  <p className="text-xs" style={{ color: "var(--text-muted)" }}>
                     {expense.splits?.length} orang
                   </p>
                 </div>
@@ -177,10 +195,14 @@ export function ExpenseList({
                     return (
                       <li
                         key={`${expense.id}:${split.participantId}`}
-                        className="flex items-center justify-between gap-3 text-sm text-slate-600"
+                        className="flex items-center justify-between gap-3 text-sm"
+                        style={{ color: "var(--text-secondary)" }}
                       >
                         <span>{split.participantName}</span>
-                        <span className="font-medium text-slate-900">
+                        <span
+                          className="font-medium"
+                          style={{ color: "var(--text-primary)" }}
+                        >
                           {splitAmount != null
                             ? formatRupiah(splitAmount)
                             : "-"}
@@ -211,12 +233,18 @@ export function ExpenseList({
       )}
 
       {deleteTarget && (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm">
-          <div className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-xl">
-            <h3 className="text-lg font-semibold text-slate-900">
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+          <div className="glass-card w-full max-w-sm rounded-2xl p-5 shadow-2xl">
+            <h3
+              className="text-lg font-bold"
+              style={{ color: "var(--text-primary)" }}
+            >
               Hapus pengeluaran?
             </h3>
-            <p className="mt-2 text-sm text-slate-600">
+            <p
+              className="mt-2 text-sm"
+              style={{ color: "var(--text-secondary)" }}
+            >
               {deleteTarget.judul} ({formatRupiah(deleteTarget.amountIdr)}) akan
               hilang dari perhitungan saldo.
             </p>
@@ -227,7 +255,7 @@ export function ExpenseList({
               <button
                 type="button"
                 onClick={() => setDeleteTarget(null)}
-                className="rounded-xl border px-4 py-2 text-sm text-slate-600"
+                className="btn-ghost !px-4 !py-2 text-sm"
                 disabled={deleteLoading}
               >
                 Batal
@@ -235,7 +263,7 @@ export function ExpenseList({
               <button
                 type="button"
                 onClick={handleDelete}
-                className="rounded-xl bg-rose-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                className="rounded-xl bg-rose-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-rose-700 disabled:opacity-60"
                 disabled={deleteLoading}
               >
                 {deleteLoading ? "Menghapus..." : "Hapus"}
@@ -352,22 +380,27 @@ function ExpenseEditDialog({
   };
 
   return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm">
+    <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
       <form
         onSubmit={handleSubmit}
-        className="w-full max-w-lg space-y-4 rounded-2xl bg-white p-6 shadow-2xl"
+        className="glass-card w-full max-w-lg space-y-4 rounded-3xl p-6 sm:p-7 shadow-2xl overflow-y-auto max-h-[90vh]"
       >
         <div className="flex items-center justify-between">
           <div>
-            <h3 className="text-lg font-semibold text-slate-900">
+            <h3
+              className="text-lg font-bold"
+              style={{ color: "var(--text-primary)" }}
+            >
               Edit pengeluaran
             </h3>
-            <p className="text-sm text-slate-500">Perbarui detail biaya ini.</p>
+            <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+              Perbarui detail biaya ini.
+            </p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="text-sm text-slate-500 hover:text-slate-800"
+            className="btn-ghost !px-3 !py-1 text-xs"
             disabled={loading}
           >
             Tutup
@@ -375,22 +408,32 @@ function ExpenseEditDialog({
         </div>
 
         <div>
-          <label className="text-sm font-medium">Judul</label>
+          <label
+            className="text-xs font-semibold"
+            style={{ color: "var(--text-secondary)" }}
+          >
+            Judul
+          </label>
           <input
             type="text"
             value={values.judul}
             onChange={(e) =>
               setValues((prev) => ({ ...prev, judul: e.target.value }))
             }
-            className="mt-1 w-full rounded-xl border px-3 py-2"
+            className="input-field mt-1"
           />
           {errors.judul && (
-            <p className="text-sm text-rose-600">{errors.judul}</p>
+            <p className="mt-1 text-xs text-rose-600">{errors.judul}</p>
           )}
         </div>
 
         <div>
-          <label className="text-sm font-medium">Total (IDR)</label>
+          <label
+            className="text-xs font-semibold"
+            style={{ color: "var(--text-secondary)" }}
+          >
+            Total (IDR)
+          </label>
           <input
             type="number"
             inputMode="decimal"
@@ -401,29 +444,37 @@ function ExpenseEditDialog({
                 amountIdr: Number(e.target.value),
               }))
             }
-            className="mt-1 w-full rounded-xl border px-3 py-2"
+            className="input-field mt-1"
             min={0}
             step={0.01}
           />
           {values.amountIdr > 0 && (
-            <p className="text-sm text-slate-500">
+            <p
+              className="mt-1 text-xs font-semibold"
+              style={{ color: "var(--text-muted)" }}
+            >
               {formatRupiah(values.amountIdr)}
             </p>
           )}
           {errors.amountIdr && (
-            <p className="text-sm text-rose-600">{errors.amountIdr}</p>
+            <p className="mt-1 text-xs text-rose-600">{errors.amountIdr}</p>
           )}
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
-            <label className="text-sm font-medium">Dibayar oleh</label>
+            <label
+              className="text-xs font-semibold"
+              style={{ color: "var(--text-secondary)" }}
+            >
+              Dibayar oleh
+            </label>
             <select
               value={values.paidById}
               onChange={(e) =>
                 setValues((prev) => ({ ...prev, paidById: e.target.value }))
               }
-              className="mt-1 w-full rounded-xl border px-3 py-2"
+              className="input-field mt-1"
             >
               {participants.map((participant) => (
                 <option key={participant.id} value={participant.id}>
@@ -432,12 +483,17 @@ function ExpenseEditDialog({
               ))}
             </select>
             {errors.paidById && (
-              <p className="text-sm text-rose-600">{errors.paidById}</p>
+              <p className="mt-1 text-xs text-rose-600">{errors.paidById}</p>
             )}
           </div>
 
           <div>
-            <label className="text-sm font-medium">Leg & kendaraan</label>
+            <label
+              className="text-xs font-semibold"
+              style={{ color: "var(--text-secondary)" }}
+            >
+              Leg & kendaraan
+            </label>
             <select
               value={`${values.legId}::${values.vehicleId ?? "none"}`}
               onChange={(e) => {
@@ -455,7 +511,7 @@ function ExpenseEditDialog({
                       : prev.shareScope,
                 }));
               }}
-              className="mt-1 w-full rounded-xl border px-3 py-2"
+              className="input-field mt-1"
             >
               {legVehicleOptions.map((option) => (
                 <option key={option.key} value={option.key}>
@@ -464,15 +520,23 @@ function ExpenseEditDialog({
               ))}
             </select>
             {errors.legId && (
-              <p className="text-sm text-rose-600">{errors.legId}</p>
+              <p className="mt-1 text-xs text-rose-600">{errors.legId}</p>
             )}
           </div>
         </div>
 
         <div>
-          <label className="text-sm font-medium">Cara pembagian biaya</label>
+          <label
+            className="text-xs font-semibold"
+            style={{ color: "var(--text-secondary)" }}
+          >
+            Cara pembagian biaya
+          </label>
           <div className="mt-2 flex flex-wrap gap-3">
-            <label className="flex items-center gap-2 text-sm text-slate-600">
+            <label
+              className="flex items-center gap-2 text-sm cursor-pointer"
+              style={{ color: "var(--text-secondary)" }}
+            >
               <input
                 type="radio"
                 name="shareScopeEdit"
@@ -481,14 +545,18 @@ function ExpenseEditDialog({
                 onChange={() =>
                   setValues((prev) => ({ ...prev, shareScope: "leg" }))
                 }
+                className="text-blue-600"
               />
               Semua penumpang leg ini
             </label>
             <label
               className={clsx(
                 "flex items-center gap-2 text-sm",
-                vehicleScopeDisabled ? "text-slate-300" : "text-slate-600",
+                vehicleScopeDisabled
+                  ? "opacity-40 cursor-not-allowed"
+                  : "cursor-pointer",
               )}
+              style={{ color: "var(--text-secondary)" }}
             >
               <input
                 type="radio"
@@ -502,60 +570,76 @@ function ExpenseEditDialog({
                   }))
                 }
                 disabled={vehicleScopeDisabled}
+                className="text-blue-600"
               />
               Penumpang kendaraan ini
             </label>
           </div>
-          <p className="mt-1 text-xs text-slate-500">
+          <p className="mt-1.5 text-xs" style={{ color: "var(--text-muted)" }}>
             {values.shareScope === "leg"
               ? "💡 Dibagi rata ke seluruh penumpang di leg ini (lintas mobil, supir diskon 50%)."
               : "💡 Hanya ditanggung oleh penumpang di mobil terpilih (supir diskon 50%)."}
           </p>
           {errors.shareScope && (
-            <p className="text-sm text-rose-600">{errors.shareScope}</p>
+            <p className="mt-1 text-xs text-rose-600">{errors.shareScope}</p>
           )}
         </div>
 
         <div>
-          <label className="text-sm font-medium">Jadwal leg</label>
+          <label
+            className="text-xs font-semibold"
+            style={{ color: "var(--text-secondary)" }}
+          >
+            Jadwal leg
+          </label>
           <input
             type="text"
             value={legScheduleText}
             disabled
-            className="mt-1 w-full rounded-xl border bg-slate-50 px-3 py-2 text-sm text-slate-600"
+            className="input-field mt-1 opacity-70 cursor-not-allowed"
           />
         </div>
 
         <div>
-          <label className="text-sm font-medium">Catatan (opsional)</label>
+          <label
+            className="text-xs font-semibold"
+            style={{ color: "var(--text-secondary)" }}
+          >
+            Catatan (opsional)
+          </label>
           <textarea
             value={values.catatan || ""}
             onChange={(e) =>
               setValues((prev) => ({ ...prev, catatan: e.target.value }))
             }
-            className="mt-1 h-24 w-full rounded-xl border px-3 py-2"
+            className="input-field mt-1 h-20 resize-none"
           />
           {errors.catatan && (
-            <p className="text-sm text-rose-600">{errors.catatan}</p>
+            <p className="mt-1 text-xs text-rose-600">{errors.catatan}</p>
           )}
         </div>
 
         {status && (
-          <p className="text-center text-sm text-slate-600">{status}</p>
+          <p
+            className="text-center text-sm font-medium pt-1"
+            style={{ color: "var(--text-secondary)" }}
+          >
+            {status}
+          </p>
         )}
 
-        <div className="flex justify-end gap-3 pt-2">
+        <div className="flex justify-end gap-3 pt-3">
           <button
             type="button"
             onClick={onClose}
-            className="rounded-xl border px-4 py-2 text-sm text-slate-600"
+            className="btn-ghost !px-4 !py-2 text-sm"
             disabled={loading}
           >
             Batal
           </button>
           <button
             type="submit"
-            className="rounded-xl bg-brand-blue px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+            className="btn-primary !px-5 !py-2 text-sm disabled:opacity-60"
             disabled={loading}
           >
             {loading ? "Menyimpan..." : "Simpan perubahan"}

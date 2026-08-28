@@ -30,11 +30,14 @@ export default function LoginPage() {
   }
 
   return (
-    <section className="mx-auto max-w-lg space-y-6 rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
-      <h1 className="text-2xl font-semibold text-slate-900">
+    <section className="glass-card mx-auto max-w-lg space-y-6 rounded-3xl p-8 shadow-sm">
+      <h1
+        className="text-2xl font-bold"
+        style={{ color: "var(--text-primary)" }}
+      >
         Masuk ke KBM Berkah Ceria
       </h1>
-      <p className="text-sm text-slate-600">
+      <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
         Silakan masuk menggunakan akun Google kamu untuk melihat dan mengelola
         perjalanan.
       </p>
@@ -44,7 +47,7 @@ export default function LoginPage() {
         onClick={() => {
           window.location.href = "/api/auth/login";
         }}
-        className="w-full flex items-center justify-center gap-3 rounded-2xl border border-brand-blue bg-brand-blue px-4 py-3 text-sm font-semibold text-white shadow-sm hover:bg-brand-blue/90 transition-colors"
+        className="btn-primary w-full justify-center py-3.5 text-base font-semibold shadow-md"
       >
         <span>Masuk dengan Google</span>
       </button>

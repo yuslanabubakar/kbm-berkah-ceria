@@ -16,9 +16,9 @@ type HostControlsProps = {
 };
 
 const statusBadgeClasses: Record<string, string> = {
-  draft: "bg-amber-50 text-amber-700",
-  applied: "bg-emerald-50 text-emerald-700",
-  void: "bg-slate-100 text-slate-600",
+  draft: "badge-amber",
+  applied: "badge-emerald",
+  void: "badge-gray",
 };
 
 export function HostControls({
@@ -113,37 +113,62 @@ export function HostControls({
   };
 
   return (
-    <div className="rounded-3xl border border-dashed bg-white/70 p-6 shadow-sm">
+    <div className="glass-card rounded-3xl p-6 sm:p-7 shadow-sm">
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <p className="text-sm uppercase tracking-wide text-slate-400">
+          <p className="text-xs uppercase font-bold tracking-wider text-blue-600 dark:text-blue-400">
             Mode host
           </p>
-          <h2 className="text-xl font-semibold text-slate-900">
+          <h2
+            className="text-xl font-bold mt-1"
+            style={{ color: "var(--text-primary)" }}
+          >
             Atur saldo & pembagian
           </h2>
         </div>
-        <span className="rounded-full bg-brand-blue/10 px-3 py-1 text-sm font-medium text-brand-blue">
+        <span className="badge badge-blue">
           Hanya terlihat oleh pembuat perjalanan
         </span>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
         <div className="space-y-4">
-          <div className="rounded-2xl border bg-white p-4">
-            <h3 className="font-semibold">Pengeluaran</h3>
+          <div
+            className="rounded-2xl p-5 border"
+            style={{
+              background: "var(--bg-secondary)",
+              borderColor: "var(--border-color)",
+            }}
+          >
+            <h3
+              className="font-bold text-sm"
+              style={{ color: "var(--text-primary)" }}
+            >
+              Pengeluaran
+            </h3>
             <ul className="mt-3 space-y-2 text-sm">
               {expenses.map((expense) => (
                 <li
                   key={expense.id}
-                  className="flex items-center justify-between rounded-xl bg-slate-50 px-3 py-2"
+                  className="flex items-center justify-between rounded-xl px-3 py-2 border"
+                  style={{
+                    background: "var(--bg-muted)",
+                    borderColor: "var(--border-color)",
+                  }}
                 >
-                  <span className="truncate text-slate-600">
+                  <span
+                    className="truncate font-medium text-sm"
+                    style={{ color: "var(--text-secondary)" }}
+                  >
                     {expense.judul}
                   </span>
                   <button
                     type="button"
-                    className={`text-xs font-semibold ${expense.isExcluded ? "text-rose-600" : "text-slate-500"}`}
+                    className={`text-xs font-semibold px-2 py-1 rounded-lg transition ${
+                      expense.isExcluded
+                        ? "text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30"
+                        : "text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-950/30"
+                    }`}
                     onClick={() =>
                       handleToggleExclude(expense.id, !expense.isExcluded)
                     }
@@ -160,19 +185,33 @@ export function HostControls({
         </div>
 
         <div className="space-y-4">
-          <div className="rounded-2xl border bg-white p-4">
-            <h3 className="font-semibold">Tambah penyesuaian saldo</h3>
-            <p className="text-sm text-slate-500">
+          <div
+            className="rounded-2xl p-5 border"
+            style={{
+              background: "var(--bg-secondary)",
+              borderColor: "var(--border-color)",
+            }}
+          >
+            <h3
+              className="font-bold text-sm"
+              style={{ color: "var(--text-primary)" }}
+            >
+              Tambah penyesuaian saldo
+            </h3>
+            <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>
               Nominal positif berarti peserta menanggung lebih, negatif berarti
               mengurangi tanggungan.
             </p>
-            <div className="mt-3 space-y-3">
-              <label className="text-sm font-medium">
+            <div className="mt-4 space-y-3">
+              <label
+                className="text-xs font-semibold"
+                style={{ color: "var(--text-secondary)" }}
+              >
                 Pilih peserta
                 <select
                   value={adjustParticipantId}
                   onChange={(e) => setAdjustParticipantId(e.target.value)}
-                  className="mt-1 w-full rounded-xl border px-3 py-2"
+                  className="input-field mt-1"
                 >
                   {participants.map((participant) => (
                     <option key={participant.id} value={participant.id}>
@@ -181,7 +220,10 @@ export function HostControls({
                   ))}
                 </select>
               </label>
-              <label className="text-sm font-medium">
+              <label
+                className="text-xs font-semibold"
+                style={{ color: "var(--text-secondary)" }}
+              >
                 Nominal (IDR)
                 <input
                   type="number"
@@ -189,24 +231,31 @@ export function HostControls({
                   step={0.01}
                   value={adjustAmount}
                   onChange={(e) => setAdjustAmount(e.target.value)}
-                  className="mt-1 w-full rounded-xl border px-3 py-2"
-                  placeholder="Contoh: 150000"
+                  className="input-field mt-1"
+                  placeholder="Contoh: 150000 atau -50000"
                 />
               </label>
-              <label className="text-sm font-medium">
+              <label
+                className="text-xs font-semibold"
+                style={{ color: "var(--text-secondary)" }}
+              >
                 Catatan
                 <textarea
                   value={adjustReason}
                   onChange={(e) => setAdjustReason(e.target.value)}
-                  className="mt-1 h-20 w-full rounded-xl border px-3 py-2"
+                  className="input-field mt-1 h-20 resize-none"
                   placeholder="Contoh: pelunasan tunai"
                 />
               </label>
-              <label className="flex items-center gap-2 text-sm">
+              <label
+                className="flex items-center gap-2 text-xs font-medium cursor-pointer"
+                style={{ color: "var(--text-secondary)" }}
+              >
                 <input
                   type="checkbox"
                   checked={applyNow}
                   onChange={(e) => setApplyNow(e.target.checked)}
+                  className="rounded text-blue-600 focus:ring-blue-500 h-4 w-4"
                 />
                 Tandai langsung sebagai lunas
               </label>
@@ -214,19 +263,35 @@ export function HostControls({
                 type="button"
                 onClick={handleAdjustmentSubmit}
                 disabled={savingAdjustment}
-                className="w-full rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-60"
+                className="w-full rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow transition hover:bg-emerald-500 disabled:opacity-60"
               >
                 Simpan penyesuaian
               </button>
               {adjustStatus && (
-                <p className="text-sm text-slate-500">{adjustStatus}</p>
+                <p
+                  className="text-xs text-center font-medium"
+                  style={{ color: "var(--text-secondary)" }}
+                >
+                  {adjustStatus}
+                </p>
               )}
             </div>
           </div>
 
-          <div className="rounded-2xl border bg-white p-4">
-            <h3 className="font-semibold">Riwayat penyesuaian</h3>
-            <p className="text-sm text-slate-500">
+          <div
+            className="rounded-2xl p-5 border"
+            style={{
+              background: "var(--bg-secondary)",
+              borderColor: "var(--border-color)",
+            }}
+          >
+            <h3
+              className="font-bold text-sm"
+              style={{ color: "var(--text-primary)" }}
+            >
+              Riwayat penyesuaian
+            </h3>
+            <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>
               Draft tidak memengaruhi saldo sampai ditandai lunas.
             </p>
             <ul className="mt-3 space-y-3 text-sm">
@@ -234,32 +299,47 @@ export function HostControls({
                 adjustments.map((adjustment) => (
                   <li
                     key={adjustment.id}
-                    className="rounded-xl border px-3 py-2"
+                    className="rounded-xl border p-3"
+                    style={{
+                      background: "var(--bg-muted)",
+                      borderColor: "var(--border-color)",
+                    }}
                   >
                     <div className="flex items-center justify-between">
-                      <p className="font-medium">
+                      <p
+                        className="font-semibold text-sm"
+                        style={{ color: "var(--text-primary)" }}
+                      >
                         {adjustment.participantName}
                       </p>
                       <span
-                        className={`rounded-full px-2 py-0.5 text-xs font-semibold ${statusBadgeClasses[adjustment.status] ?? "bg-slate-100 text-slate-600"}`}
+                        className={`badge ${statusBadgeClasses[adjustment.status] ?? "badge-gray"}`}
                       >
                         {adjustment.status}
                       </span>
                     </div>
                     <p
-                      className={`text-base font-semibold ${
+                      className={`text-base font-bold mt-1 ${
                         adjustment.amountIdr >= 0
-                          ? "text-emerald-600"
-                          : "text-rose-600"
+                          ? "text-emerald-600 dark:text-emerald-400"
+                          : "text-rose-600 dark:text-rose-400"
                       }`}
                     >
                       {adjustment.amountIdr >= 0 ? "+" : "-"}{" "}
                       {formatRupiah(Math.abs(adjustment.amountIdr))}
                     </p>
                     {adjustment.reason && (
-                      <p className="text-slate-500">{adjustment.reason}</p>
+                      <p
+                        className="text-xs mt-0.5"
+                        style={{ color: "var(--text-secondary)" }}
+                      >
+                        {adjustment.reason}
+                      </p>
                     )}
-                    <p className="text-xs text-slate-400">
+                    <p
+                      className="text-xs mt-1"
+                      style={{ color: "var(--text-muted)" }}
+                    >
                       Dibuat{" "}
                       {format(
                         new Date(adjustment.createdAt),
@@ -282,7 +362,7 @@ export function HostControls({
                       <div className="mt-2 flex gap-2">
                         <button
                           type="button"
-                          className="rounded-lg border border-emerald-600 px-3 py-1 text-xs font-semibold text-emerald-600"
+                          className="rounded-lg border border-emerald-600 px-3 py-1 text-xs font-semibold text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
                           onClick={() =>
                             handleAdjustmentAction(adjustment.id, "apply")
                           }
@@ -292,7 +372,7 @@ export function HostControls({
                         </button>
                         <button
                           type="button"
-                          className="rounded-lg border border-slate-400 px-3 py-1 text-xs font-semibold text-slate-600"
+                          className="btn-ghost !px-3 !py-1 !text-xs !rounded-lg"
                           onClick={() =>
                             handleAdjustmentAction(adjustment.id, "void")
                           }
@@ -305,7 +385,10 @@ export function HostControls({
                   </li>
                 ))
               ) : (
-                <li className="text-slate-500">
+                <li
+                  className="text-xs py-2"
+                  style={{ color: "var(--text-muted)" }}
+                >
                   Belum ada penyesuaian tercatat.
                 </li>
               )}

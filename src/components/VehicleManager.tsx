@@ -947,17 +947,20 @@ export function VehicleManager({
         )}
       </div>
 
-      <div className="mt-6 rounded-2xl border bg-white p-6">
+      <div className="glass-card mt-6 rounded-3xl p-6 sm:p-7 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <p className="text-xs uppercase tracking-wide text-slate-400">
+            <p className="text-xs uppercase font-bold tracking-wider text-blue-600 dark:text-blue-400">
               Manajemen peserta
             </p>
-            <h3 className="text-lg font-semibold text-slate-900">
+            <h3
+              className="text-lg font-bold mt-1"
+              style={{ color: "var(--text-primary)" }}
+            >
               Daftar penumpang
             </h3>
           </div>
-          <span className="text-sm text-slate-500">
+          <span className="badge badge-blue">
             {participants.length} peserta
           </span>
         </div>
@@ -972,22 +975,32 @@ export function VehicleManager({
                   return (
                     <li
                       key={participant.id}
-                      className="flex items-center justify-between rounded-xl bg-slate-50 px-3 py-2"
+                      className="flex items-center justify-between rounded-xl p-3 border"
+                      style={{
+                        background: "var(--bg-muted)",
+                        borderColor: "var(--border-color)",
+                      }}
                     >
-                      <label className="flex flex-1 items-center gap-3">
+                      <label className="flex flex-1 items-center gap-3 cursor-pointer">
                         <input
                           type="checkbox"
-                          className="h-4 w-4 rounded border-slate-300"
+                          className="h-4 w-4 rounded text-blue-600 focus:ring-blue-500"
                           checked={selectedSet.has(participant.id)}
                           onChange={() =>
                             toggleParticipantSelection(participant.id)
                           }
                         />
                         <span>
-                          <span className="font-medium text-slate-900">
+                          <span
+                            className="font-semibold text-sm"
+                            style={{ color: "var(--text-primary)" }}
+                          >
                             {participant.nama}
                           </span>
-                          <span className="block text-xs text-slate-500">
+                          <span
+                            className="block text-xs mt-0.5"
+                            style={{ color: "var(--text-muted)" }}
+                          >
                             {assignmentInfo?.legs.length
                               ? `Terpasang di ${assignmentInfo.legs.join(", ")}`
                               : "Belum ditempatkan"}
@@ -1119,14 +1132,23 @@ export function VehicleManager({
                 {participantCreating ? "Menambahkan..." : "Tambah peserta"}
               </button>
             </div>
-            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-              <p className="text-xs uppercase tracking-wide text-slate-400">
+            <div
+              className="rounded-2xl border p-4"
+              style={{
+                background: "var(--bg-secondary)",
+                borderColor: "var(--border-color)",
+              }}
+            >
+              <p className="text-xs uppercase font-bold tracking-wider text-blue-600 dark:text-blue-400">
                 Data peserta
               </p>
-              <h4 className="text-lg font-semibold text-slate-900">
+              <h4
+                className="text-lg font-bold mt-1"
+                style={{ color: "var(--text-primary)" }}
+              >
                 Edit penumpang terdaftar
               </h4>
-              <p className="text-sm text-slate-500">
+              <p className="text-xs" style={{ color: "var(--text-muted)" }}>
                 Perubahan nama atau status supir langsung berlaku untuk
                 penempatan kendaraan.
               </p>
@@ -1135,14 +1157,21 @@ export function VehicleManager({
                   participantRows.map((row) => (
                     <li
                       key={row.id}
-                      className="rounded-2xl border bg-white px-3 py-3"
+                      className="rounded-2xl border p-3.5"
+                      style={{
+                        background: "var(--bg-muted)",
+                        borderColor: "var(--border-color)",
+                      }}
                     >
                       <div className="flex flex-wrap items-end gap-3">
-                        <label className="flex-1 text-xs font-semibold text-slate-500">
+                        <label
+                          className="flex-1 text-xs font-semibold"
+                          style={{ color: "var(--text-secondary)" }}
+                        >
                           Nama
                           <input
                             type="text"
-                            className="mt-1 w-full rounded-xl border px-3 py-2"
+                            className="input-field mt-1"
                             value={row.name}
                             onChange={(event) =>
                               handleParticipantRowChange(
@@ -1155,7 +1184,7 @@ export function VehicleManager({
                         <div className="flex gap-2">
                           <button
                             type="button"
-                            className="rounded-xl bg-emerald-600 px-3 py-2 text-xs font-semibold text-white disabled:opacity-60"
+                            className="rounded-xl bg-emerald-600 px-3.5 py-2.5 text-xs font-semibold text-white shadow transition hover:bg-emerald-500 disabled:opacity-60"
                             onClick={() => handleSaveParticipant(row.id)}
                             disabled={participantSavingId === row.id}
                           >
@@ -1165,7 +1194,7 @@ export function VehicleManager({
                           </button>
                           <button
                             type="button"
-                            className="rounded-xl border border-rose-200 px-3 py-2 text-xs font-semibold text-rose-600 disabled:opacity-60"
+                            className="rounded-xl border border-rose-300 dark:border-rose-800/60 px-3.5 py-2.5 text-xs font-semibold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 disabled:opacity-60"
                             onClick={() => handleDeleteParticipant(row.id)}
                             disabled={
                               participantDeletingId === row.id ||
@@ -1179,31 +1208,49 @@ export function VehicleManager({
                         </div>
                       </div>
                       {row.id === lastParticipantId && (
-                        <p className="mt-2 text-xs text-slate-500">
+                        <p className="mt-2 text-xs text-amber-600 dark:text-amber-400">
                           Perjalanan minimal punya satu peserta.
                         </p>
                       )}
                     </li>
                   ))
                 ) : (
-                  <li className="rounded-xl border border-dashed border-slate-200 bg-white px-3 py-2 text-slate-500">
+                  <li
+                    className="rounded-xl border border-dashed p-3 text-xs"
+                    style={{
+                      borderColor: "var(--border-color)",
+                      color: "var(--text-muted)",
+                    }}
+                  >
                     Belum ada peserta terdaftar.
                   </li>
                 )}
               </ul>
             </div>
             {movingParticipantId && (
-              <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                <h4 className="text-lg font-semibold text-slate-900">
+              <div
+                className="rounded-2xl border p-4"
+                style={{
+                  background: "var(--bg-secondary)",
+                  borderColor: "var(--border-color)",
+                }}
+              >
+                <h4
+                  className="text-lg font-bold"
+                  style={{ color: "var(--text-primary)" }}
+                >
                   Pindahkan peserta
                 </h4>
-                <p className="text-sm text-slate-500">
+                <p className="text-xs" style={{ color: "var(--text-muted)" }}>
                   {participantsById.get(movingParticipantId)?.nama ?? "Peserta"}
                 </p>
-                <label className="mt-3 block text-sm font-medium text-slate-700">
+                <label
+                  className="mt-3 block text-xs font-semibold"
+                  style={{ color: "var(--text-secondary)" }}
+                >
                   Pilih leg
                   <select
-                    className="mt-1 w-full rounded-xl border px-3 py-2"
+                    className="input-field mt-1"
                     value={targetLegId}
                     onChange={(event) => setTargetLegId(event.target.value)}
                   >
@@ -1214,10 +1261,13 @@ export function VehicleManager({
                     ))}
                   </select>
                 </label>
-                <label className="mt-3 block text-sm font-medium text-slate-700">
+                <label
+                  className="mt-3 block text-xs font-semibold"
+                  style={{ color: "var(--text-secondary)" }}
+                >
                   Pilih kendaraan
                   <select
-                    className="mt-1 w-full rounded-xl border px-3 py-2"
+                    className="input-field mt-1"
                     value={targetVehicleId}
                     onChange={(event) => setTargetVehicleId(event.target.value)}
                   >
