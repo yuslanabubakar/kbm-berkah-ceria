@@ -36,6 +36,9 @@ export function ExpenseList({
   const [deleteTarget, setDeleteTarget] = useState<Expense | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [expandedSplitExpenseId, setExpandedSplitExpenseId] = useState<
+    string | null
+  >(null);
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
@@ -109,119 +112,260 @@ export function ExpenseList({
 
   return (
     <>
-      <ul className="space-y-4">
-        {expenses.map((expense) => (
-          <li key={expense.id} className="glass-card rounded-2xl p-4 shadow-sm">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <div className="flex items-center gap-2">
-                  <p
-                    className="text-base font-semibold"
-                    style={{ color: "var(--text-primary)" }}
+      {/* ─── DESKTOP & TABLET VIEW: High-Density Table ─── */}
+      <div className="hidden sm:block overflow-hidden rounded-2xl border border-[var(--border-color)] glass-card">
+        <table className="w-full text-left text-xs border-collapse">
+          <thead>
+            <tr className="bg-[var(--bg-muted)] text-slate-400 uppercase text-[10px] tracking-wider border-b border-[var(--border-color)]">
+              <th className="py-2.5 px-3.5 font-bold">Tanggal</th>
+              <th className="py-2.5 px-3.5 font-bold">Judul & Kategori</th>
+              <th className="py-2.5 px-3.5 font-bold">Dibayar Oleh</th>
+              <th className="py-2.5 px-3.5 font-bold">Cakupan / Etape</th>
+              <th className="py-2.5 px-3.5 font-bold text-right">Nominal</th>
+              {canEdit && (
+                <th className="py-2.5 px-3.5 font-bold text-right">Aksi</th>
+              )}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-[var(--border-color)]">
+            {expenses.length ? (
+              expenses.map((expense, idx) => {
+                const hasSplits = hasDetailedSplits(expense);
+                const isSplitExpanded = expandedSplitExpenseId === expense.id;
+
+                return (
+                  <tr
+                    key={expense.id}
+                    className="hover:bg-[var(--bg-muted)]/70 transition-colors"
+                    style={{
+                      background:
+                        idx % 2 === 0 ? "transparent" : "var(--bg-muted)",
+                    }}
                   >
-                    {expense.judul}
-                  </p>
-                  {expense.isExcluded && (
-                    <span className="badge badge-gray">Dikecualikan</span>
-                  )}
+                    {/* Date */}
+                    <td className="py-2.5 px-3.5 text-slate-400 whitespace-nowrap">
+                      {format(new Date(expense.date), "d MMM yyyy", {
+                        locale: id,
+                      })}
+                    </td>
+
+                    {/* Title & Notes */}
+                    <td className="py-2.5 px-3.5">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span
+                          className="font-bold text-xs sm:text-sm"
+                          style={{ color: "var(--text-primary)" }}
+                        >
+                          {expense.judul}
+                        </span>
+                        {expense.isExcluded && (
+                          <span className="badge badge-gray text-[9px] py-0 px-1">
+                            Dikecualikan
+                          </span>
+                        )}
+                        {hasSplits && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setExpandedSplitExpenseId(
+                                isSplitExpanded ? null : expense.id,
+                              )
+                            }
+                            className="badge badge-amber text-[9px] py-0.2 px-1.5 font-bold hover:underline cursor-pointer"
+                          >
+                            🍽️ {expense.splits?.length} Porsi{" "}
+                            {isSplitExpanded ? "▲" : "▼"}
+                          </button>
+                        )}
+                      </div>
+                      {expense.notes && (
+                        <p className="text-[11px] text-slate-400 mt-0.5 truncate max-w-xs">
+                          {expense.notes}
+                        </p>
+                      )}
+                      {hasSplits && isSplitExpanded && (
+                        <div className="mt-2 p-2 rounded-lg bg-[var(--bg-card)] border border-[var(--border-color)] space-y-1">
+                          <p className="text-[10px] font-bold text-slate-400 uppercase">
+                            Rincian Porsi:
+                          </p>
+                          <div className="grid grid-cols-2 gap-1 text-[11px]">
+                            {(expense.splits ?? []).map((s) => (
+                              <div
+                                key={`${expense.id}:${s.participantId}`}
+                                className="flex items-center justify-between gap-1 text-slate-600 dark:text-slate-300"
+                              >
+                                <span>{s.participantName}:</span>
+                                <span className="font-semibold">
+                                  {formatRupiah(
+                                    getSplitAmount(expense, s.participantId) ||
+                                      0,
+                                  )}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </td>
+
+                    {/* Paid By */}
+                    <td className="py-2.5 px-3.5 whitespace-nowrap">
+                      <span className="font-semibold text-slate-700 dark:text-slate-200">
+                        {expense.paidBy.nama}
+                      </span>
+                    </td>
+
+                    {/* Scope */}
+                    <td className="py-2.5 px-3.5 text-slate-400 text-[11px] whitespace-nowrap">
+                      {getScopeLabel(expense)}
+                    </td>
+
+                    {/* Amount */}
+                    <td className="py-2.5 px-3.5 text-right font-extrabold text-blue-600 dark:text-blue-400 whitespace-nowrap">
+                      {formatRupiah(expense.amountIdr)}
+                    </td>
+
+                    {/* Actions */}
+                    {canEdit && (
+                      <td className="py-2.5 px-3.5 text-right whitespace-nowrap">
+                        <div className="inline-flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => setEditingExpense(expense)}
+                            className="px-2 py-0.5 rounded text-[11px] font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setDeleteTarget(expense)}
+                            className="px-2 py-0.5 rounded text-[11px] font-semibold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30"
+                          >
+                            Hapus
+                          </button>
+                        </div>
+                      </td>
+                    )}
+                  </tr>
+                );
+              })
+            ) : (
+              <tr>
+                <td
+                  colSpan={canEdit ? 6 : 5}
+                  className="p-8 text-center text-xs text-slate-400"
+                >
+                  Belum ada transaksi pengeluaran.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {/* ─── MOBILE VIEW: High-Density Compact Cards ─── */}
+      <div className="space-y-2 sm:hidden">
+        {expenses.length ? (
+          expenses.map((expense) => {
+            const hasSplits = hasDetailedSplits(expense);
+            const isSplitExpanded = expandedSplitExpenseId === expense.id;
+
+            return (
+              <div
+                key={expense.id}
+                className="p-3 rounded-2xl bg-[var(--bg-muted)] border border-[var(--border-color)] space-y-1.5"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span
+                        className="font-bold text-xs"
+                        style={{ color: "var(--text-primary)" }}
+                      >
+                        {expense.judul}
+                      </span>
+                      {hasSplits && (
+                        <span className="badge badge-amber text-[9px] py-0 px-1 font-bold">
+                          🍽️ Makan
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[10px] text-slate-400 mt-0.5 truncate">
+                      {format(new Date(expense.date), "d MMM", { locale: id })}{" "}
+                      · Dibayar oleh {expense.paidBy.nama}
+                    </p>
+                  </div>
+
+                  <div className="text-right shrink-0">
+                    <p className="text-xs font-extrabold text-blue-600 dark:text-blue-400">
+                      {formatRupiah(expense.amountIdr)}
+                    </p>
+                    {canEdit && (
+                      <div className="flex items-center justify-end gap-1.5 mt-0.5 text-[10px]">
+                        <button
+                          type="button"
+                          onClick={() => setEditingExpense(expense)}
+                          className="text-blue-600 dark:text-blue-400 font-semibold hover:underline"
+                        >
+                          Edit
+                        </button>
+                        <span className="text-slate-300">·</span>
+                        <button
+                          type="button"
+                          onClick={() => setDeleteTarget(expense)}
+                          className="text-rose-500 font-semibold hover:underline"
+                        >
+                          Hapus
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
-                <p
-                  className="text-sm mt-0.5"
-                  style={{ color: "var(--text-secondary)" }}
-                >
-                  {format(new Date(expense.date), "d MMM yyyy", { locale: id })}{" "}
-                  · ditanggung sementara oleh {expense.paidBy.nama}
-                </p>
-                <p
-                  className="text-xs mt-0.5"
-                  style={{ color: "var(--text-muted)" }}
-                >
-                  {getScopeLabel(expense)}
-                </p>
-              </div>
-              <div className="text-right">
-                <p className="text-lg font-semibold text-brand-blue dark:text-blue-400">
-                  {formatRupiah(expense.amountIdr)}
-                </p>
-                {canEdit && (
-                  <div className="mt-1 flex justify-end gap-2 text-xs">
+
+                {hasSplits && (
+                  <div>
                     <button
                       type="button"
-                      onClick={() => setEditingExpense(expense)}
-                      className="btn-ghost !px-2.5 !py-0.5 !text-xs !rounded-full"
+                      onClick={() =>
+                        setExpandedSplitExpenseId(
+                          isSplitExpanded ? null : expense.id,
+                        )
+                      }
+                      className="text-[10px] font-bold text-amber-600 dark:text-amber-400 hover:underline"
                     >
-                      Edit
+                      {isSplitExpanded
+                        ? "▲ Sembunyikan Rincian Porsi"
+                        : `▼ Lihat Rincian ${expense.splits?.length} Orang`}
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => setDeleteTarget(expense)}
-                      className="rounded-full border border-transparent px-2.5 py-0.5 text-xs text-rose-600 transition hover:border-rose-200 hover:bg-rose-50 dark:hover:bg-rose-950/30"
-                    >
-                      Hapus
-                    </button>
+
+                    {isSplitExpanded && (
+                      <div className="mt-1.5 p-2 rounded-xl bg-[var(--bg-card)] border border-[var(--border-color)] space-y-1 text-[10px]">
+                        {(expense.splits ?? []).map((s) => (
+                          <div
+                            key={`${expense.id}:${s.participantId}`}
+                            className="flex items-center justify-between gap-1 text-slate-600 dark:text-slate-300"
+                          >
+                            <span>{s.participantName}</span>
+                            <span className="font-semibold">
+                              {formatRupiah(
+                                getSplitAmount(expense, s.participantId) || 0,
+                              )}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
-            </div>
-            {expense.notes && (
-              <p
-                className="mt-2 text-sm"
-                style={{ color: "var(--text-secondary)" }}
-              >
-                {expense.notes}
-              </p>
-            )}
-            {hasDetailedSplits(expense) && (
-              <div
-                className="mt-3 rounded-xl p-3"
-                style={{
-                  background: "var(--bg-muted)",
-                  border: "1px solid var(--border-color)",
-                }}
-              >
-                <div className="mb-2 flex items-center justify-between gap-2">
-                  <p
-                    className="text-xs font-semibold uppercase tracking-wide"
-                    style={{ color: "var(--text-muted)" }}
-                  >
-                    {expense.expenseType === "makan"
-                      ? "Rincian tagihan makan"
-                      : "Rincian pembagian biaya"}
-                  </p>
-                  <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-                    {expense.splits?.length} orang
-                  </p>
-                </div>
-                <ul className="space-y-1.5">
-                  {(expense.splits ?? []).map((split) => {
-                    const splitAmount = getSplitAmount(
-                      expense,
-                      split.participantId,
-                    );
-                    return (
-                      <li
-                        key={`${expense.id}:${split.participantId}`}
-                        className="flex items-center justify-between gap-3 text-sm"
-                        style={{ color: "var(--text-secondary)" }}
-                      >
-                        <span>{split.participantName}</span>
-                        <span
-                          className="font-medium"
-                          style={{ color: "var(--text-primary)" }}
-                        >
-                          {splitAmount != null
-                            ? formatRupiah(splitAmount)
-                            : "-"}
-                        </span>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </div>
-            )}
-          </li>
-        ))}
-      </ul>
+            );
+          })
+        ) : (
+          <div className="p-6 text-center text-xs text-slate-400 rounded-2xl bg-[var(--bg-muted)] border border-dashed border-[var(--border-color)]">
+            Belum ada transaksi pengeluaran.
+          </div>
+        )}
+      </div>
 
       {editingExpense && (
         <ExpenseEditDialog

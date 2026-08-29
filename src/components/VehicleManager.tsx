@@ -1019,13 +1019,13 @@ export function VehicleManager({
                       </label>
                       <button
                         type="button"
-                        className="text-xs text-brand-blue"
+                        className="px-2.5 py-1 rounded-lg text-xs font-bold bg-blue-600/10 text-blue-700 dark:text-blue-300 hover:bg-blue-600 hover:text-white transition-all shrink-0"
                         onClick={() => {
                           setMovingParticipantId(participant.id);
                           setMovingParticipantRole("passenger");
                         }}
                       >
-                        Pilih tujuan
+                        🚗 Atur Mobil
                       </button>
                     </li>
                   );
@@ -1268,89 +1268,111 @@ export function VehicleManager({
               </ul>
             </div>
             {movingParticipantId && (
-              <div
-                className="rounded-2xl border p-4"
-                style={{
-                  background: "var(--bg-secondary)",
-                  borderColor: "var(--border-color)",
-                }}
-              >
-                <h4
-                  className="text-lg font-bold"
-                  style={{ color: "var(--text-primary)" }}
-                >
-                  Pindahkan peserta
-                </h4>
-                <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-                  {participantsById.get(movingParticipantId)?.nama ?? "Peserta"}
-                </p>
-                <label
-                  className="mt-3 block text-xs font-semibold"
-                  style={{ color: "var(--text-secondary)" }}
-                >
-                  Pilih leg
-                  <select
-                    className="input-field mt-1"
-                    value={targetLegId}
-                    onChange={(event) => setTargetLegId(event.target.value)}
-                  >
-                    {legs.map((leg) => (
-                      <option key={leg.id} value={leg.id}>
-                        Leg {leg.order} · {leg.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label
-                  className="mt-3 block text-xs font-semibold"
-                  style={{ color: "var(--text-secondary)" }}
-                >
-                  Pilih kendaraan
-                  <select
-                    className="input-field mt-1"
-                    value={targetVehicleId}
-                    onChange={(event) => setTargetVehicleId(event.target.value)}
-                  >
-                    <option value="">-- pilih --</option>
-                    {flattenedVehicles
-                      .filter((vehicle) => vehicle.legId === targetLegId)
-                      .map((vehicle) => (
-                        <option key={vehicle.id} value={vehicle.id}>
-                          {vehicle.label} ({vehicle.assignments.length} orang ·{" "}
-                          {formatScheduleLabel(vehicle.departureTime)})
-                        </option>
-                      ))}
-                  </select>
-                </label>
-                <label
-                  className="mt-3 block text-xs font-semibold"
-                  style={{ color: "var(--text-secondary)" }}
-                >
-                  Peran di kendaraan
-                  <select
-                    className="input-field mt-1"
-                    value={movingParticipantRole}
-                    onChange={(event) =>
-                      setMovingParticipantRole(
-                        event.target.value as "driver" | "passenger",
-                      )
-                    }
-                  >
-                    <option value="passenger">Penumpang</option>
-                    <option value="driver">Supir</option>
-                  </select>
-                </label>
-                <button
-                  type="button"
-                  className={clsx(
-                    "btn-primary mt-4 w-full justify-center !py-2.5 text-sm",
-                    (!targetVehicleId || !targetLegId) && "opacity-50",
-                  )}
-                  onClick={handleMoveParticipant}
-                  disabled={!targetVehicleId || !targetLegId}
-                >
-                  Pindahkan
-                </button>
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-150">
+                <div className="glass-card w-full max-w-md rounded-3xl p-6 shadow-2xl border border-[var(--border-color)] space-y-4">
+                  <div className="flex items-center justify-between pb-3 border-b border-[var(--border-color)]">
+                    <div>
+                      <h4
+                        className="text-base font-bold"
+                        style={{ color: "var(--text-primary)" }}
+                      >
+                        Pindahkan / Pasang ke Mobil
+                      </h4>
+                      <p className="text-xs text-blue-600 dark:text-blue-400 font-bold mt-0.5">
+                        {participantsById.get(movingParticipantId)?.nama ??
+                          "Peserta"}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setMovingParticipantId(null)}
+                      className="btn-ghost text-xs py-1 px-2.5"
+                    >
+                      Tutup
+                    </button>
+                  </div>
+
+                  <div className="space-y-3">
+                    <label
+                      className="block text-xs font-semibold"
+                      style={{ color: "var(--text-secondary)" }}
+                    >
+                      Pilih Etape / Leg
+                      <select
+                        className="input-field mt-1 text-xs"
+                        value={targetLegId}
+                        onChange={(event) => setTargetLegId(event.target.value)}
+                      >
+                        {legs.map((leg) => (
+                          <option key={leg.id} value={leg.id}>
+                            Leg {leg.order} · {leg.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+
+                    <label
+                      className="block text-xs font-semibold"
+                      style={{ color: "var(--text-secondary)" }}
+                    >
+                      Pilih Kendaraan / Mobil
+                      <select
+                        className="input-field mt-1 text-xs"
+                        value={targetVehicleId}
+                        onChange={(event) =>
+                          setTargetVehicleId(event.target.value)
+                        }
+                      >
+                        <option value="">-- pilih mobil --</option>
+                        {flattenedVehicles
+                          .filter((vehicle) => vehicle.legId === targetLegId)
+                          .map((vehicle) => (
+                            <option key={vehicle.id} value={vehicle.id}>
+                              {vehicle.label} ({vehicle.assignments.length}{" "}
+                              orang)
+                            </option>
+                          ))}
+                      </select>
+                    </label>
+
+                    <label
+                      className="block text-xs font-semibold"
+                      style={{ color: "var(--text-secondary)" }}
+                    >
+                      Peran di Kendaraan
+                      <select
+                        className="input-field mt-1 text-xs"
+                        value={movingParticipantRole}
+                        onChange={(event) =>
+                          setMovingParticipantRole(
+                            event.target.value as "driver" | "passenger",
+                          )
+                        }
+                      >
+                        <option value="passenger">Penumpang Biasa</option>
+                        <option value="driver">🚗 Supir (Diskon 50%)</option>
+                      </select>
+                    </label>
+                  </div>
+
+                  <div className="flex items-center justify-end gap-2 pt-3 border-t border-[var(--border-color)]">
+                    <button
+                      type="button"
+                      onClick={() => setMovingParticipantId(null)}
+                      className="btn-ghost text-xs px-4 py-2"
+                    >
+                      Batal
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-primary text-xs px-5 py-2 font-bold disabled:opacity-50"
+                      onClick={handleMoveParticipant}
+                      disabled={!targetVehicleId || !targetLegId}
+                    >
+                      Simpan Penempatan
+                    </button>
+                  </div>
+                </div>
               </div>
             )}
           </div>

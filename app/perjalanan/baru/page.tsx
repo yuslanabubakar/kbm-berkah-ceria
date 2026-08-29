@@ -1,9 +1,12 @@
 import { CreateTripForm } from "@/components/CreateTripForm";
+import { fetchUserPaymentAccounts } from "@/lib/paymentAccounts";
 
 export const runtime = "edge";
 export const revalidate = 0;
 
-export default function PerjalananBaruPage() {
+export default async function PerjalananBaruPage() {
+  const userAccounts = await fetchUserPaymentAccounts().catch(() => []);
+
   return (
     <section className="space-y-6">
       <div
@@ -26,11 +29,11 @@ export default function PerjalananBaruPage() {
           className="mt-1.5 text-sm max-w-2xl"
           style={{ color: "var(--text-secondary)" }}
         >
-          Isi detail dasar, daftar peserta, dan supir. Setelah tersimpan kamu
-          bisa langsung menambahkan pengeluaran dan penyesuaian lainnya.
+          Isi detail dasar, rute etape, armada & peserta, rekening transfer, dan
+          nota pengeluaran awal.
         </p>
       </div>
-      <CreateTripForm />
+      <CreateTripForm initialUserAccounts={userAccounts} />
     </section>
   );
 }

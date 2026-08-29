@@ -83,6 +83,67 @@ describe("API: /api/trips & /api/trips/[tripId]", () => {
       const body = await res.json();
       assert.ok(body.data.tripId);
     });
+
+    test("creates trip with multi-legs, multi-vehicles, and initial expenses", async () => {
+      const headers = await getAuthHeaders(TEST_USER_1);
+      const req = createJsonRequest(
+        "https://example.com/api/trips",
+        "POST",
+        {
+          name: "KBM Malang Tour",
+          startDate: "2026-09-01",
+          endDate: "2026-09-05",
+          legs: [
+            { origin: "Jakarta", destination: "Semarang" },
+            { origin: "Semarang", destination: "Malang" },
+          ],
+          vehicles: [
+            { label: "Avanza Hitam", plateNumber: "B 1234 CD" },
+            { label: "Innova Putih", plateNumber: "N 5678 EF" },
+          ],
+          participants: [
+            { name: "Yuslan", isDriver: true },
+            { name: "Gani", isDriver: false },
+            { name: "Rasyid", isDriver: false },
+          ],
+          expenses: [
+            {
+              title: "Bensin Pertamax",
+              amountIdr: 350000,
+              payerName: "Yuslan",
+              category: "bbm",
+              vehicleIndex: 0,
+              legIndex: 0,
+            },
+            {
+              title: "Tol Cipali",
+              amountIdr: 120000,
+              payerName: "Gani",
+              category: "tol",
+              vehicleIndex: 0,
+              legIndex: 0,
+            },
+            {
+              title: "Makan Siang Resto",
+              amountIdr: 80000,
+              payerName: "Yuslan",
+              isFoodStop: true,
+              splits: [
+                { participantName: "Yuslan", amountIdr: 35000 },
+                { participantName: "Gani", amountIdr: 45000 },
+              ],
+            },
+          ],
+        },
+        headers,
+      );
+
+      const res = await createTrip(req);
+      assert.equal(res.status, 201);
+
+      const body = await res.json();
+      assert.ok(body.data.tripId);
+    });
   });
 
   describe("GET /api/trips/[tripId]", () => {
