@@ -1,78 +1,76 @@
-# Panduan Penggunaan KBM Berkah Ceria
+# Panduan Penggunaan KBM Berkah Ceria 🚗
 
-Dokumen ini menjelaskan alur kerja utama aplikasi berbagi biaya perjalanan. Gunakan panduan ini sebagai referensi singkat untuk host maupun peserta yang diberi akses.
-
-## 1. Masuk & Hak Akses
-
-- Buka `NEXT_PUBLIC_APP_URL` (default `http://localhost:3000`).
-- Klik **Masuk dengan Google**.
-- Host (pemilik trip) otomatis memiliki akses penuh. Tamu yang diundang via email hanya dapat melihat ringkasan.
-
-## 2. Membuat Perjalanan Baru
-
-1. Dari dashboard pilih **Buat perjalanan**.
-2. Isi nama perjalanan, lokasi, tanggal mulai, dan tanggal selesai.
-3. Simpan. Sistem otomatis:
-   - Membuat leg pertama.
-   - Menyiapkan kendaraan default.
-   - Menambahkan diri Anda sebagai peserta awal (status supir).
-
-## 3. Mengelola Metode Pembayaran Host
-
-1. Di dashboard, buka kartu **Metode pembayaran host**.
-2. Tambah rekening atau e-wallet baru (label, tipe kanal, nomor, nama pemilik, instruksi opsional).
-3. Metode pembayaran muncul di halaman perjalanan dan pada laporan PDF halaman pertama.
-
-## 4. Manajemen Peserta & Kendaraan
-
-1. Buka halaman **perjalanan** yang diinginkan (`/perjalanan/{id}`).
-2. Pada kartu **Armada & penumpang**:
-   - Gunakan tombol **Tambah kendaraan trip** atau **Tambah leg** sesuai kebutuhan.
-   - Tambah peserta baru dari panel **Masukkan penumpang baru**.
-   - Edit nama peserta/supir di panel **Edit penumpang terdaftar**.
-   - Gunakan daftar penumpang untuk memilih peserta lalu tempatkan massal ke leg/kendaraan.
-   - Klik **Pilih tujuan** pada peserta untuk memindahkan secara manual dan tetapkan peran (supir/penumpang).
-   - Tautkan kendaraan ke leg, atur jadwal keberangkatan, dan kosongkan kendaraan bila perlu.
-
-## 5. Mencatat Pengeluaran
-
-1. Di bagian **Pengeluaran** pada halaman perjalanan, klik **Tambah pengeluaran**.
-2. Isi judul, jumlah, tanggal, pihak yang membayar, dan scope (leg atau kendaraan).
-3. Simpan. Pengeluaran otomatis terbagi rata ke peserta sesuai scope.
-4. Untuk penyesuaian khusus:
-   - Gunakan mode split manual untuk mengatur porsi setiap peserta.
-   - Tandai pengeluaran sebagai dikecualikan bila tidak memengaruhi saldo.
-   - Edit/hapus pengeluaran melalui menu aksi tiap item.
-
-## 6. Penyesuaian Saldo
-
-- Di panel **Penyesuaian saldo**, host dapat menambahkan entri **talangan/penyesuaian**:
-  1. Pilih peserta, isi nilai, beri catatan.
-  2. Simpan sebagai draft lalu tandai **Applied** ketika sudah final, atau **Void** bila dibatalkan.
-- Riwayat penyesuaian otomatis tercatat dan memengaruhi saldo peserta.
-
-## 7. Berbagi Perjalanan dengan Tamu
-
-1. Pada halaman perjalanan, buka panel **Bagikan perjalanan**.
-2. Masukkan email penerima, klik **Kirim undangan**.
-3. Penerima akan mendapat akses baca melalui Supabase RLS (tidak bisa mengubah data).
-4. Cabut akses dari daftar share jika tidak lagi diperlukan.
-
-## 8. Mengunduh Laporan PDF
-
-1. Pada halaman perjalanan, buka menu aksi laporan (atau panggil langsung API `GET /api/trips/{id}/report`).
-2. Laporan berisi tiga halaman:
-   - Halaman 1: Metode pembayaran host.
-   - Halaman 2: Ringkasan peserta (biaya, talangan, kembalian, harus bayar) dengan highlight kewajiban.
-   - Halaman 3: Daftar pengeluaran kronologis.
-3. Bagikan PDF kepada peserta untuk referensi akhir perjalanan.
-
-## 9. Tips Operasional
-
-- Pastikan setiap leg memiliki kendaraan sebelum melakukan penempatan massal.
-- Untuk perjalanan panjang, gunakan penyesuaian saldo untuk merekam pembayaran manual di luar aplikasi.
-- Setelah finalisasi, kunci akses tamu yang tidak lagi diperlukan untuk menjaga kerahasiaan data.
+Dokumen ini menjelaskan alur kerja utama aplikasi berbagi biaya perjalanan untuk tim & komunitas KBM Berkah Ceria.
 
 ---
 
-Jika menemukan bug atau membutuhkan fitur baru, laporkan melalui issue tracker repositori ini.
+## 1. Masuk & Autentikasi
+
+- Akses aplikasi di browser Anda.
+- Klik **Masuk dengan Google** di sudut kanan atas.
+- Host (pembuat trip) otomatis memiliki hak akses penuh untuk mengedit, menambah pengeluaran, mengatur armada, dan membagikan akses trip.
+
+---
+
+## 2. Membuat Perjalanan Baru (4-Step Wizard)
+
+1. Di Dashboard, klik tombol **+ Trip Baru**.
+2. **Langkah 1: Rute & Jadwal**
+   - Masukkan Nama Perjalanan, Tanggal Mulai & Selesai.
+   - Tambahkan etape (leg) perjalanan jika rute memiliki beberapa titik singgah.
+3. **Langkah 2: Armada & Peserta**
+   - Tambah mobil konvoi (nama mobil & plat nomor).
+   - Masukkan nama peserta satu per satu atau gunakan **Paste Banyak** untuk menempelkan daftar nama sekaligus.
+   - Tandai siapa saja yang bertindak sebagai supir (**🚗 Supir** mendapat diskon 50% biaya leg/kendaraan).
+4. **Langkah 3: Pengeluaran Awal & Rekening**
+   - Masukkan nota awal (bila sudah ada nota sebelum trip).
+   - Kategori biaya (BBM, Tol, Makan, Parkir) akan terdeteksi otomatis dari judul nota.
+   - Gunakan fitur **Pemberhentian Makan** jika tagihan makan berbeda per orang.
+   - Pilih rekening/e-wallet pembayaran host yang ingin dilampirkan ke trip.
+5. **Langkah 4: Review & Simpan**
+   - Periksa ringkasan data, lalu klik **Simpan Perjalanan**.
+
+---
+
+## 3. Mengelola Rekening Pembayaran Host
+
+1. Di Dashboard pada tab **Rekening Host**, klik **+ Tambah Rekening**.
+2. Masukkan label rekening, jenis saluran (Bank Transfer / E-Wallet), nomor rekening/HP, dan nama pemilik rekening.
+3. Rekening ini dapat dilampirkan ke setiap trip untuk memudahkan peserta menyalin nomor transfer saat settlement.
+
+---
+
+## 4. Manajemen Rute, Armada & Penumpang (`/perjalanan/{id}`)
+
+Pada halaman detail perjalanan, buka tab **Armada**:
+
+- **🗺️ Ikhtisar Penugasan Etape & Mobil**: Pantau jumlah penumpang di setiap mobil per etape.
+- **🚗 Master Kendaraan Konvoi**: Tambah mobil baru atau edit plat nomor.
+- **🚩 Pengaturan Etape (Leg)**: Hubungkan mobil yang beroperasi di etape terkait.
+- **👥 Penempatan Penumpang**: Klik **🚗 Atur Mobil** untuk memindahkan penumpang ke mobil lain lewat popup modal yang praktis, atau gunakan penempatan massal (_bulk placement_).
+
+---
+
+## 5. Pencatatan Pengeluaran & Pemberhentian Makan
+
+1. Di tab **Pengeluaran**, klik **+ Tambah Pengeluaran**.
+2. Masukkan judul nota, nominal Rupiah, tanggal, pembayar (_paid by_), dan scope (seluruh etape atau khusus kendaraan tertentu).
+3. **Pemberhentian Makan (Food Stop)**:
+   - Centang opsi **🍽️ Pemberhentian Makan**.
+   - Masukkan nominal tagihan masing-masing peserta di mobil tersebut. Total nota akan dihitung otomatis.
+4. Klik simpan. Saldo peserta langsung diperbarui secara _real-time_.
+
+---
+
+## 6. Salin Tagihan WhatsApp & Ekspor Laporan
+
+1. Di banner atas detail perjalanan:
+   - **Tombol 💬 Salin Tagihan WA**: Menghasilkan template pesan WhatsApp berisi ringkasan "Siapa Bayar Berapa" & "Siapa Terima Berapa" lengkap dengan detail rekening transfer host.
+   - **Tombol 📄 Cetak Laporan PDF**: Membuka laporan resmi yang siap dicetak atau disimpan sebagai PDF (Ctrl+P / Cmd+P).
+
+---
+
+## 7. Ringkasan & Statistik Komunitas (`/ringkasan`)
+
+- Buka menu **Ringkasan** di bilah navigasi atas.
+- Pantau total dana yang dikelola, rata-rata biaya per orang, diagram bar alokasi kategori pengeluaran, serta riwayat seluruh trip dengan fitur live search & pagination.

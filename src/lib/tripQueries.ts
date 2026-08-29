@@ -648,30 +648,218 @@ export async function fetchTripDetail(
   };
 }
 
+export type CategoryStat = {
+  categoryId: string;
+  label: string;
+  emoji: string;
+  color: string;
+  totalAmount: number;
+  percentage: number;
+  count: number;
+};
+
+export type CommunityTripItem = {
+  id: string;
+  name: string;
+  originCity: string | null;
+  destinationCity: string | null;
+  startDate: string | null;
+  endDate: string | null;
+  participantCount: number;
+  vehicleCount: number;
+  totalExpense: number;
+  isFinished: boolean;
+};
+
 export type CommunityStats = {
   totalTrip: number;
+  activeTripCount: number;
+  finishedTripCount: number;
   totalPeserta: number;
+  uniquePesertaCount: number;
+  totalVehicles: number;
   totalPengeluaran: number;
+  avgPengeluaranPerTrip: number;
+  avgPengeluaranPerPeserta: number;
+  categoryBreakdown: CategoryStat[];
+  tripList: CommunityTripItem[];
+};
+
+const CATEGORY_META: Record<
+  string,
+  { label: string; emoji: string; color: string }
+> = {
+  bbm: { label: "BBM / Bensin", emoji: "⛽", color: "#f59e0b" },
+  tol: { label: "Tol", emoji: "🛣️", color: "#3b82f6" },
+  makan: { label: "Makan / Kuliner", emoji: "🍽️", color: "#ef4444" },
+  parkir: { label: "Parkir", emoji: "🅿️", color: "#8b5cf6" },
+  hotel: { label: "Hotel & Penginapan", emoji: "🏨", color: "#06b6d4" },
+  tiket: { label: "Tiket & Wisata", emoji: "🎟️", color: "#ec4899" },
+  belanja: { label: "Belanja & Oleh-oleh", emoji: "🛍️", color: "#10b981" },
+  transport: { label: "Transportasi Umum", emoji: "🚕", color: "#6366f1" },
+  lainnya: { label: "Lainnya", emoji: "📦", color: "#64748b" },
 };
 
 export async function fetchCommunityStats(): Promise<CommunityStats> {
   const db = getDb();
-  const [allTrips, allParticipants, allExpenses] = await Promise.all([
-    db.select({ id: trips.id }).from(trips).all(),
-    db.select({ id: participants.id }).from(participants).all(),
-    db
-      .select({ amountIdr: expenses.amountIdr })
-      .from(expenses)
-      .where(eq(expenses.isExcluded, false))
-      .all(),
-  ]);
+  const [allTrips, allParticipants, allVehicles, allExpenses] =
+    await Promise.all([
+      db
+        .select({
+          id: trips.id,
+          name: trips.name,
+          originCity: trips.originCity,
+          destinationCity: trips.destinationCity,
+          startDate: trips.startDate,
+          endDate: trips.endDate,
+          status: trips.status,
+          createdAt: trips.createdAt,
+        })
+        .from(trips)
+        .orderBy(desc(trips.createdAt))
+        .all(),
+      db
+        .select({
+          id: participants.id,
+          tripId: participants.tripId,
+          displayName: participants.displayName,
+        })
+        .from(participants)
+        .all(),
+      db
+        .select({
+          id: fleetVehicles.id,
+          tripId: fleetVehicles.tripId,
+        })
+        .from(fleetVehicles)
+        .all(),
+      db
+        .select({
+          id: expenses.id,
+          tripId: expenses.tripId,
+          amountIdr: expenses.amountIdr,
+          expenseType: expenses.expenseType,
+        })
+        .from(expenses)
+        .where(eq(expenses.isExcluded, false))
+        .all(),
+    ]);
 
   const totalTrip = allTrips.length;
   const totalPeserta = allParticipants.length;
+  const totalVehicles = allVehicles.length;
+
+  const uniqueNames = new Set(
+    allParticipants.map((p) => p.displayName.trim().toLowerCase()),
+  );
+  const uniquePesertaCount = uniqueNames.size;
+
+  const now = new Date();
+  let activeTripCount = 0;
+  let finishedTripCount = 0;
+
+  for (const t of allTrips) {
+    const isEnded = t.endDate && new Date(t.endDate) < now;
+    if (isEnded) {
+      finishedTripCount++;
+    } else {
+      activeTripCount++;
+    }
+  }
+
   const totalPengeluaran = allExpenses.reduce(
     (sum, row) => sum + toNumber(row.amountIdr),
     0,
   );
 
-  return { totalTrip, totalPeserta, totalPengeluaran };
+  const avgPengeluaranPerTrip =
+    totalTrip > 0 ? Math.round(totalPengeluaran / totalTrip) : 0;
+  const avgPengeluaranPerPeserta =
+    totalPeserta > 0 ? Math.round(totalPengeluaran / totalPeserta) : 0;
+
+  // Category breakdown
+  const categorySums: Record<string, { total: number; count: number }> = {};
+  for (const exp of allExpenses) {
+    const cat = exp.expenseType || "lainnya";
+    if (!categorySums[cat]) {
+      categorySums[cat] = { total: 0, count: 0 };
+    }
+    categorySums[cat].total += toNumber(exp.amountIdr);
+    categorySums[cat].count += 1;
+  }
+
+  const categoryBreakdown: CategoryStat[] = Object.entries(categorySums)
+    .map(([catId, data]) => {
+      const meta = CATEGORY_META[catId] || {
+        label: catId,
+        emoji: "📦",
+        color: "#64748b",
+      };
+      const percentage =
+        totalPengeluaran > 0
+          ? Math.round((data.total / totalPengeluaran) * 1000) / 10
+          : 0;
+      return {
+        categoryId: catId,
+        label: meta.label,
+        emoji: meta.emoji,
+        color: meta.color,
+        totalAmount: data.total,
+        percentage,
+        count: data.count,
+      };
+    })
+    .sort((a, b) => b.totalAmount - a.totalAmount);
+
+  // Group participants, vehicles, expenses by trip
+  const participantsCountMap = new Map<string, number>();
+  for (const p of allParticipants) {
+    participantsCountMap.set(
+      p.tripId,
+      (participantsCountMap.get(p.tripId) ?? 0) + 1,
+    );
+  }
+
+  const vehiclesCountMap = new Map<string, number>();
+  for (const v of allVehicles) {
+    vehiclesCountMap.set(v.tripId, (vehiclesCountMap.get(v.tripId) ?? 0) + 1);
+  }
+
+  const expenseSumMap = new Map<string, number>();
+  for (const exp of allExpenses) {
+    expenseSumMap.set(
+      exp.tripId,
+      (expenseSumMap.get(exp.tripId) ?? 0) + toNumber(exp.amountIdr),
+    );
+  }
+
+  const tripList: CommunityTripItem[] = allTrips.map((t) => {
+    const isFinished = Boolean(t.endDate && new Date(t.endDate) < now);
+    return {
+      id: t.id,
+      name: t.name,
+      originCity: t.originCity,
+      destinationCity: t.destinationCity,
+      startDate: t.startDate,
+      endDate: t.endDate,
+      participantCount: participantsCountMap.get(t.id) ?? 0,
+      vehicleCount: vehiclesCountMap.get(t.id) ?? 0,
+      totalExpense: expenseSumMap.get(t.id) ?? 0,
+      isFinished,
+    };
+  });
+
+  return {
+    totalTrip,
+    activeTripCount,
+    finishedTripCount,
+    totalPeserta,
+    uniquePesertaCount,
+    totalVehicles,
+    totalPengeluaran,
+    avgPengeluaranPerTrip,
+    avgPengeluaranPerPeserta,
+    categoryBreakdown,
+    tripList,
+  };
 }

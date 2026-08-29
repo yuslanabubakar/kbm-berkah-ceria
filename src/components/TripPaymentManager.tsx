@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import type {
   TripPaymentAccountAttachment,
   UserPaymentAccount,
@@ -56,6 +57,7 @@ export function TripPaymentManager({
   attachments: initialAttachments,
   userAccounts,
 }: Props) {
+  const router = useRouter();
   const [attachments, setAttachments] = useState<
     TripPaymentAccountAttachment[]
   >(() => sortAttachments(initialAttachments));
@@ -183,6 +185,7 @@ export function TripPaymentManager({
 
       resetAttachForm();
       setShowAttachForm(false);
+      router.refresh();
     } catch (error) {
       setAttachForm((prev) => ({
         ...prev,
@@ -280,6 +283,7 @@ export function TripPaymentManager({
 
       setEditingAttachmentId(null);
       setEditForm(null);
+      router.refresh();
     } catch (error) {
       setEditForm((prev) =>
         prev
@@ -325,6 +329,7 @@ export function TripPaymentManager({
         setEditingAttachmentId(null);
         setEditForm(null);
       }
+      router.refresh();
     } catch (error) {
       alert(error instanceof Error ? error.message : "Gagal melepas lampiran");
     }

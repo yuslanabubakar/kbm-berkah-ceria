@@ -1,189 +1,159 @@
-# KBM Berkah Ceria
+# KBM Berkah Ceria 🚗💨
 
-Aplikasi berbagi biaya perjalanan untuk tim KBM Berkah Ceria. Menggunakan Next.js 14 (App Router) dan Supabase agar tim bisa mencatat pengeluaran, membagi biaya dalam Rupiah, mengatur armada, serta memantau saldo akhir secara real time.
+Aplikasi web modern untuk manajemen perjalanan konvoi dan berbagi biaya (_expense splitting & settlement_) untuk komunitas **KBM Berkah Ceria**. Dibangun dengan **Next.js 14 (App Router)**, **TypeScript**, **Tailwind CSS**, dan **Drizzle ORM**, dioptimalkan untuk performa tinggi di **Edge Runtime / Cloudflare Pages** serta **100% Mobile-Friendly**.
 
-## Kapabilitas Saat Ini
+---
 
-- Dashboard host menampilkan daftar trip aktif, total pengeluaran, tombol bikin trip, modul berbagi trip via email, dan manajer metode pembayaran pribadi/host.
-- Form pembuatan trip membuat leg awal, kendaraan default, peserta perdana beserta status supir, dan jadwal keberangkatan dasar agar perjalanan siap dipakai instan.
-- Halaman detail perjalanan menyajikan saldo peserta (dengan badge supir & host-only badge saat relevan), daftar pengeluaran lengkap, serta kartu metode pembayaran siap salin.
-- Pencatatan pengeluaran mendukung scope leg/kendaraan, edit & hapus, pengecualian dari perhitungan, format Rupiah otomatis, validasi Zod, dan lampiran bukti opsional.
-- **Pemberhentian makan** — mode khusus di form pengeluaran untuk mencatat tagihan makan per orang dalam satu mobil; satu orang bayar duluan, tiap peserta punya jumlah berbeda, total dihitung otomatis. Rincian per orang tampil di kartu pengeluaran (app) maupun laporan PDF.
-- Mode host menyediakan kontrol split manual per expense, toggle pengecualian, penyesuaian saldo (draft/applied/void), histori penyesuaian, serta laporan status peserta real time.
-- Manajemen armada/penumpang digabung dalam satu panel: tambah leg, hubungkan kendaraan, atur jadwal, assign peserta massal, pindah penumpang, ubah supir/penumpang, tambah/edit peserta.
-- Fitur berbagi trip mengundang email read-only via `trip_shares`, menjaga RLS Supabase; halaman ringkasan komunitas menampilkan agregat perjalanan.
-- Generator laporan HTML (`GET /api/trips/:tripId/report`) menyusun Metode Pembayaran, Saldo Peserta (kolom Biaya, Talangan, Saldo, Status), dan Daftar Pengeluaran (dengan rincian tagihan makan per orang); dapat disimpan sebagai PDF via print dialog.
-- Fitur "Salin Tagihan WA" menghasilkan template pesan WhatsApp otomatis yang mencakup ringkasan tagihan ("Siapa bayar berapa" dan "Siapa terima berapa") beserta metode pembayaran host untuk kemudahan penagihan.
+## 🌟 Fitur & Kapabilitas Utama
 
-## Tech Stack
+### 1. 🧙 Wizard Pembuatan Perjalanan (4-Step Stepper)
 
-- Next.js 14 (App Router, Server Components) + React 18 + TypeScript
-- **Cloudflare Pages** (edge runtime) untuk deployment
-- Supabase Postgres + Auth + Storage via `@supabase/ssr`
-- Tailwind CSS 3, clsx untuk styling
-- Zod untuk validasi form, date-fns dan Intl untuk format tanggal & Rupiah
-- ESLint, Prettier, Husky, lint-staged, pnpm
-- Wrangler untuk Cloudflare Pages configuration
+- **Langkah 1: Rute & Jadwal** — Mendukung multi-leg/etape rute lanjutan (misal Leg 1: Bandung ➔ Cirebon, Leg 2: Cirebon ➔ Semarang).
+- **Langkah 2: Armada & Peserta** — Multi-armada mobil (nama mobil & plat nomor), input peserta cepat, paste banyak nama sekaligus (_bulk paste_), dan penandaan supir (_diskon 50% biaya perjalanan_).
+- **Langkah 3: Pengeluaran Awal & Rekening Pembayaran** — Deteksi otomatis kategori biaya (BBM, Tol, Makan, Parkir, dll.), mode tagihan makan perorangan (_Food Stop individual split_), serta pemilihan rekening tujuan transfer host.
+- **Langkah 4: Review & Simpan** — Ringkasan menyeluruh sebelum disimpan ke database dalam satu transaksi aman.
 
-## Prasyarat
+### 2. 📱 Dashboard & Manajemen Akun Host
+
+- Ringkasan statistik perjalanan aktif vs selesai.
+- Pengelolaan rekening bank dan e-wallet pribadi host dengan prioritas transfer.
+- Fitur berbagi perjalanan (_Trip Sharing_) via email dengan hak akses read-only maupun edit.
+- **Mobile Experience**: Dilengkapi _Bottom Navigation Bar_ modern (dengan _safe-area padding_ untuk iOS/Android) dan tombol aksi cepat (_Floating Action Button_ `+ Trip Baru`).
+
+### 3. 🗺️ Halaman Detail Perjalanan Interaktif (`/perjalanan/[id]`)
+
+- **Hero Header**: Informasi rute, tanggal, total rupiah, tombol **Salin Tagihan WhatsApp** otomatis, dan ekspor **Laporan Cetak PDF / HTML**.
+- **Tab 1: Saldo & Settlement** — Tabel & kartu saldo ringkas, pembagian talangan vs hutang, status lunas, serta kartu metode pembayaran dengan fitur salin rekening 1-klik.
+- **Tab 2: Pengeluaran** — Tabel/kartu pengeluaran _high-density_, penyesuaian porsi makan per orang (_Food Stop Accordion_), pencatatan nota baru, edit, dan hapus transaksi.
+- **Tab 3: Rute & Armada** — Menggunakan sistem **Accordion Row Cards 1-Baris**:
+  - 🗺️ _Ikhtisar Penugasan Etape & Mobil_
+  - 🚗 _Master Armada Kendaraan Konvoi_
+  - 🚩 _Pengaturan Etape (Leg) & Armada_
+  - 👥 _Penempatan & Pembagian Penumpang_ dengan dialog modal popup `🚗 Atur Mobil` yang terpusat.
+- **Tab 4: Peserta** — Pengelolaan anggota trip dan pengalihan peran supir/penumpang.
+
+### 4. 📊 Ringkasan & Statistik Komunitas (`/ringkasan`)
+
+- **KPI Metrics Grid**: Total Rupiah dikelola, Total Perjalanan (Aktif & Selesai), Partisipasi Kursi & Peserta Unik, serta Rata-rata Biaya per Orang.
+- **Distribusi Kategori Pengeluaran**: _Multi-Segment Progress Bar_ dan kartu kategori proporsional (BBM ⛽, Tol 🛣️, Makan 🍽️, Parkir 🅿️, Hotel 🏨, Tiket 🎟️, dll.).
+- **Interactive Trip Ledger**: Tabel & kartu riwayat seluruh perjalanan dilengkapi **Pencarian Langsung (Live Search)**, **Filter Status Pills (Semua, Aktif, Selesai)**, dan **Pagination Interaktif** (5/10/20 item per halaman).
+
+### 5. 🧮 Settlement & Algoritma Pembagian Biaya
+
+- Bobot pembagian supir: 0.5 (diskon 50% untuk biaya etape/mobil) vs penumpang: 1.0.
+- Cakupan biaya fleksibel: per leg (lintas mobil) atau khusus kendaraan tertentu.
+- _Food Stop Split_: Tagihan makan dengan nominal custom per individu.
+- Penyesuaian saldo manual (_Balance Adjustments_) oleh host.
+
+---
+
+## 🛠️ Tech Stack
+
+- **Framework**: [Next.js 14](https://nextjs.org/) (App Router, Server Components & Server Actions)
+- **Language**: [TypeScript](https://www.typescriptlang.org/)
+- **Styling**: [Tailwind CSS 3](https://tailwindcss.com/), Lucide React Icons, clsx
+- **Database & ORM**: [Drizzle ORM](https://orm.drizzle.team/) (SQLite / Cloudflare D1 / Better-SQLite3)
+- **Runtime**: Edge Runtime & Node.js (Kompatibel dengan Cloudflare Pages / Workers)
+- **Autentikasi**: Google OAuth + JWT Session Cookie yang aman
+- **Validasi**: [Zod](https://zod.dev/)
+- **Date Utilities**: [date-fns](https://date-fns.org/) (dengan locale Indonesia `id`)
+- **Testing**: Node.js Native Test Runner (`node:test`)
+
+---
+
+## 🚀 Memulai Pengembangan Lokal
+
+### Prasyarat
 
 - Node.js >= 18.18
-- pnpm `npm install -g pnpm`
-- Akun Supabase beserta project baru
+- npm / pnpm / yarn
 
-## Cara Jalanin
+### Instalasi & Menjalankan Server
 
-### Development
+1. **Clone repository dan install dependensi**:
 
-```bash
-pnpm install
-pnpm dev
-```
-
-### Build untuk Cloudflare Pages
-
-```bash
-pnpm run build:cf
-```
-
-## Variabel Lingkungan
-
-Buat file `.env.local` berdasarkan contoh di bawah:
-
-```
-NEXT_PUBLIC_SUPABASE_URL=
-NEXT_PUBLIC_SUPABASE_ANON_KEY=
-SUPABASE_SERVICE_ROLE_KEY=
-NEXT_PUBLIC_APP_URL=http://localhost:3000
-```
-
-`SUPABASE_SERVICE_ROLE_KEY` hanya dipakai di sisi server (API route) untuk perhitungan saldo, jadi jangan dibagikan ke klien.
-
-### Login Google Supabase
-
-1. Di dashboard Supabase → **Authentication → Providers**, aktifkan Google dan isi Client ID/Secret dari Google Cloud Console.
-2. Di Google Cloud Console tambahkan seluruh redirect berikut pada OAuth client kamu:
-   - `https://<project>.supabase.co/auth/v1/callback`
-   - `http://localhost:3000/auth/callback`
-   - `https://<cloudflare-pages-domain>/auth/callback`
-3. Pastikan `.env.local` memiliki `NEXT_PUBLIC_APP_URL` yang menunjuk ke origin saat ini (lokal atau Cloudflare Pages domain). Nilai ini dipakai ketika memanggil `signInWithOAuth`.
-4. Tombol "Masuk dengan Google" tersedia di header aplikasi; setelah login pengguna diarahkan kembali ke halaman sebelumnya.
-
-## Integrasi Supabase
-
-1. Opsional: `pnpm supabase login` untuk memakai Supabase CLI.
-2. Jalankan migrasi ke project Supabase kamu (lihat bagian berikut) agar skema dan RLS sinkron.
-3. Isi `.env.local` dengan kredensial Supabase sebelum menjalankan aplikasi.
-
-### Skema & Migrasi
-
-Seluruh SQL berada di `supabase/migrations`. Sorotan penting:
-
-- `0001_init.sql` mendefinisikan trips, participants, trip_legs, trip_vehicles, expense_splits, view `trip_balances`, dan seluruh RLS dasar.
-- `0002_host_controls.sql` menambah flag pengecualian pengeluaran, tabel `balance_adjustments`, enum status, dan refresh view penyeimbang.
-- `0005_vehicle_departure_schedule.sql` (dan lanjutan) memperkenalkan `leg_vehicle_links` beserta jadwal keberangkatan kendaraan.
-- `0008_host_payment_accounts.sql` menambah tabel & RLS untuk daftar rekening host yang ditampilkan di UI.
-- `0010_trip_sharing.sql` menyediakan `trip_shares`, helper function anti-recursive, dan kebijakan akses berbasis email untuk akses read-only.
-
-Terapkan seluruh migrasi dengan:
-
-```bash
-supabase db reset --local
-# atau deploy ke project langsung
-supabase db push
-```
-
-Pastikan sudah login ke Supabase CLI dan environment berisi kredensial yang benar.
-
-### Deployment ke Cloudflare Pages
-
-1. Install Wrangler: `pnpm install -D wrangler`
-2. Konfigurasi `wrangler.toml` sesuai Cloudflare project kamu (lihat `compatibility_date`, `pages_build_output_dir`)
-3. Deploy menggunakan:
    ```bash
-   pnpm run build:cf
-   pnpm wrangler pages deploy .vercel/output/static
+   git clone https://github.com/yuslanabubakar/kbm-berkah-ceria.git
+   cd kbm-berkah-ceria
+   npm install
    ```
-4. Aplikasi berjalan pada edge runtime (semua pages dan routes gunakan `runtime = "edge"`) untuk kompatibilitas Cloudflare Workers.
-5. Pastikan `.env` berisi kredensial Supabase yang valid; selama build, isi variabel `NEXT_PUBLIC_*` agar tidak menyebabkan prerender crash.
 
-### Contoh Seed Data
+2. **Setup Environment Variables**:
+   Salin `.env.example` ke `.env.local`:
 
-File `supabase/seed.sql` menyediakan contoh trip Bandung <-> Jakarta (24-28 Nov 2025) lengkap dengan peserta, leg, kendaraan, assignment, dan beberapa pengeluaran.
+   ```bash
+   cp .env.example .env.local
+   ```
+
+   Pastikan variabel berikut terkonfigurasi:
+
+   ```env
+   # Google OAuth (Opsional untuk login)
+   GOOGLE_CLIENT_ID=your_google_client_id
+   GOOGLE_CLIENT_SECRET=your_google_client_secret
+   SESSION_SECRET=your_jwt_secret_key_min_32_chars
+   NEXT_PUBLIC_APP_URL=http://localhost:3000
+   ```
+
+3. **Jalankan Database Migration**:
+
+   ```bash
+   npm run db:migrate
+   # atau seed data contoh:
+   npm run db:seed
+   ```
+
+4. **Jalankan Development Server**:
+   ```bash
+   npm run dev
+   ```
+   Buka [http://localhost:3000](http://localhost:3000) di browser Anda.
+
+---
+
+## 🧪 Pengujian & Kualitas Kode
+
+Proyek ini dilengkapi dengan unit test menyeluruh untuk memastikan akurasi perhitungan saldo, validasi form, deteksi kategori, dan otentikasi:
 
 ```bash
-supabase db seed --file supabase/seed.sql
+# Menjalankan seluruh test suite (94+ passing tests)
+npm test
+
+# Type checking
+npm run typecheck
+
+# Linting
+npm run lint
 ```
 
-Gunakan seed ini untuk uji tampilan sebelum data produksi siap.
+---
 
-## API Ringkas
-
-### Trips
-
-- `POST /api/trips` membuat perjalanan baru beserta leg & kendaraan awal.
-- `GET /api/trips/:tripId` mengambil metadata trip dan akun pembayaran host.
-- `PATCH /api/trips/:tripId` memperbarui nama, kota, tanggal mulai/selesai.
-- `DELETE /api/trips/:tripId` menghapus perjalanan dan dependensinya.
-
-### Peserta & Armada
-
-- `POST /api/trips/:tripId/participants` menambah peserta; `PATCH`/`DELETE` pada `/participants/:participantId` untuk ubah/hapus.
-- `POST /api/trips/:tripId/legs` membuat leg baru; `/legs/:legId/vehicles` untuk hubungkan kendaraan atau atur jadwal keberangkatan.
-- `POST /api/trips/:tripId/vehicles` menambah kendaraan; `/vehicles/:vehicleId/assignments` mengatur penempatan peserta.
-
-### Pengeluaran & Host Controls
-
-- `POST /api/expenses` mencatat pengeluaran dengan scope leg/kendaraan.
-- `PATCH`/`DELETE /api/expenses/:expenseId` untuk edit/hapus; `/splits` mengatur bobot manual; `/exclude` toggle pengecualian.
-- `POST /api/trips/:tripId/adjustments` mencatat penyesuaian saldo; `PATCH /adjustments/:adjustmentId` menandai apply/void.
-
-### Metode Pembayaran & Sharing
-
-- `POST /api/trips/:tripId/host-accounts` menambah rekening/e-wallet host; `PATCH` dan `DELETE` tersedia per `accountId`.
-- `POST /api/trips/:tripId/shares` mengundang email; `GET` menampilkan daftar share; `DELETE /shares/:shareId` mencabut akses.
-- `GET /api/trips/:tripId/report` menghasilkan laporan HTML tiga halaman (metode pembayaran, ringkasan peserta, daftar pengeluaran) yang dapat disimpan sebagai PDF via browser print.
-
-## Panduan Penggunaan
-
-Dokumentasi langkah demi langkah (buat trip, kelola peserta/kendaraan, catat pengeluaran, undang tamu, terbitkan laporan) tersedia di `docs/how-to-use.md`.
-
-## Struktur Folder
+## 📂 Struktur Direktori
 
 ```
-app/
-  page.tsx              -> Beranda publik
-  dashboard/            -> Dashboard setelah login
-  perjalanan/[id]/      -> Detail perjalanan, host controls, armada
-  ringkasan/            -> Preview ringkasan komunitas
-src/
-  components/           -> Form trip, pengeluaran, host controls, armada, sharing
-  hooks/                -> Supabase session hook
-  lib/                  -> Klien Supabase + query trip
-  types/                -> Definisi TypeScript
-supabase/
-  migrations/           -> Skema Postgres + RLS
-  seed.sql              -> Data contoh
+kbm-berkah-ceria/
+├── app/
+│   ├── api/                   # API Routes (Trips, Expenses, Participants, Auth)
+│   ├── dashboard/             # Halaman Dashboard Host
+│   ├── perjalanan/
+│   │   ├── baru/              # 4-Step Wizard Pembuatan Perjalanan
+│   │   └── [id]/              # Detail Trip (Saldo, Pengeluaran, Armada, Peserta)
+│   ├── ringkasan/             # Statistik & Ringkasan Komunitas
+│   ├── layout.tsx             # Root layout & Navbar
+│   └── page.tsx               # Landing page
+├── src/
+│   ├── components/            # Komponen UI Reusable (Wizard, Ledger, Modals, Forms)
+│   ├── db/                    # Drizzle ORM Schema, Migrations, & Connection
+│   ├── hooks/                 # Custom React Hooks
+│   ├── lib/                   # Query Helpers, Formatters (formatRupiah), Auth Engine
+│   └── types/                 # TypeScript Types & Interfaces
+├── tests/
+│   └── unit/                  # Unit tests (tripQueries, settlement, createTrip, currency)
+└── docs/                      # Dokumentasi tambahan
 ```
 
-## Catatan Teknis
+---
 
-### Edge Runtime & Cloudflare Pages
+## 📄 Lisensi
 
-- Semua pages dan API routes menggunakan `runtime = "edge"` untuk kompatibilitas Cloudflare Pages.
-- Node.js APIs (seperti `pdfkit`) tidak tersedia; laporan menggunakan HTML + browser print dialog.
-- Build output menggunakan `.vercel/output/static` (from `@cloudflare/next-on-pages`).
-
-### Report Generation
-
-- Laporan yang dulu menggunakan PDF binary (`pdfkit`) sekarang menggunakan HTML yang fully-styled.
-- User membuka laporan di tab baru dan menekan Ctrl+P (Windows/Linux) atau Cmd+P (macOS) untuk save as PDF.
-- Eliminates external dependencies dan memastikan kompatibilitas edge runtime.
-
-## Next Steps
-
-- Tambahkan opsi akses edit pada sharing serta UI untuk mencabut/upgrade hak akses tamu.
-- Sambungkan halaman Ringkasan ke agregasi Supabase agar tidak bergantung pada data statis.
-- Integrasikan channel realtime Supabase untuk update saldo dan pengeluaran instan.
-- Siapkan pengujian (unit/integration) untuk API routes kritikal sebelum rilis produksi.
-- Monitor edge runtime performance dan cold start times setelah migration.
+Dikelola secara privat dan terbuka untuk kebutuhan komunitas **KBM Berkah Ceria**.

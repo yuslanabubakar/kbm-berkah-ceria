@@ -523,10 +523,10 @@ export function ExpenseForm({ tripId, participants, legs }: ExpenseFormProps) {
                 {vehicleParticipants.map((p) => (
                   <div
                     key={p.participantId}
-                    className="flex items-center gap-3"
+                    className="flex items-center gap-2 sm:gap-3"
                   >
                     <span
-                      className="w-28 truncate text-sm"
+                      className="w-24 sm:w-28 truncate text-xs sm:text-sm font-semibold"
                       style={{ color: "var(--text-primary)" }}
                     >
                       {p.participantName}
@@ -550,13 +550,10 @@ export function ExpenseForm({ tripId, participants, legs }: ExpenseFormProps) {
                         setStatus(null);
                       }}
                       placeholder="0"
-                      className="input-field flex-1 text-sm"
+                      className="input-field flex-1 text-xs sm:text-sm py-1.5 px-2.5"
                     />
                     {(foodStopAmounts[p.participantId] ?? 0) > 0 && (
-                      <span
-                        className="w-28 text-right text-xs font-medium"
-                        style={{ color: "var(--text-muted)" }}
-                      >
+                      <span className="hidden sm:inline w-24 sm:w-28 text-right text-xs font-bold text-amber-600 dark:text-amber-400">
                         {formatRupiah(foodStopAmounts[p.participantId])}
                       </span>
                     )}

@@ -642,11 +642,9 @@ export function CreateTripForm({
         body: JSON.stringify(payload),
       });
 
-      const result = (await response
-        .json()
-        .catch(() => ({
-          message: "Gagal memproses respons server",
-        }))) as ApiResponse;
+      const result = (await response.json().catch(() => ({
+        message: "Gagal memproses respons server",
+      }))) as ApiResponse;
 
       if (!response.ok || !result.data) {
         setStatus(result.message || "Gagal membuat perjalanan.");
@@ -1049,41 +1047,41 @@ export function CreateTripForm({
           </div>
 
           {/* Card Peserta & Supir per Etape / Leg */}
-          <div className="glass-card rounded-3xl p-6 sm:p-7 space-y-5">
-            <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-[var(--border-color)]">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center">
-                  <Users className="w-5 h-5" />
+          <div className="glass-card rounded-3xl p-5 sm:p-7 space-y-4 sm:space-y-5">
+            <div className="flex items-start sm:items-center justify-between gap-3 pb-3 border-b border-[var(--border-color)]">
+              <div className="flex items-start sm:items-center gap-2.5 sm:gap-3 min-w-0">
+                <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0 mt-0.5 sm:mt-0">
+                  <Users className="w-4 h-4 sm:w-5 sm:h-5" />
                 </div>
-                <div>
+                <div className="min-w-0">
                   <h2
-                    className="text-base sm:text-lg font-bold"
+                    className="text-sm sm:text-lg font-bold leading-tight"
                     style={{ color: "var(--text-primary)" }}
                   >
-                    Daftar Peserta, Supir & Penugasan Mobil
+                    Daftar Peserta & Penugasan Mobil
                   </h2>
-                  <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+                  <p className="text-[11px] text-slate-400 mt-0.5">
                     Peserta, mobil, dan supir bisa diatur berbeda di tiap etape
                     (leg).
                   </p>
                 </div>
               </div>
 
-              <div className="flex items-center gap-2">
-                <span className="badge badge-blue text-xs font-bold py-1 px-2.5">
+              <div className="flex items-center gap-2 shrink-0">
+                <span className="badge badge-blue text-[11px] font-bold py-1 px-2.5">
                   {participants.length} Peserta
                 </span>
               </div>
             </div>
 
-            {/* Quick Add Master Participant */}
+            {/* Quick Add Master Participant (Mobile-optimized flex layout) */}
             <div className="space-y-3">
-              <div className="flex gap-2">
-                <div className="relative flex-1">
+              <div className="flex flex-col sm:flex-row gap-2">
+                <div className="flex gap-1.5 flex-1">
                   <input
                     type="text"
-                    className="input-field pr-20"
-                    placeholder="Ketik nama peserta baru lalu tekan Enter..."
+                    className="input-field flex-1 text-xs sm:text-sm py-2 px-3"
+                    placeholder="Ketik nama peserta baru..."
                     value={newParticipantName}
                     onChange={(e) => setNewParticipantName(e.target.value)}
                     onKeyDown={(e) => {
@@ -1097,10 +1095,10 @@ export function CreateTripForm({
                     type="button"
                     onClick={handleAddParticipant}
                     disabled={!newParticipantName.trim()}
-                    className="absolute right-1.5 top-1.5 bottom-1.5 btn-primary px-3 py-1 text-xs font-bold rounded-lg disabled:opacity-40"
+                    className="btn-primary px-3.5 py-2 text-xs font-bold shrink-0 disabled:opacity-40 flex items-center gap-1 shadow-sm"
                   >
-                    <Plus className="w-3.5 h-3.5 inline mr-1" />
-                    Tambah
+                    <Plus className="w-4 h-4" />
+                    <span>Tambah</span>
                   </button>
                 </div>
 
@@ -1110,11 +1108,11 @@ export function CreateTripForm({
                     setBulkPasteText(participants.join("\n"));
                     setShowBulkPaste((v) => !v);
                   }}
-                  className="btn-secondary px-3.5 py-2 text-xs font-semibold shrink-0"
+                  className="btn-secondary px-3.5 py-2 text-xs font-semibold shrink-0 flex items-center justify-center gap-1.5"
                   title="Paste banyak nama sekaligus"
                 >
-                  <FileText className="w-4 h-4 inline mr-1" />
-                  <span className="hidden sm:inline">
+                  <FileText className="w-4 h-4" />
+                  <span>
                     {showBulkPaste ? "Tutup Mode Paste" : "Paste Banyak"}
                   </span>
                 </button>
@@ -1396,25 +1394,33 @@ export function CreateTripForm({
           </div>
 
           {/* Navigation Step 2 */}
-          <div className="flex items-center justify-between gap-3 pt-2">
+          <div className="flex items-center justify-between gap-2.5 pt-2">
             <button
               type="button"
               onClick={() => {
                 setStepError(null);
                 setCurrentStep(1);
               }}
-              className="btn-secondary px-5 py-3 text-sm font-semibold flex items-center gap-2"
+              className="btn-secondary px-3.5 sm:px-5 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold flex items-center gap-1.5 sm:gap-2 shrink-0"
             >
               <ChevronLeft className="w-4 h-4" />
-              <span>Kembali ke Rute</span>
+              <span>
+                Kembali<span className="hidden sm:inline"> ke Rute</span>
+              </span>
             </button>
 
             <button
               type="button"
               onClick={handleGoToStep3}
-              className="btn-primary px-6 py-3 text-sm font-bold flex items-center gap-2 shadow-md hover:shadow-lg transition-all"
+              className="btn-primary px-4 sm:px-6 py-2.5 sm:py-3 text-xs sm:text-sm font-bold flex items-center gap-1.5 sm:gap-2 shadow-md hover:shadow-lg transition-all"
             >
-              <span>Lanjut ke Pengeluaran & Bayar</span>
+              <span>
+                Lanjut
+                <span className="hidden sm:inline">
+                  {" "}
+                  ke Pengeluaran & Bayar
+                </span>
+              </span>
               <ArrowRight className="w-4 h-4" />
             </button>
           </div>
@@ -2046,25 +2052,30 @@ export function CreateTripForm({
           </div>
 
           {/* Navigation Step 3 */}
-          <div className="flex items-center justify-between gap-3 pt-2">
+          <div className="flex items-center justify-between gap-2.5 pt-2">
             <button
               type="button"
               onClick={() => {
                 setStepError(null);
                 setCurrentStep(2);
               }}
-              className="btn-secondary px-5 py-3 text-sm font-semibold flex items-center gap-2"
+              className="btn-secondary px-3.5 sm:px-5 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold flex items-center gap-1.5 sm:gap-2 shrink-0"
             >
               <ChevronLeft className="w-4 h-4" />
-              <span>Kembali ke Armada & Peserta</span>
+              <span>
+                Kembali<span className="hidden sm:inline"> ke Armada</span>
+              </span>
             </button>
 
             <button
               type="button"
               onClick={handleGoToStep4}
-              className="btn-primary px-6 py-3 text-sm font-bold flex items-center gap-2 shadow-md hover:shadow-lg transition-all"
+              className="btn-primary px-4 sm:px-6 py-2.5 sm:py-3 text-xs sm:text-sm font-bold flex items-center gap-1.5 sm:gap-2 shadow-md hover:shadow-lg transition-all"
             >
-              <span>Lanjut ke Review & Simpan</span>
+              <span>
+                Lanjut
+                <span className="hidden sm:inline"> ke Review & Simpan</span>
+              </span>
               <ArrowRight className="w-4 h-4" />
             </button>
           </div>

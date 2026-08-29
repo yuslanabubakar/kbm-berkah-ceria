@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import clsx from "clsx";
 import { format } from "date-fns";
 import { id as localeId } from "date-fns/locale";
+import { ChevronDown, ChevronUp, Car, Route, Users, Plus } from "lucide-react";
 import type {
   FleetVehicle,
   TripLeg,
@@ -77,6 +78,20 @@ export function VehicleManager({
   const [savingVehicle, setSavingVehicle] = useState(false);
   const [savingLeg, setSavingLeg] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [openSections, setOpenSections] = useState<{
+    fleet: boolean;
+    legs: boolean;
+    participants: boolean;
+  }>({
+    fleet: false,
+    legs: false,
+    participants: false,
+  });
+
+  const toggleSection = (key: "fleet" | "legs" | "participants") => {
+    setOpenSections((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
+
   const [movingParticipantId, setMovingParticipantId] = useState<string | null>(
     null,
   );
@@ -812,214 +827,402 @@ export function VehicleManager({
   };
 
   return (
-    <section className="glass-card rounded-3xl p-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <p
-            className="text-xs uppercase tracking-wide font-semibold"
-            style={{ color: "var(--text-muted)" }}
-          >
-            Armada & penumpang
-          </p>
-          <h2
-            className="text-xl font-bold"
-            style={{ color: "var(--text-primary)" }}
-          >
-            Kelola Kendaraan Perjalanan
-          </h2>
-        </div>
-        <div className="flex flex-col items-end gap-3">
-          <span className="badge badge-blue text-xs uppercase tracking-wide">
-            Host mode
-          </span>
-          <div className="flex flex-wrap justify-end gap-2">
-            <button
-              type="button"
-              onClick={handleOpenLegForm}
-              className="flex items-center gap-2 rounded-full border border-brand-blue px-4 py-2 text-sm font-semibold text-brand-blue"
-            >
-              <span className="text-lg leading-none">+</span> Tambah leg
-            </button>
-            <button
-              type="button"
-              onClick={handleOpenVehicleForm}
-              className="flex items-center gap-2 rounded-full bg-brand-blue px-4 py-2 text-sm font-semibold text-white"
-            >
-              <span className="text-lg leading-none">+</span> Tambah kendaraan
-              trip
-            </button>
-          </div>
-        </div>
-      </div>
-
+    <section className="space-y-3 sm:space-y-4">
       {statusMessage && (
-        <p
-          className="mt-2 text-xs font-medium"
-          style={{ color: "var(--text-secondary)" }}
-        >
+        <div className="p-3 rounded-2xl bg-blue-500/10 border border-blue-500/20 text-xs font-medium text-blue-700 dark:text-blue-300">
           {statusMessage}
-        </p>
+        </div>
       )}
 
-      <div
-        className="mt-6 rounded-2xl p-5"
-        style={{
-          background: "var(--bg-muted)",
-          border: "1px solid var(--border-color)",
-        }}
-      >
-        <div className="flex items-center justify-between">
-          <div>
-            <p
-              className="text-xs uppercase tracking-wide font-semibold"
-              style={{ color: "var(--text-muted)" }}
-            >
-              Armada terdaftar
-            </p>
-            <h3
-              className="text-base font-bold"
-              style={{ color: "var(--text-primary)" }}
-            >
-              Daftar kendaraan trip
-            </h3>
-          </div>
-          <span className="text-xs" style={{ color: "var(--text-muted)" }}>
-            {fleet.length} kendaraan
-          </span>
-        </div>
-        {fleet.length ? (
-          <ul className="mt-4 grid gap-3 md:grid-cols-2">
-            {fleet.map((vehicle) => (
-              <li
-                key={vehicle.id}
-                className="rounded-xl p-4"
-                style={{
-                  background: "var(--bg-card)",
-                  border: "1px solid var(--border-color)",
-                }}
+      {/* ─── ROW SECTION 1: MASTER KENDARAAN TRIP ─── */}
+      <div className="glass-card rounded-2xl sm:rounded-3xl border border-[var(--border-color)] overflow-hidden transition-all shadow-sm">
+        <div
+          onClick={() => toggleSection("fleet")}
+          className="w-full p-4 sm:p-5 flex items-center justify-between gap-3 text-left hover:bg-[var(--bg-muted)]/50 transition-colors cursor-pointer"
+        >
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-9 h-9 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
+              <Car className="w-4 h-4" />
+            </div>
+            <div className="min-w-0">
+              <h3
+                className="text-sm sm:text-base font-bold truncate"
+                style={{ color: "var(--text-primary)" }}
               >
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p
-                      className="text-sm font-bold"
-                      style={{ color: "var(--text-primary)" }}
-                    >
-                      🚗 {vehicle.label}
-                    </p>
-                    {vehicle.plateNumber && (
-                      <p
-                        className="text-xs font-mono"
-                        style={{ color: "var(--text-muted)" }}
+                Master Armada Kendaraan Trip
+              </h3>
+              <p className="text-[11px] text-slate-400">
+                {fleet.length} armada mobil terdaftar
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleOpenVehicleForm();
+              }}
+              className="btn-primary !py-1 !px-3 text-xs font-bold flex items-center gap-1 shadow-sm"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Tambah Mobil</span>
+            </button>
+            <div className="w-7 h-7 rounded-lg bg-[var(--bg-muted)] flex items-center justify-center text-slate-400">
+              {openSections.fleet ? (
+                <ChevronUp className="w-4 h-4" />
+              ) : (
+                <ChevronDown className="w-4 h-4" />
+              )}
+            </div>
+          </div>
+        </div>
+
+        {openSections.fleet && (
+          <div className="p-4 sm:p-6 border-t border-[var(--border-color)] space-y-4 bg-[var(--bg-muted)]/20 animate-in fade-in duration-150">
+            {fleet.length ? (
+              <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {fleet.map((vehicle) => (
+                  <li
+                    key={vehicle.id}
+                    className="rounded-2xl p-3.5 sm:p-4 bg-[var(--bg-card)] border border-[var(--border-color)] shadow-sm space-y-2"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p
+                          className="text-xs sm:text-sm font-bold truncate"
+                          style={{ color: "var(--text-primary)" }}
+                        >
+                          🚗 {vehicle.label}
+                        </p>
+                        {vehicle.plateNumber && (
+                          <p className="text-[11px] font-mono text-slate-400">
+                            Plat: {vehicle.plateNumber}
+                          </p>
+                        )}
+                        {vehicle.seatCapacity && (
+                          <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                            {vehicle.seatCapacity} kursi
+                          </p>
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        className={clsx(
+                          "text-xs font-semibold px-2 py-1 rounded text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30",
+                          deletingVehicleId === vehicle.id && "opacity-50",
+                        )}
+                        onClick={() => handleDeleteVehicle(vehicle.id)}
+                        disabled={deletingVehicleId === vehicle.id}
                       >
-                        Plat {vehicle.plateNumber}
+                        {deletingVehicleId === vehicle.id
+                          ? "Menghapus..."
+                          : "Hapus"}
+                      </button>
+                    </div>
+                    {vehicle.notes && (
+                      <p className="text-[11px] text-slate-400 line-clamp-2">
+                        {vehicle.notes}
                       </p>
                     )}
-                    {vehicle.seatCapacity && (
-                      <p
-                        className="text-xs"
-                        style={{ color: "var(--text-secondary)" }}
-                      >
-                        {vehicle.seatCapacity} kursi
-                      </p>
-                    )}
-                  </div>
-                  <button
-                    type="button"
-                    className={clsx(
-                      "text-xs font-semibold",
-                      deletingVehicleId === vehicle.id
-                        ? "opacity-50"
-                        : "text-rose-600 hover:underline",
-                    )}
-                    onClick={() => handleDeleteVehicle(vehicle.id)}
-                    disabled={deletingVehicleId === vehicle.id}
-                  >
-                    {deletingVehicleId === vehicle.id
-                      ? "Menghapus..."
-                      : "Hapus"}
-                  </button>
-                </div>
-                {vehicle.notes && (
-                  <p
-                    className="mt-2 text-xs"
-                    style={{ color: "var(--text-secondary)" }}
-                  >
-                    {vehicle.notes}
-                  </p>
-                )}
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="mt-4 text-xs" style={{ color: "var(--text-muted)" }}>
-            Belum ada kendaraan. Tambah kendaraan trip terlebih dahulu.
-          </p>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-xs text-center p-4 text-slate-400">
+                Belum ada armada mobil. Klik &quot;+ Tambah Mobil&quot; untuk
+                mendaftarkan kendaraan.
+              </p>
+            )}
+          </div>
         )}
       </div>
 
-      <div className="glass-card mt-6 rounded-3xl p-6 sm:p-7 shadow-sm">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <p className="text-xs uppercase font-bold tracking-wider text-blue-600 dark:text-blue-400">
-              Manajemen peserta
-            </p>
-            <h3
-              className="text-lg font-bold mt-1"
-              style={{ color: "var(--text-primary)" }}
-            >
-              Daftar penumpang
-            </h3>
+      {/* ─── ROW SECTION 2: PENGATURAN ETAPE & ARMADA (LEGS) ─── */}
+      <div className="glass-card rounded-2xl sm:rounded-3xl border border-[var(--border-color)] overflow-hidden transition-all shadow-sm">
+        <div
+          onClick={() => toggleSection("legs")}
+          className="w-full p-4 sm:p-5 flex items-center justify-between gap-3 text-left hover:bg-[var(--bg-muted)]/50 transition-colors cursor-pointer"
+        >
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-9 h-9 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+              <Route className="w-4 h-4" />
+            </div>
+            <div className="min-w-0">
+              <h3
+                className="text-sm sm:text-base font-bold truncate"
+                style={{ color: "var(--text-primary)" }}
+              >
+                Pengaturan Etape (Leg) & Armada
+              </h3>
+              <p className="text-[11px] text-slate-400">
+                {legs.length} etape perjalanan · Hubungkan armada & jadwal
+              </p>
+            </div>
           </div>
-          <span className="badge badge-blue">
-            {participants.length} peserta
-          </span>
+
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleOpenLegForm();
+              }}
+              className="btn-secondary !py-1 !px-3 text-xs font-bold flex items-center gap-1 shadow-sm"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Tambah Etape</span>
+            </button>
+            <div className="w-7 h-7 rounded-lg bg-[var(--bg-muted)] flex items-center justify-center text-slate-400">
+              {openSections.legs ? (
+                <ChevronUp className="w-4 h-4" />
+              ) : (
+                <ChevronDown className="w-4 h-4" />
+              )}
+            </div>
+          </div>
         </div>
-        <div className="mt-4 grid gap-6 lg:grid-cols-3">
-          <div className="lg:col-span-2">
+
+        {openSections.legs && (
+          <div className="p-4 sm:p-6 border-t border-[var(--border-color)] space-y-4 bg-[var(--bg-muted)]/20 animate-in fade-in duration-150">
+            {hasLegs ? (
+              <div className="space-y-4">
+                {legs.map((leg) => (
+                  <div
+                    key={leg.id}
+                    className="rounded-2xl p-4 sm:p-5 bg-[var(--bg-card)] border border-[var(--border-color)] shadow-sm space-y-3"
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-2.5 pb-2.5 border-b border-[var(--border-color)]">
+                      <div>
+                        <span className="badge badge-blue text-[10px] mb-1">
+                          Leg {leg.order}
+                        </span>
+                        <h4
+                          className="text-sm sm:text-base font-bold"
+                          style={{ color: "var(--text-primary)" }}
+                        >
+                          {leg.label}
+                        </h4>
+                        <p className="text-[11px] text-slate-400">
+                          {formatScheduleLabel(leg.start)}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleOpenLinkForm(leg.id)}
+                        className="btn-primary !py-1 !px-3 text-xs font-bold"
+                      >
+                        + Hubungkan Mobil
+                      </button>
+                    </div>
+
+                    <div className="grid gap-3 md:grid-cols-2">
+                      {leg.vehicles.length ? (
+                        leg.vehicles.map((vehicle) => (
+                          <div
+                            key={vehicle.id}
+                            className="rounded-xl p-3.5 bg-[var(--bg-muted)] border border-[var(--border-color)] space-y-2.5"
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <div>
+                                <p
+                                  className="text-xs sm:text-sm font-bold"
+                                  style={{ color: "var(--text-primary)" }}
+                                >
+                                  🚗 {vehicle.label}
+                                </p>
+                                {vehicle.plateNumber && (
+                                  <p className="text-[10px] font-mono text-slate-400">
+                                    {vehicle.plateNumber}
+                                  </p>
+                                )}
+                                <p className="text-[10px] text-slate-400">
+                                  Berangkat:{" "}
+                                  {formatScheduleLabel(vehicle.departureTime)}
+                                </p>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    handleOpenScheduleForm(leg, vehicle)
+                                  }
+                                  className="btn-ghost !py-0.5 !px-2 text-[10px]"
+                                >
+                                  Jadwal
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    handleUnlinkVehicle(leg.id, vehicle.id)
+                                  }
+                                  className="text-rose-500 hover:underline text-[10px] px-1"
+                                >
+                                  Lepas
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* Passenger list */}
+                            {vehicle.assignments.length ? (
+                              <ul className="space-y-1.5 pt-1">
+                                {vehicle.assignments.map((assignment) => (
+                                  <li
+                                    key={assignment.participantId}
+                                    className="flex items-center justify-between gap-2 p-2 rounded-lg bg-[var(--bg-card)] border border-[var(--border-color)] text-xs"
+                                  >
+                                    <div className="flex items-center gap-1.5 min-w-0">
+                                      <span className="font-semibold truncate">
+                                        {assignment.participantName}
+                                      </span>
+                                      {assignment.role === "driver" && (
+                                        <span className="badge badge-blue text-[9px] py-0 px-1 font-bold shrink-0">
+                                          Supir
+                                        </span>
+                                      )}
+                                    </div>
+                                    <div className="flex items-center gap-1 shrink-0 text-[10px]">
+                                      <button
+                                        type="button"
+                                        className="text-blue-600 dark:text-blue-400 hover:underline font-semibold"
+                                        onClick={() =>
+                                          handleUpdateAssignmentRole(
+                                            leg.id,
+                                            vehicle.id,
+                                            assignment.participantId,
+                                            assignment.role === "driver"
+                                              ? "passenger"
+                                              : "driver",
+                                          )
+                                        }
+                                      >
+                                        {assignment.role === "driver"
+                                          ? "Jadikan Penumpang"
+                                          : "Jadikan Supir"}
+                                      </button>
+                                      <span className="text-slate-300">·</span>
+                                      <button
+                                        type="button"
+                                        className="text-rose-500 hover:underline"
+                                        onClick={() =>
+                                          handleDeleteAssignment(
+                                            leg.id,
+                                            vehicle.id,
+                                            assignment.participantId,
+                                          )
+                                        }
+                                      >
+                                        Hapus
+                                      </button>
+                                    </div>
+                                  </li>
+                                ))}
+                              </ul>
+                            ) : (
+                              <p className="text-[10px] text-slate-400 italic">
+                                Belum ada penumpang di mobil ini.
+                              </p>
+                            )}
+                          </div>
+                        ))
+                      ) : (
+                        <p className="text-xs text-slate-400 italic p-3 col-span-2">
+                          Belum ada kendaraan yang dihubungkan ke leg ini.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs text-center p-4 text-slate-400">
+                Belum ada etape rute. Klik &quot;+ Tambah Etape&quot; untuk
+                membuat leg rute perjalanan.
+              </p>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* ─── ROW SECTION 3: PENEMPATAN & PEMBAGIAN PENUMPANG ─── */}
+      <div className="glass-card rounded-2xl sm:rounded-3xl border border-[var(--border-color)] overflow-hidden transition-all shadow-sm">
+        <div
+          onClick={() => toggleSection("participants")}
+          className="w-full p-4 sm:p-5 flex items-center justify-between gap-3 text-left hover:bg-[var(--bg-muted)]/50 transition-colors cursor-pointer"
+        >
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-9 h-9 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0">
+              <Users className="w-4 h-4" />
+            </div>
+            <div className="min-w-0">
+              <h3
+                className="text-sm sm:text-base font-bold truncate"
+                style={{ color: "var(--text-primary)" }}
+              >
+                Penempatan & Pembagian Penumpang
+              </h3>
+              <p className="text-[11px] text-slate-400">
+                {participants.length} peserta · Penugasan mobil & supir
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            <span className="badge badge-purple text-[10px] font-bold">
+              {participants.length} Orang
+            </span>
+            <div className="w-7 h-7 rounded-lg bg-[var(--bg-muted)] flex items-center justify-center text-slate-400">
+              {openSections.participants ? (
+                <ChevronUp className="w-4 h-4" />
+              ) : (
+                <ChevronDown className="w-4 h-4" />
+              )}
+            </div>
+          </div>
+        </div>
+
+        {openSections.participants && (
+          <div className="p-4 sm:p-6 border-t border-[var(--border-color)] space-y-4 bg-[var(--bg-muted)]/20 animate-in fade-in duration-150">
+            {/* Participant list with Atur Mobil */}
             {participants.length ? (
-              <ul className="mt-3 space-y-2 text-sm">
+              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                 {participants.map((participant) => {
                   const assignmentInfo = participantAssignments.get(
                     participant.id,
                   );
                   return (
-                    <li
+                    <div
                       key={participant.id}
-                      className="flex items-center justify-between rounded-xl p-3 border"
-                      style={{
-                        background: "var(--bg-muted)",
-                        borderColor: "var(--border-color)",
-                      }}
+                      className="flex items-center justify-between gap-2 p-3 rounded-xl bg-[var(--bg-card)] border border-[var(--border-color)] shadow-sm"
                     >
-                      <label className="flex flex-1 items-center gap-3 cursor-pointer">
+                      <label className="flex flex-1 items-center gap-2.5 min-w-0 cursor-pointer">
                         <input
                           type="checkbox"
-                          className="h-4 w-4 rounded text-blue-600 focus:ring-blue-500"
+                          className="h-4 w-4 rounded text-blue-600"
                           checked={selectedSet.has(participant.id)}
                           onChange={() =>
                             toggleParticipantSelection(participant.id)
                           }
                         />
-                        <span>
-                          <span
-                            className="font-semibold text-sm"
+                        <div className="min-w-0">
+                          <p
+                            className="font-bold text-xs sm:text-sm truncate"
                             style={{ color: "var(--text-primary)" }}
                           >
                             {participant.nama}
-                          </span>
-                          <span
-                            className="block text-xs mt-0.5"
-                            style={{ color: "var(--text-muted)" }}
-                          >
+                          </p>
+                          <p className="text-[10px] text-slate-400 truncate">
                             {assignmentInfo?.legs.length
-                              ? `Terpasang di ${assignmentInfo.legs.join(", ")}`
+                              ? `Di: ${assignmentInfo.legs.join(", ")}`
                               : "Belum ditempatkan"}
-                          </span>
-                        </span>
+                          </p>
+                        </div>
                       </label>
+
                       <button
                         type="button"
-                        className="px-2.5 py-1 rounded-lg text-xs font-bold bg-blue-600/10 text-blue-700 dark:text-blue-300 hover:bg-blue-600 hover:text-white transition-all shrink-0"
+                        className="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-blue-600/10 text-blue-700 dark:text-blue-300 hover:bg-blue-600 hover:text-white transition-all shrink-0"
                         onClick={() => {
                           setMovingParticipantId(participant.id);
                           setMovingParticipantRole("passenger");
@@ -1027,52 +1230,39 @@ export function VehicleManager({
                       >
                         🚗 Atur Mobil
                       </button>
-                    </li>
+                    </div>
                   );
                 })}
-              </ul>
+              </div>
             ) : (
-              <p
-                className="mt-3 text-xs"
-                style={{ color: "var(--text-muted)" }}
-              >
-                Belum ada peserta terdaftar pada trip ini.
+              <p className="text-xs text-center p-4 text-slate-400">
+                Belum ada peserta terdaftar.
               </p>
             )}
 
+            {/* Bulk assign box */}
             {selectedParticipantIds.length > 0 && hasLegs && (
-              <div
-                className="mt-4 rounded-2xl border border-dashed p-4"
-                style={{
-                  background: "rgba(46, 90, 172, 0.08)",
-                  borderColor: "#2e5aac",
-                }}
-              >
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p
-                    className="text-sm font-bold"
-                    style={{ color: "var(--text-primary)" }}
-                  >
-                    {selectedParticipantIds.length} peserta siap ditempatkan
+              <div className="mt-4 p-4 rounded-2xl border border-dashed border-blue-500/40 bg-blue-500/5 space-y-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-bold text-blue-700 dark:text-blue-300">
+                    {selectedParticipantIds.length} peserta terpilih untuk
+                    ditempatkan
                   </p>
                   <button
                     type="button"
-                    className="text-xs font-semibold text-rose-500 hover:underline"
                     onClick={clearSelectedParticipants}
+                    className="text-[11px] font-semibold text-rose-500 hover:underline"
                   >
-                    Bersihkan pilihan
+                    Batal Pilih
                   </button>
                 </div>
-                <div className="mt-3 grid gap-3 md:grid-cols-2">
-                  <label
-                    className="block text-xs font-semibold"
-                    style={{ color: "var(--text-secondary)" }}
-                  >
-                    Pilih leg tujuan
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300">
+                    Pilih Etape Tujuan
                     <select
-                      className="input-field mt-1"
+                      className="input-field mt-1 text-xs"
                       value={bulkLegId}
-                      onChange={(event) => setBulkLegId(event.target.value)}
+                      onChange={(e) => setBulkLegId(e.target.value)}
                     >
                       {legs.map((leg) => (
                         <option key={leg.id} value={leg.id}>
@@ -1081,496 +1271,39 @@ export function VehicleManager({
                       ))}
                     </select>
                   </label>
-                  <label
-                    className="block text-xs font-semibold"
-                    style={{ color: "var(--text-secondary)" }}
-                  >
-                    Pilih kendaraan
+                  <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300">
+                    Pilih Kendaraan
                     <select
-                      className="input-field mt-1"
+                      className="input-field mt-1 text-xs"
                       value={bulkVehicleId}
-                      onChange={(event) => setBulkVehicleId(event.target.value)}
+                      onChange={(e) => setBulkVehicleId(e.target.value)}
                       disabled={
                         !bulkLegId ||
-                        !legs.find((leg) => leg.id === bulkLegId)?.vehicles
-                          .length
+                        !legs.find((l) => l.id === bulkLegId)?.vehicles.length
                       }
                     >
-                      <option value="">-- pilih --</option>
+                      <option value="">-- pilih mobil --</option>
                       {flattenedVehicles
-                        .filter((vehicle) => vehicle.legId === bulkLegId)
-                        .map((vehicle) => (
-                          <option key={vehicle.id} value={vehicle.id}>
-                            {vehicle.label} ({vehicle.assignments.length} orang
-                            · {formatScheduleLabel(vehicle.departureTime)})
+                        .filter((v) => v.legId === bulkLegId)
+                        .map((v) => (
+                          <option key={v.id} value={v.id}>
+                            {v.label} ({v.assignments.length} orang)
                           </option>
                         ))}
                     </select>
-                    {!legs.find((leg) => leg.id === bulkLegId)?.vehicles
-                      .length && (
-                      <span className="mt-1 block text-xs text-rose-500">
-                        Tambahkan kendaraan ke leg ini terlebih dahulu.
-                      </span>
-                    )}
                   </label>
                 </div>
                 <button
                   type="button"
-                  className={clsx(
-                    "btn-primary mt-4 w-full justify-center !py-2.5 text-sm",
-                    (!bulkLegId || !bulkVehicleId) && "opacity-50",
-                  )}
+                  className="btn-primary w-full text-xs font-bold py-2"
                   onClick={handleBulkAssign}
                   disabled={!bulkLegId || !bulkVehicleId}
                 >
-                  Tempatkan peserta terpilih
+                  Tempatkan {selectedParticipantIds.length} Peserta Terpilih
                 </button>
               </div>
             )}
           </div>
-          <div className="space-y-4">
-            <div
-              className="rounded-2xl border p-4"
-              style={{
-                background: "var(--bg-secondary)",
-                borderColor: "var(--border-color)",
-              }}
-            >
-              <p className="text-xs uppercase font-bold tracking-wider text-blue-600 dark:text-blue-400">
-                Tambah peserta
-              </p>
-              <h4
-                className="text-lg font-bold mt-1"
-                style={{ color: "var(--text-primary)" }}
-              >
-                Masukkan penumpang baru
-              </h4>
-              <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-                Peserta baru belum otomatis ditempatkan pada kendaraan.
-              </p>
-              <label
-                className="mt-3 block text-xs font-semibold"
-                style={{ color: "var(--text-secondary)" }}
-              >
-                Nama peserta
-                <input
-                  type="text"
-                  className="input-field mt-1"
-                  value={newParticipantName}
-                  onChange={(event) =>
-                    setNewParticipantName(event.target.value)
-                  }
-                  placeholder="Contoh: Adi Nugraha"
-                />
-              </label>
-              <button
-                type="button"
-                className="btn-primary mt-4 w-full justify-center !py-2.5 text-sm disabled:opacity-60"
-                onClick={handleCreateParticipant}
-                disabled={participantCreating}
-              >
-                {participantCreating ? "Menambahkan..." : "Tambah peserta"}
-              </button>
-            </div>
-            <div
-              className="rounded-2xl border p-4"
-              style={{
-                background: "var(--bg-secondary)",
-                borderColor: "var(--border-color)",
-              }}
-            >
-              <p className="text-xs uppercase font-bold tracking-wider text-blue-600 dark:text-blue-400">
-                Data peserta
-              </p>
-              <h4
-                className="text-lg font-bold mt-1"
-                style={{ color: "var(--text-primary)" }}
-              >
-                Edit penumpang terdaftar
-              </h4>
-              <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-                Perubahan nama atau status supir langsung berlaku untuk
-                penempatan kendaraan.
-              </p>
-              <ul className="mt-3 space-y-3 text-sm">
-                {participantRows.length ? (
-                  participantRows.map((row) => (
-                    <li
-                      key={row.id}
-                      className="rounded-2xl border p-3.5"
-                      style={{
-                        background: "var(--bg-muted)",
-                        borderColor: "var(--border-color)",
-                      }}
-                    >
-                      <div className="flex flex-wrap items-end gap-3">
-                        <label
-                          className="flex-1 text-xs font-semibold"
-                          style={{ color: "var(--text-secondary)" }}
-                        >
-                          Nama
-                          <input
-                            type="text"
-                            className="input-field mt-1"
-                            value={row.name}
-                            onChange={(event) =>
-                              handleParticipantRowChange(
-                                row.id,
-                                event.target.value,
-                              )
-                            }
-                          />
-                        </label>
-                        <div className="flex gap-2">
-                          <button
-                            type="button"
-                            className="rounded-xl bg-emerald-600 px-3.5 py-2.5 text-xs font-semibold text-white shadow transition hover:bg-emerald-500 disabled:opacity-60"
-                            onClick={() => handleSaveParticipant(row.id)}
-                            disabled={participantSavingId === row.id}
-                          >
-                            {participantSavingId === row.id
-                              ? "Menyimpan..."
-                              : "Simpan"}
-                          </button>
-                          <button
-                            type="button"
-                            className="rounded-xl border border-rose-300 dark:border-rose-800/60 px-3.5 py-2.5 text-xs font-semibold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 disabled:opacity-60"
-                            onClick={() => handleDeleteParticipant(row.id)}
-                            disabled={
-                              participantDeletingId === row.id ||
-                              row.id === lastParticipantId
-                            }
-                          >
-                            {participantDeletingId === row.id
-                              ? "Menghapus..."
-                              : "Hapus"}
-                          </button>
-                        </div>
-                      </div>
-                      {row.id === lastParticipantId && (
-                        <p className="mt-2 text-xs text-amber-600 dark:text-amber-400">
-                          Perjalanan minimal punya satu peserta.
-                        </p>
-                      )}
-                    </li>
-                  ))
-                ) : (
-                  <li
-                    className="rounded-xl border border-dashed p-3 text-xs"
-                    style={{
-                      borderColor: "var(--border-color)",
-                      color: "var(--text-muted)",
-                    }}
-                  >
-                    Belum ada peserta terdaftar.
-                  </li>
-                )}
-              </ul>
-            </div>
-            {movingParticipantId && (
-              <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-150">
-                <div className="glass-card w-full max-w-md rounded-3xl p-6 shadow-2xl border border-[var(--border-color)] space-y-4">
-                  <div className="flex items-center justify-between pb-3 border-b border-[var(--border-color)]">
-                    <div>
-                      <h4
-                        className="text-base font-bold"
-                        style={{ color: "var(--text-primary)" }}
-                      >
-                        Pindahkan / Pasang ke Mobil
-                      </h4>
-                      <p className="text-xs text-blue-600 dark:text-blue-400 font-bold mt-0.5">
-                        {participantsById.get(movingParticipantId)?.nama ??
-                          "Peserta"}
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setMovingParticipantId(null)}
-                      className="btn-ghost text-xs py-1 px-2.5"
-                    >
-                      Tutup
-                    </button>
-                  </div>
-
-                  <div className="space-y-3">
-                    <label
-                      className="block text-xs font-semibold"
-                      style={{ color: "var(--text-secondary)" }}
-                    >
-                      Pilih Etape / Leg
-                      <select
-                        className="input-field mt-1 text-xs"
-                        value={targetLegId}
-                        onChange={(event) => setTargetLegId(event.target.value)}
-                      >
-                        {legs.map((leg) => (
-                          <option key={leg.id} value={leg.id}>
-                            Leg {leg.order} · {leg.label}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-
-                    <label
-                      className="block text-xs font-semibold"
-                      style={{ color: "var(--text-secondary)" }}
-                    >
-                      Pilih Kendaraan / Mobil
-                      <select
-                        className="input-field mt-1 text-xs"
-                        value={targetVehicleId}
-                        onChange={(event) =>
-                          setTargetVehicleId(event.target.value)
-                        }
-                      >
-                        <option value="">-- pilih mobil --</option>
-                        {flattenedVehicles
-                          .filter((vehicle) => vehicle.legId === targetLegId)
-                          .map((vehicle) => (
-                            <option key={vehicle.id} value={vehicle.id}>
-                              {vehicle.label} ({vehicle.assignments.length}{" "}
-                              orang)
-                            </option>
-                          ))}
-                      </select>
-                    </label>
-
-                    <label
-                      className="block text-xs font-semibold"
-                      style={{ color: "var(--text-secondary)" }}
-                    >
-                      Peran di Kendaraan
-                      <select
-                        className="input-field mt-1 text-xs"
-                        value={movingParticipantRole}
-                        onChange={(event) =>
-                          setMovingParticipantRole(
-                            event.target.value as "driver" | "passenger",
-                          )
-                        }
-                      >
-                        <option value="passenger">Penumpang Biasa</option>
-                        <option value="driver">🚗 Supir (Diskon 50%)</option>
-                      </select>
-                    </label>
-                  </div>
-
-                  <div className="flex items-center justify-end gap-2 pt-3 border-t border-[var(--border-color)]">
-                    <button
-                      type="button"
-                      onClick={() => setMovingParticipantId(null)}
-                      className="btn-ghost text-xs px-4 py-2"
-                    >
-                      Batal
-                    </button>
-                    <button
-                      type="button"
-                      className="btn-primary text-xs px-5 py-2 font-bold disabled:opacity-50"
-                      onClick={handleMoveParticipant}
-                      disabled={!targetVehicleId || !targetLegId}
-                    >
-                      Simpan Penempatan
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      <div className="mt-6 space-y-6">
-        {hasLegs ? (
-          legs.map((leg) => (
-            <div
-              key={leg.id}
-              className="rounded-2xl p-5"
-              style={{
-                background: "var(--bg-muted)",
-                border: "1px solid var(--border-color)",
-              }}
-            >
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <span className="badge badge-blue text-[10px] mb-1">
-                    Leg {leg.order}
-                  </span>
-                  <h3
-                    className="text-base font-bold"
-                    style={{ color: "var(--text-primary)" }}
-                  >
-                    {leg.label}
-                  </h3>
-                  <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-                    {formatScheduleLabel(leg.start)}
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => handleOpenLinkForm(leg.id)}
-                  className="btn-secondary text-xs"
-                >
-                  + Hubungkan kendaraan
-                </button>
-              </div>
-              <div className="mt-4 grid gap-4 md:grid-cols-2">
-                {leg.vehicles.length ? (
-                  leg.vehicles.map((vehicle) => (
-                    <div
-                      key={vehicle.id}
-                      className="rounded-xl p-4"
-                      style={{
-                        background: "var(--bg-card)",
-                        border: "1px solid var(--border-color)",
-                      }}
-                    >
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <p
-                            className="text-xs"
-                            style={{ color: "var(--text-muted)" }}
-                          >
-                            Kendaraan
-                          </p>
-                          <p
-                            className="text-sm font-bold"
-                            style={{ color: "var(--text-primary)" }}
-                          >
-                            🚗 {vehicle.label}
-                          </p>
-                          {vehicle.plateNumber && (
-                            <p
-                              className="text-xs font-mono"
-                              style={{ color: "var(--text-muted)" }}
-                            >
-                              Plat {vehicle.plateNumber}
-                            </p>
-                          )}
-                          <p
-                            className="text-xs"
-                            style={{ color: "var(--text-secondary)" }}
-                          >
-                            Berangkat:{" "}
-                            {formatScheduleLabel(vehicle.departureTime)}
-                          </p>
-                          <button
-                            type="button"
-                            className="mt-1.5 text-xs font-semibold"
-                            style={{ color: "#2E5AAC" }}
-                            onClick={() => handleOpenScheduleForm(leg, vehicle)}
-                          >
-                            Atur jadwal kendaraan
-                          </button>
-                        </div>
-                        <div className="text-right">
-                          <span className="badge badge-gray text-[10px] block">
-                            {vehicle.assignments.length} orang
-                          </span>
-                          <button
-                            type="button"
-                            className="mt-2 text-xs text-rose-500 hover:underline"
-                            onClick={() =>
-                              handleUnlinkVehicle(leg.id, vehicle.id)
-                            }
-                          >
-                            Lepas
-                          </button>
-                        </div>
-                      </div>
-                      <ul className="mt-3 space-y-2 text-sm">
-                        {vehicle.assignments.length ? (
-                          vehicle.assignments.map((assignment) => (
-                            <li
-                              key={assignment.participantId}
-                              className="rounded-xl px-3 py-2"
-                              style={{
-                                background: "var(--bg-muted)",
-                                border: "1px solid var(--border-color)",
-                              }}
-                            >
-                              <div className="flex items-center justify-between gap-3">
-                                <p
-                                  className="font-medium text-xs"
-                                  style={{ color: "var(--text-primary)" }}
-                                >
-                                  {assignment.participantName}
-                                  {assignment.role === "driver" && (
-                                    <span className="ml-2 badge badge-blue text-[10px]">
-                                      Supir
-                                    </span>
-                                  )}
-                                </p>
-                                <div className="flex items-center gap-2">
-                                  <button
-                                    type="button"
-                                    className="text-xs hover:underline"
-                                    style={{ color: "#2E5AAC" }}
-                                    onClick={() =>
-                                      handleUpdateAssignmentRole(
-                                        leg.id,
-                                        vehicle.id,
-                                        assignment.participantId,
-                                        assignment.role === "driver"
-                                          ? "passenger"
-                                          : "driver",
-                                      )
-                                    }
-                                  >
-                                    {assignment.role === "driver"
-                                      ? "Set Penumpang"
-                                      : "Set Supir"}
-                                  </button>
-                                  <button
-                                    type="button"
-                                    className="text-xs text-rose-500 hover:underline"
-                                    onClick={() =>
-                                      handleDeleteAssignment(
-                                        leg.id,
-                                        vehicle.id,
-                                        assignment.participantId,
-                                      )
-                                    }
-                                  >
-                                    Hapus
-                                  </button>
-                                </div>
-                              </div>
-                            </li>
-                          ))
-                        ) : (
-                          <li
-                            className="rounded-xl p-3 text-center text-xs"
-                            style={{
-                              background: "var(--bg-muted)",
-                              color: "var(--text-muted)",
-                            }}
-                          >
-                            Belum ada peserta.
-                          </li>
-                        )}
-                      </ul>
-                    </div>
-                  ))
-                ) : (
-                  <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-                    Belum ada kendaraan untuk leg ini.
-                  </p>
-                )}
-              </div>
-            </div>
-          ))
-        ) : (
-          <p
-            className="rounded-2xl p-6 text-center text-sm"
-            style={{
-              background: "var(--bg-muted)",
-              color: "var(--text-muted)",
-              border: "1px dashed var(--border-strong)",
-            }}
-          >
-            Belum ada leg. Tambahkan leg terlebih dahulu untuk mulai menempatkan
-            kendaraan dan peserta.
-          </p>
         )}
       </div>
 
@@ -1953,6 +1686,111 @@ export function VehicleManager({
                 disabled={!selectedVehicleId || linkingVehicle}
               >
                 {linkingVehicle ? "Menghubungkan..." : "Hubungkan"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {movingParticipantId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-150">
+          <div className="glass-card w-full max-w-md rounded-3xl p-6 shadow-2xl border border-[var(--border-color)] space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-[var(--border-color)]">
+              <div>
+                <h4
+                  className="text-base font-bold"
+                  style={{ color: "var(--text-primary)" }}
+                >
+                  Pindahkan / Pasang ke Mobil
+                </h4>
+                <p className="text-xs text-blue-600 dark:text-blue-400 font-bold mt-0.5">
+                  {participantsById.get(movingParticipantId)?.nama ?? "Peserta"}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setMovingParticipantId(null)}
+                className="btn-ghost text-xs py-1 px-2.5"
+              >
+                Tutup
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <label
+                className="block text-xs font-semibold"
+                style={{ color: "var(--text-secondary)" }}
+              >
+                Pilih Etape / Leg
+                <select
+                  className="input-field mt-1 text-xs"
+                  value={targetLegId}
+                  onChange={(event) => setTargetLegId(event.target.value)}
+                >
+                  {legs.map((leg) => (
+                    <option key={leg.id} value={leg.id}>
+                      Leg {leg.order} · {leg.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label
+                className="block text-xs font-semibold"
+                style={{ color: "var(--text-secondary)" }}
+              >
+                Pilih Kendaraan / Mobil
+                <select
+                  className="input-field mt-1 text-xs"
+                  value={targetVehicleId}
+                  onChange={(event) => setTargetVehicleId(event.target.value)}
+                >
+                  <option value="">-- pilih mobil --</option>
+                  {flattenedVehicles
+                    .filter((vehicle) => vehicle.legId === targetLegId)
+                    .map((vehicle) => (
+                      <option key={vehicle.id} value={vehicle.id}>
+                        {vehicle.label} ({vehicle.assignments.length} orang)
+                      </option>
+                    ))}
+                </select>
+              </label>
+
+              <label
+                className="block text-xs font-semibold"
+                style={{ color: "var(--text-secondary)" }}
+              >
+                Peran di Kendaraan
+                <select
+                  className="input-field mt-1 text-xs"
+                  value={movingParticipantRole}
+                  onChange={(event) =>
+                    setMovingParticipantRole(
+                      event.target.value as "driver" | "passenger",
+                    )
+                  }
+                >
+                  <option value="passenger">Penumpang Biasa</option>
+                  <option value="driver">🚗 Supir (Diskon 50%)</option>
+                </select>
+              </label>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-3 border-t border-[var(--border-color)]">
+              <button
+                type="button"
+                onClick={() => setMovingParticipantId(null)}
+                className="btn-ghost text-xs px-4 py-2"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                className="btn-primary text-xs px-5 py-2 font-bold disabled:opacity-50"
+                onClick={handleMoveParticipant}
+                disabled={!targetVehicleId || !targetLegId}
+              >
+                Simpan Penempatan
               </button>
             </div>
           </div>
