@@ -137,10 +137,10 @@ export function GenerateWhatsappButton({
       <button
         type="button"
         onClick={handleCopy}
-        className="inline-flex items-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-semibold transition-all duration-200 hover:-translate-y-0.5"
+        className="inline-flex items-center gap-1.5 sm:gap-2 rounded-xl sm:rounded-2xl px-3 py-2 sm:px-4 sm:py-2.5 text-xs sm:text-sm font-semibold transition-all duration-200 hover:-translate-y-0.5"
         style={copyStyle}
       >
-        {copied ? <Check size={15} /> : <Copy size={15} />}
+        {copied ? <Check size={14} /> : <Copy size={14} />}
         {copied ? "Tersalin!" : "Salin Tagihan"}
       </button>
 
@@ -148,11 +148,11 @@ export function GenerateWhatsappButton({
       <button
         type="button"
         onClick={handleOpenWa}
-        className="btn-wa inline-flex"
+        className="btn-wa inline-flex !rounded-xl sm:!rounded-2xl !px-3 !py-2 sm:!px-4 sm:!py-2.5 !text-xs sm:!text-sm"
       >
-        <MessageCircle size={15} />
-        Buka WhatsApp
-        <ExternalLink size={13} className="opacity-70" />
+        <MessageCircle size={14} />
+        WhatsApp
+        <ExternalLink size={12} className="opacity-70" />
       </button>
     </div>
   );

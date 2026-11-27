@@ -260,3 +260,130 @@ export const expenseFormSchema = z
   });
 
 export type ExpenseFormValues = z.infer<typeof expenseFormSchema>;
+
+export type QuickExpenseKind = "bbm" | "tol" | "makan" | "lainnya";
+
+export type QuickBatchRow = {
+  id: string;
+  kind: "tol" | "bbm" | "lainnya";
+  legId: string;
+  legShortName: string;
+  vehicleId: string | null;
+  vehicleLabel: string | null;
+  title: string;
+  amountIdr: number;
+  paidById: string;
+};
+
+export function getLegShortName(legIndex: number, totalLegs: number): string {
+  if (totalLegs === 2) {
+    return legIndex === 0 ? "Pergi" : "Pulang";
+  }
+  return `Leg ${legIndex + 1}`;
+}
+
+export function buildAutoExpenseTitle(
+  kind: QuickExpenseKind,
+  legIndex: number,
+  totalLegs: number,
+  vehicleLabel?: string | null,
+): string {
+  if (kind === "lainnya") return "";
+  const baseLabel =
+    kind === "bbm" ? "Bensin" : kind === "tol" ? "Tol" : "Makan";
+  const direction = getLegShortName(legIndex, totalLegs);
+  if (vehicleLabel) {
+    return `${baseLabel} ${vehicleLabel} ${direction}`;
+  }
+  return `${baseLabel} ${direction}`;
+}
+
+export function buildQuickBatchRows(
+  sortedLegs: TripLeg[],
+  defaultPaidById: string,
+): QuickBatchRow[] {
+  const rows: QuickBatchRow[] = [];
+  const totalLegs = sortedLegs.length;
+  const hasMultiVehicle = sortedLegs.some((leg) => leg.vehicles.length > 1);
+
+  if (!hasMultiVehicle) {
+    sortedLegs.forEach((leg, idx) => {
+      const legShortName = getLegShortName(idx, totalLegs);
+      const singleVehicle = leg.vehicles[0] ?? null;
+      rows.push({
+        id: `${leg.id}:tol`,
+        kind: "tol",
+        legId: leg.id,
+        legShortName,
+        vehicleId: singleVehicle?.id ?? null,
+        vehicleLabel: null,
+        title: buildAutoExpenseTitle("tol", idx, totalLegs),
+        amountIdr: 0,
+        paidById: defaultPaidById,
+      });
+      rows.push({
+        id: `${leg.id}:bbm`,
+        kind: "bbm",
+        legId: leg.id,
+        legShortName,
+        vehicleId: singleVehicle?.id ?? null,
+        vehicleLabel: null,
+        title: buildAutoExpenseTitle("bbm", idx, totalLegs),
+        amountIdr: 0,
+        paidById: defaultPaidById,
+      });
+    });
+
+    return rows;
+  }
+
+  // Multi-vehicle trip: group Tol & Bensin rows by vehicle so every car is ready to fill in 1 go
+  const vehicleOrder: Array<{ id: string; label: string }> = [];
+  const seenVehicles = new Set<string>();
+  for (const leg of sortedLegs) {
+    for (const v of leg.vehicles) {
+      if (!seenVehicles.has(v.id)) {
+        seenVehicles.add(v.id);
+        vehicleOrder.push({ id: v.id, label: v.label });
+      }
+    }
+  }
+
+  for (const vehicle of vehicleOrder) {
+    sortedLegs.forEach((leg, idx) => {
+      const legVehicle = leg.vehicles.find((v) => v.id === vehicle.id);
+      if (!legVehicle) return;
+      const legShortName = getLegShortName(idx, totalLegs);
+      const preferredPayer =
+        legVehicle.assignments.find((a) => a.role === "driver")
+          ?.participantId ??
+        legVehicle.assignments[0]?.participantId ??
+        defaultPaidById;
+
+      rows.push({
+        id: `${vehicle.id}:${leg.id}:tol`,
+        kind: "tol",
+        legId: leg.id,
+        legShortName,
+        vehicleId: vehicle.id,
+        vehicleLabel: vehicle.label,
+        title: buildAutoExpenseTitle("tol", idx, totalLegs, vehicle.label),
+        amountIdr: 0,
+        paidById: preferredPayer,
+      });
+      rows.push({
+        id: `${vehicle.id}:${leg.id}:bbm`,
+        kind: "bbm",
+        legId: leg.id,
+        legShortName,
+        vehicleId: vehicle.id,
+        vehicleLabel: vehicle.label,
+        title: buildAutoExpenseTitle("bbm", idx, totalLegs, vehicle.label),
+        amountIdr: 0,
+        paidById: preferredPayer,
+      });
+    });
+  }
+
+  return rows;
+}

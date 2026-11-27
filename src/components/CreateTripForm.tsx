@@ -23,7 +23,12 @@ import {
   Smartphone,
   Banknote,
 } from "lucide-react";
-import { formatRupiah } from "@/lib/formatCurrency";
+import {
+  formatRupiah,
+  formatThousandsInput,
+  parseThousandsInput,
+} from "@/lib/formatCurrency";
+import { computeDriverDiscountPerDriver } from "@/lib/tripPricingRules";
 import type { UserPaymentAccount, HostPaymentChannel } from "@/types/expense";
 import {
   DEFAULT_VEHICLE_LABEL,
@@ -62,12 +67,14 @@ export function CreateTripForm({
   // Current active step
   const [currentStep, setCurrentStep] = useState<Step>(1);
 
-  // Step 1: Trip Info & Legs
+  // Step 1: Trip Info & Legs (Default: Pulang-Pergi 2 legs)
   const [tripName, setTripName] = useState("");
   const [startDate, setStartDate] = useState(getTodayDateString());
   const [endDate, setEndDate] = useState("");
+  const [isRoundTrip, setIsRoundTrip] = useState(true);
   const [legs, setLegs] = useState<LegItem[]>([
     { id: "leg-1", origin: "Bandung", destination: "Jakarta" },
+    { id: "leg-2", origin: "Jakarta", destination: "Bandung" },
   ]);
 
   // Step 2: Fleet Vehicles & Participants
@@ -107,10 +114,13 @@ export function CreateTripForm({
     Record<string, number>
   >({});
 
-  // Payment Accounts State (Default empty, minimalist collapsible picker)
+  // Payment Accounts State (Auto-select default primary account if available)
   const [userAccounts, setUserAccounts] =
     useState<UserPaymentAccount[]>(initialUserAccounts);
-  const [selectedAccountIds, setSelectedAccountIds] = useState<string[]>([]);
+  const [selectedAccountIds, setSelectedAccountIds] = useState<string[]>(() =>
+    initialUserAccounts.length > 0 ? [initialUserAccounts[0].id] : [],
+  );
+  const [hasTouchedAccounts, setHasTouchedAccounts] = useState(false);
   const [showAccountsPicker, setShowAccountsPicker] = useState(false);
   const [showNewAccountForm, setShowNewAccountForm] = useState(false);
   const [newAccountLabel, setNewAccountLabel] = useState("");
@@ -135,11 +145,16 @@ export function CreateTripForm({
         .then((data) => {
           if (data?.data && Array.isArray(data.data)) {
             setUserAccounts(data.data);
+            if (!hasTouchedAccounts && data.data.length > 0) {
+              setSelectedAccountIds((prev) =>
+                prev.length === 0 ? [data.data[0].id] : prev,
+              );
+            }
           }
         })
         .catch(() => {});
     }
-  }, [initialUserAccounts]);
+  }, [initialUserAccounts, hasTouchedAccounts]);
 
   // Sync activeLegTabId & expLegId
   useEffect(() => {
@@ -247,7 +262,44 @@ export function CreateTripForm({
   );
 
   // ─── LEGS MANAGEMENT ──────────────────────────────────────────────
+  const handleToggleRoundTrip = (nextRoundTrip: boolean) => {
+    setIsRoundTrip(nextRoundTrip);
+    if (nextRoundTrip) {
+      const firstOrigin = legs[0]?.origin || "Bandung";
+      const firstDest = legs[0]?.destination || "Jakarta";
+      setLegs([
+        {
+          id: legs[0]?.id || "leg-1",
+          origin: firstOrigin,
+          destination: firstDest,
+        },
+        {
+          id: legs[1]?.id || "leg-2",
+          origin: firstDest,
+          destination: firstOrigin,
+        },
+      ]);
+    }
+  };
+
+  const handleUpdateRoundTripCity = (
+    field: "origin" | "destination",
+    value: string,
+  ) => {
+    setLegs((prev) => {
+      const leg1 = prev[0] || { id: "leg-1", origin: "", destination: "" };
+      const leg2 = prev[1] || { id: "leg-2", origin: "", destination: "" };
+      const nextOrigin = field === "origin" ? value : leg1.origin;
+      const nextDest = field === "destination" ? value : leg1.destination;
+      return [
+        { ...leg1, origin: nextOrigin, destination: nextDest },
+        { ...leg2, origin: nextDest, destination: nextOrigin },
+      ];
+    });
+  };
+
   const handleAddLeg = () => {
+    setIsRoundTrip(false);
     const lastDest = legs[legs.length - 1]?.destination || "";
     setLegs((prev) => [
       ...prev,
@@ -271,6 +323,7 @@ export function CreateTripForm({
 
   const handleRemoveLeg = (id: string) => {
     if (legs.length <= 1) return;
+    setIsRoundTrip(false);
     setLegs((prev) => prev.filter((l) => l.id !== id));
   };
 
@@ -399,6 +452,50 @@ export function CreateTripForm({
     });
   };
 
+  const handleSetRoundTripMode = (
+    name: string,
+    mode: "pp" | "pergi" | "pulang" | "skip",
+  ) => {
+    if (legs.length !== 2) return;
+    const [leg1, leg2] = legs;
+    const defaultVid = vehicles[0]?.id || "";
+    setLegAssignmentMap((prev) => {
+      const l1 = prev[leg1.id] || {};
+      const l2 = prev[leg2.id] || {};
+      const prev1 = l1[name] || {
+        vehicleId: defaultVid,
+        isDriver: false,
+        isParticipating: true,
+      };
+      const prev2 = l2[name] || {
+        vehicleId: prev1.vehicleId || defaultVid,
+        isDriver: false,
+        isParticipating: true,
+      };
+      const join1 = mode === "pp" || mode === "pergi";
+      const join2 = mode === "pp" || mode === "pulang";
+      return {
+        ...prev,
+        [leg1.id]: {
+          ...l1,
+          [name]: {
+            ...prev1,
+            isParticipating: join1,
+            isDriver: join1 ? prev1.isDriver : false,
+          },
+        },
+        [leg2.id]: {
+          ...l2,
+          [name]: {
+            ...prev2,
+            isParticipating: join2,
+            isDriver: join2 ? prev2.isDriver : false,
+          },
+        },
+      };
+    });
+  };
+
   const handleCopyLegConfigToAll = (sourceLegId: string) => {
     const sourceConfig = legAssignmentMap[sourceLegId];
     if (!sourceConfig) return;
@@ -486,6 +583,7 @@ export function CreateTripForm({
 
   // ─── PAYMENT ACCOUNTS MANAGEMENT ──────────────────────────────────
   const handleToggleAccount = (id: string) => {
+    setHasTouchedAccounts(true);
     setSelectedAccountIds((prev) =>
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
     );
@@ -600,9 +698,7 @@ export function CreateTripForm({
   };
 
   // ─── SUBMIT FINAL DATA ────────────────────────────────────────────
-  async function handleSubmit(event: React.FormEvent) {
-    event.preventDefault();
-
+  async function submitTrip() {
     const v1 = validateStep1({ tripName, startDate, endDate });
     if (!v1.isValid) {
       setCurrentStep(1);
@@ -648,16 +744,23 @@ export function CreateTripForm({
 
       if (!response.ok || !result.data) {
         setStatus(result.message || "Gagal membuat perjalanan.");
+        setStepError(result.message || "Gagal membuat perjalanan.");
         setIsSubmitting(false);
         return;
       }
 
-      setStatus("Perjalanan berhasil dibuat! Mengalihkan ke dashboard...");
+      setStatus("Perjalanan berhasil dibuat! Mengalihkan...");
       router.push(`/perjalanan/${result.data.tripId}`);
     } catch {
       setStatus("Terjadi kesalahan koneksi jaringan.");
+      setStepError("Terjadi kesalahan koneksi jaringan.");
       setIsSubmitting(false);
     }
+  }
+
+  async function handleSubmit(event: React.FormEvent) {
+    event.preventDefault();
+    await submitTrip();
   }
 
   const step1Valid = validateStep1({ tripName, startDate, endDate }).isValid;
@@ -889,67 +992,144 @@ export function CreateTripForm({
 
             {/* Etape / Leg Section */}
             <div className="space-y-3 pt-2">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-wrap items-center justify-between gap-2">
                 <label
                   className="block text-xs font-bold"
                   style={{ color: "var(--text-secondary)" }}
                 >
-                  Rute / Etape Perjalanan ({legs.length} Leg)
+                  Tipe & Rute Perjalanan ({legs.length} Etape)
                 </label>
-                <button
-                  type="button"
-                  onClick={handleAddLeg}
-                  className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  Tambah Leg Lanjutan
-                </button>
+
+                <div className="inline-flex rounded-xl p-0.5 bg-[var(--bg-muted)] border border-[var(--border-color)]">
+                  <button
+                    type="button"
+                    onClick={() => handleToggleRoundTrip(true)}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
+                      isRoundTrip
+                        ? "bg-blue-600 text-white shadow-sm"
+                        : "text-slate-600 dark:text-slate-300"
+                    }`}
+                  >
+                    ⇄ Pulang-Pergi (PP)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleToggleRoundTrip(false)}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
+                      !isRoundTrip
+                        ? "bg-blue-600 text-white shadow-sm"
+                        : "text-slate-600 dark:text-slate-300"
+                    }`}
+                  >
+                    ➔ Custom / Multi-Leg
+                  </button>
+                </div>
               </div>
 
-              <div className="space-y-2.5">
-                {legs.map((leg, index) => (
-                  <div
-                    key={leg.id}
-                    className="p-3.5 rounded-2xl bg-[var(--bg-muted)] border border-[var(--border-color)] flex flex-wrap items-center gap-3"
-                  >
-                    <span className="badge badge-blue text-xs font-bold py-1 px-2 shrink-0">
-                      Leg {index + 1}
-                    </span>
-
-                    <div className="grid grid-cols-2 gap-2 flex-1 min-w-[240px]">
+              {isRoundTrip ? (
+                <div className="p-4 rounded-2xl bg-[var(--bg-muted)] border border-[var(--border-color)] space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <span className="block text-[11px] font-semibold text-slate-500 mb-1">
+                        Kota Asal
+                      </span>
                       <input
                         type="text"
-                        className="input-field py-1.5 text-xs font-medium"
-                        placeholder="Kota Asal (e.g. Bandung)"
-                        value={leg.origin}
+                        className="input-field py-2 text-sm font-semibold"
+                        placeholder="Cth: Bandung"
+                        value={legs[0]?.origin ?? ""}
                         onChange={(e) =>
-                          handleUpdateLeg(leg.id, "origin", e.target.value)
-                        }
-                      />
-                      <input
-                        type="text"
-                        className="input-field py-1.5 text-xs font-medium"
-                        placeholder="Kota Tujuan (e.g. Jakarta)"
-                        value={leg.destination}
-                        onChange={(e) =>
-                          handleUpdateLeg(leg.id, "destination", e.target.value)
+                          handleUpdateRoundTripCity("origin", e.target.value)
                         }
                       />
                     </div>
-
-                    {legs.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveLeg(leg.id)}
-                        className="p-1.5 text-slate-400 hover:text-rose-500 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors"
-                        title="Hapus etape ini"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    )}
+                    <div>
+                      <span className="block text-[11px] font-semibold text-slate-500 mb-1">
+                        Kota Tujuan
+                      </span>
+                      <input
+                        type="text"
+                        className="input-field py-2 text-sm font-semibold"
+                        placeholder="Cth: Jakarta"
+                        value={legs[0]?.destination ?? ""}
+                        onChange={(e) =>
+                          handleUpdateRoundTripCity(
+                            "destination",
+                            e.target.value,
+                          )
+                        }
+                      />
+                    </div>
                   </div>
-                ))}
-              </div>
+                  <div className="flex flex-wrap items-center gap-2 pt-1 text-[11px] text-slate-500 dark:text-slate-400">
+                    <span className="badge badge-blue text-[10px] font-bold">
+                      Leg 1 (Pergi): {legs[0]?.origin || "Asal"} ➔{" "}
+                      {legs[0]?.destination || "Tujuan"}
+                    </span>
+                    <span className="badge badge-indigo text-[10px] font-bold">
+                      Leg 2 (Pulang): {legs[1]?.origin || "Tujuan"} ➔{" "}
+                      {legs[1]?.destination || "Asal"}
+                    </span>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-2.5">
+                  {legs.map((leg, index) => (
+                    <div
+                      key={leg.id}
+                      className="p-3.5 rounded-2xl bg-[var(--bg-muted)] border border-[var(--border-color)] flex flex-wrap items-center gap-3"
+                    >
+                      <span className="badge badge-blue text-xs font-bold py-1 px-2 shrink-0">
+                        Leg {index + 1}
+                      </span>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 flex-1 min-w-0 w-full sm:w-auto">
+                        <input
+                          type="text"
+                          className="input-field py-1.5 text-xs font-medium"
+                          placeholder="Kota Asal (e.g. Bandung)"
+                          value={leg.origin}
+                          onChange={(e) =>
+                            handleUpdateLeg(leg.id, "origin", e.target.value)
+                          }
+                        />
+                        <input
+                          type="text"
+                          className="input-field py-1.5 text-xs font-medium"
+                          placeholder="Kota Tujuan (e.g. Jakarta)"
+                          value={leg.destination}
+                          onChange={(e) =>
+                            handleUpdateLeg(
+                              leg.id,
+                              "destination",
+                              e.target.value,
+                            )
+                          }
+                        />
+                      </div>
+
+                      {legs.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveLeg(leg.id)}
+                          className="p-1.5 text-slate-400 hover:text-rose-500 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors"
+                          title="Hapus etape ini"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={handleAddLeg}
+                    className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    Tambah Leg Lanjutan
+                  </button>
+                </div>
+              )}
             </div>
           </div>
 
@@ -1009,7 +1189,7 @@ export function CreateTripForm({
                     Mobil {index + 1}
                   </span>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 flex-1 min-w-[240px]">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 flex-1 min-w-0 w-full sm:w-auto">
                     <input
                       type="text"
                       className="input-field py-1.5 text-xs font-medium"
@@ -1071,6 +1251,16 @@ export function CreateTripForm({
                 <span className="badge badge-blue text-[11px] font-bold py-1 px-2.5">
                   {participants.length} Peserta
                 </span>
+                {participants.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setParticipants([])}
+                    className="text-[11px] font-semibold text-rose-500 hover:underline"
+                    title="Kosongkan daftar peserta"
+                  >
+                    Kosongkan
+                  </button>
+                )}
               </div>
             </div>
 
@@ -1153,255 +1343,558 @@ export function CreateTripForm({
               )}
             </div>
 
-            {/* LEGS TABS SELECTOR (When > 1 leg) */}
-            {legs.length > 1 && (
-              <div className="p-3.5 rounded-2xl bg-[var(--bg-muted)] border border-[var(--border-color)] space-y-3">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                    Pilih Etape / Leg untuk Mengatur Peserta & Supir:
+            {/* 2-LEG QUICK 1-SCREEN MATRIX (99% of KBM PP trips) vs MULTI-LEG TABS */}
+            {legs.length === 2 ? (
+              <div className="space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2 p-3 rounded-2xl bg-[var(--bg-muted)] border border-[var(--border-color)] text-[11px] text-slate-500 dark:text-slate-400">
+                  <span>
+                    ⚡ Mode cepat 2 Etape: atur{" "}
+                    <strong className="text-slate-700 dark:text-slate-200">
+                      PP / Pergi / Pulang
+                    </strong>{" "}
+                    &amp; supir langsung dari 1 layar.
                   </span>
-
-                  <button
-                    type="button"
-                    onClick={() =>
-                      handleCopyLegConfigToAll(activeLegTabId || legs[0]?.id)
-                    }
-                    className="btn-ghost text-xs text-blue-600 dark:text-blue-400 font-bold flex items-center gap-1.5 py-1 px-2.5 rounded-lg border border-blue-500/20 hover:bg-blue-50 dark:hover:bg-blue-950/30"
-                    title="Salin susunan penumpang & supir dari leg ini ke seluruh leg lainnya"
-                  >
-                    <Copy className="w-3.5 h-3.5" />
-                    <span>Salin Susunan Ini ke Semua Leg</span>
-                  </button>
+                  <div className="flex flex-wrap gap-1.5">
+                    {legs.map((l, idx) => {
+                      const lc = legAssignmentMap[l.id] || {};
+                      const count = participants.filter(
+                        (p) => lc[p]?.isParticipating ?? true,
+                      ).length;
+                      const dCount = participants.filter(
+                        (p) =>
+                          (lc[p]?.isParticipating ?? true) &&
+                          (lc[p]?.isDriver ?? false),
+                      ).length;
+                      return (
+                        <span
+                          key={l.id}
+                          className="badge badge-blue text-[10px] font-bold"
+                        >
+                          {idx === 0 ? "Pergi" : "Pulang"}: {count} org ·{" "}
+                          {dCount} supir
+                        </span>
+                      );
+                    })}
+                  </div>
                 </div>
 
-                <div className="flex flex-wrap gap-2">
-                  {legs.map((l, idx) => {
-                    const isTabActive =
-                      (activeLegTabId || legs[0]?.id) === l.id;
-                    const legConfig = legAssignmentMap[l.id] || {};
-                    const participatingCount = participants.filter(
-                      (p) => legConfig[p]?.isParticipating ?? true,
-                    ).length;
-                    const legDriverCount = participants.filter(
-                      (p) =>
-                        (legConfig[p]?.isParticipating ?? true) &&
-                        (legConfig[p]?.isDriver ?? false),
-                    ).length;
+                {participants.length === 0 ? (
+                  <div className="p-6 text-center rounded-2xl border border-dashed border-[var(--border-color)] text-xs text-slate-400">
+                    Belum ada peserta. Tambahkan nama peserta di kolom atas atau
+                    klik Paste Banyak.
+                  </div>
+                ) : (
+                  <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+                    {participants.map((name) => {
+                      const [leg1, leg2] = legs;
+                      const l1 = legAssignmentMap[leg1.id]?.[name] || {
+                        vehicleId: vehicles[0]?.id || "",
+                        isDriver: false,
+                        isParticipating: true,
+                      };
+                      const l2 = legAssignmentMap[leg2.id]?.[name] || {
+                        vehicleId: vehicles[0]?.id || "",
+                        isDriver: false,
+                        isParticipating: true,
+                      };
+                      const join1 = l1.isParticipating ?? true;
+                      const join2 = l2.isParticipating ?? true;
+                      const mode: "pp" | "pergi" | "pulang" | "skip" =
+                        join1 && join2
+                          ? "pp"
+                          : join1
+                            ? "pergi"
+                            : join2
+                              ? "pulang"
+                              : "skip";
+                      const isSingleTrip =
+                        mode === "pergi" || mode === "pulang";
 
-                    return (
-                      <button
-                        key={l.id}
-                        type="button"
-                        onClick={() => setActiveLegTabId(l.id)}
-                        className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 border ${
-                          isTabActive
-                            ? "bg-blue-600 text-white border-blue-600 shadow"
-                            : "bg-[var(--bg-secondary)] border-[var(--border-color)] text-slate-700 dark:text-slate-300 hover:border-slate-400"
-                        }`}
-                      >
-                        <Route className="w-3.5 h-3.5" />
-                        <span>
-                          Leg {idx + 1}: {l.origin || "Asal"} ➔{" "}
-                          {l.destination || "Tujuan"}
-                        </span>
-                        <span
-                          className={`text-[10px] py-0.5 px-1.5 rounded-md font-bold ${
-                            isTabActive
-                              ? "bg-blue-700 text-blue-100"
-                              : "bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300"
+                      const v1Id = l1.vehicleId || vehicles[0]?.id || "";
+                      const v2Id = l2.vehicleId || vehicles[0]?.id || "";
+
+                      // Compute live driver discount per car per leg
+                      const driversLeg1Car = participants.filter((p) => {
+                        const cfg = legAssignmentMap[leg1.id]?.[p];
+                        return (
+                          (cfg?.isParticipating ?? true) &&
+                          (cfg?.vehicleId || vehicles[0]?.id) === v1Id &&
+                          cfg?.isDriver
+                        );
+                      }).length;
+                      const driversLeg2Car = participants.filter((p) => {
+                        const cfg = legAssignmentMap[leg2.id]?.[p];
+                        return (
+                          (cfg?.isParticipating ?? true) &&
+                          (cfg?.vehicleId || vehicles[0]?.id) === v2Id &&
+                          cfg?.isDriver
+                        );
+                      }).length;
+                      const d1Pct =
+                        driversLeg1Car > 0
+                          ? Math.round(
+                              computeDriverDiscountPerDriver(driversLeg1Car) *
+                                1000,
+                            ) / 10
+                          : 50;
+                      const d2Pct =
+                        driversLeg2Car > 0
+                          ? Math.round(
+                              computeDriverDiscountPerDriver(driversLeg2Car) *
+                                1000,
+                            ) / 10
+                          : 50;
+
+                      return (
+                        <div
+                          key={name}
+                          className={`p-3 rounded-2xl border transition-all space-y-2 ${
+                            mode === "skip"
+                              ? "opacity-50 bg-slate-100 dark:bg-slate-900 border-[var(--border-color)]"
+                              : l1.isDriver || l2.isDriver
+                                ? "bg-blue-600/10 border-blue-500/40 shadow-sm"
+                                : "bg-[var(--bg-secondary)] border-[var(--border-color)]"
                           }`}
                         >
-                          {participatingCount} orang • {legDriverCount} supir
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {/* Breakdown Kapasitas Kendaraan untuk Leg yang Aktif */}
-            {vehicles.length > 1 && (
-              <div className="flex flex-wrap items-center gap-2 p-3 rounded-2xl bg-[var(--bg-muted)] border border-[var(--border-color)]">
-                <span className="text-xs font-bold text-slate-500">
-                  Distribusi Penumpang:
-                </span>
-                {vehicles.map((v) => {
-                  const legId = activeLegTabId || legs[0]?.id;
-                  const legConfig = legAssignmentMap[legId] || {};
-                  const count = participants.filter(
-                    (p) =>
-                      (legConfig[p]?.isParticipating ?? true) &&
-                      (legConfig[p]?.vehicleId || vehicles[0]?.id) === v.id,
-                  ).length;
-                  const driversInCar = participants.filter(
-                    (p) =>
-                      (legConfig[p]?.isParticipating ?? true) &&
-                      (legConfig[p]?.vehicleId || vehicles[0]?.id) === v.id &&
-                      legConfig[p]?.isDriver,
-                  ).length;
-
-                  return (
-                    <span
-                      key={v.id}
-                      className="badge badge-indigo text-xs font-bold py-1 px-2.5"
-                    >
-                      🚗 {v.label}: {count} orang ({driversInCar} supir)
-                    </span>
-                  );
-                })}
-              </div>
-            )}
-
-            {/* Interactive Participant Cards for Active Leg */}
-            <div className="space-y-2">
-              <p
-                className="text-xs font-semibold"
-                style={{ color: "var(--text-secondary)" }}
-              >
-                Susunan Peserta untuk{" "}
-                <span className="font-bold text-blue-600 dark:text-blue-400">
-                  {legs.find((l) => l.id === (activeLegTabId || legs[0]?.id))
-                    ?.origin || "Asal"}{" "}
-                  ➔{" "}
-                  {legs.find((l) => l.id === (activeLegTabId || legs[0]?.id))
-                    ?.destination || "Tujuan"}
-                </span>
-                :
-              </p>
-
-              {participants.length === 0 ? (
-                <div className="p-6 text-center rounded-2xl border border-dashed border-[var(--border-color)] text-xs text-slate-400">
-                  Belum ada peserta. Tambahkan nama peserta di kolom atas.
-                </div>
-              ) : (
-                <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
-                  {participants.map((name) => {
-                    const currentLegId = activeLegTabId || legs[0]?.id;
-                    const pConfig = activeLegConfig[name] || {
-                      vehicleId: vehicles[0]?.id || "",
-                      isDriver: driverMap[name] ?? false,
-                      isParticipating: true,
-                    };
-                    const isParticipating = pConfig.isParticipating ?? true;
-                    const isDriver = pConfig.isDriver ?? false;
-                    const assignedVid = pConfig.vehicleId || vehicles[0]?.id;
-
-                    return (
-                      <div
-                        key={name}
-                        className={`p-3 rounded-2xl border transition-all space-y-2 ${
-                          !isParticipating
-                            ? "opacity-50 bg-slate-100 dark:bg-slate-900 border-[var(--border-color)]"
-                            : isDriver
-                              ? "bg-blue-600/10 border-blue-500/40 shadow-sm"
-                              : "bg-[var(--bg-secondary)] border-[var(--border-color)] hover:border-slate-300 dark:hover:border-slate-600"
-                        }`}
-                      >
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="flex items-center gap-2 min-w-0">
-                            <input
-                              type="checkbox"
-                              checked={isParticipating}
-                              onChange={() =>
-                                handleToggleParticipationForLeg(
-                                  currentLegId,
-                                  name,
-                                )
-                              }
-                              className="rounded text-blue-600 focus:ring-blue-500 h-4 w-4"
-                              title="Ikut di etape/leg ini"
-                            />
-                            <span
-                              className={`text-xs sm:text-sm font-semibold truncate ${
-                                !isParticipating
-                                  ? "line-through text-slate-400"
-                                  : ""
-                              }`}
-                              style={{
-                                color: isParticipating
-                                  ? "var(--text-primary)"
-                                  : "var(--text-muted)",
-                              }}
-                            >
-                              {name}
-                            </span>
-                          </div>
-
-                          <div className="flex items-center gap-1 shrink-0">
-                            {isParticipating && (
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  handleToggleDriverForLeg(currentLegId, name)
-                                }
-                                className={`px-2 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1 ${
-                                  isDriver
-                                    ? "bg-blue-600 text-white shadow"
-                                    : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700"
+                          {/* Top row: Name + Single Trip Badge + Delete */}
+                          <div className="flex items-center justify-between gap-1.5">
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              <span
+                                className={`text-xs sm:text-sm font-bold truncate ${
+                                  mode === "skip"
+                                    ? "line-through text-slate-400"
+                                    : ""
                                 }`}
-                                title="Toggle status supir di etape ini (Diskon 50%)"
+                                style={{
+                                  color:
+                                    mode === "skip"
+                                      ? "var(--text-muted)"
+                                      : "var(--text-primary)",
+                                }}
                               >
-                                <Car className="w-3.5 h-3.5" />
-                                <span>
-                                  {isDriver ? "Supir (50%)" : "Supir?"}
+                                {name}
+                              </span>
+                              {isSingleTrip && (
+                                <span className="badge badge-amber text-[9px] font-bold py-0.2 px-1 shrink-0">
+                                  1 Arah +10%
                                 </span>
-                              </button>
-                            )}
-
+                              )}
+                            </div>
                             <button
                               type="button"
                               onClick={() => handleRemoveParticipant(name)}
-                              className="p-1 text-slate-400 hover:text-rose-500 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors"
+                              className="p-1 text-slate-400 hover:text-rose-500 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors shrink-0"
                               title={`Hapus ${name} dari daftar trip`}
                             >
                               <Trash2 className="w-3.5 h-3.5" />
                             </button>
                           </div>
-                        </div>
 
-                        {/* Vehicle Assignment Dropdown for Active Leg */}
-                        {isParticipating && vehicles.length > 1 && (
-                          <div className="pt-1.5 border-t border-[var(--border-color)] flex items-center justify-between gap-1.5">
-                            <span className="text-[11px] font-semibold text-slate-500 shrink-0">
-                              Naik Mobil:
-                            </span>
-                            <select
-                              className="input-field py-1 px-2 text-xs font-semibold rounded-lg flex-1 min-w-0"
-                              value={assignedVid}
-                              onChange={(e) =>
-                                handleSetVehicleForLeg(
-                                  currentLegId,
-                                  name,
-                                  e.target.value,
-                                )
-                              }
-                            >
-                              {vehicles.map((v) => (
-                                <option key={v.id} value={v.id}>
-                                  🚗 {v.label}
-                                </option>
-                              ))}
-                            </select>
+                          {/* Participation quick pills */}
+                          <div className="grid grid-cols-4 gap-1">
+                            {(
+                              [
+                                { id: "pp", label: "PP" },
+                                { id: "pergi", label: "Pergi" },
+                                { id: "pulang", label: "Pulang" },
+                                { id: "skip", label: "Skip" },
+                              ] as const
+                            ).map((opt) => (
+                              <button
+                                key={opt.id}
+                                type="button"
+                                onClick={() =>
+                                  handleSetRoundTripMode(name, opt.id)
+                                }
+                                className={`py-1 rounded-lg text-[10px] font-bold transition-all border ${
+                                  mode === opt.id
+                                    ? opt.id === "skip"
+                                      ? "bg-slate-500 text-white border-slate-500"
+                                      : opt.id === "pp"
+                                        ? "bg-blue-600 text-white border-blue-600"
+                                        : "bg-amber-500 text-white border-amber-500"
+                                    : "bg-[var(--bg-muted)] border-[var(--border-color)] text-slate-500 dark:text-slate-400 hover:border-slate-400"
+                                }`}
+                              >
+                                {opt.label}
+                              </button>
+                            ))}
                           </div>
-                        )}
-                      </div>
-                    );
-                  })}
+
+                          {/* Driver toggles per leg */}
+                          {mode !== "skip" && (
+                            <div className="flex items-center gap-1.5 pt-0.5">
+                              {join1 && (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    handleToggleDriverForLeg(leg1.id, name)
+                                  }
+                                  className={`flex-1 px-2 py-1 rounded-lg text-[10px] font-bold transition-all flex items-center justify-center gap-1 ${
+                                    l1.isDriver
+                                      ? "bg-blue-600 text-white shadow-sm"
+                                      : "bg-[var(--bg-muted)] text-slate-500 dark:text-slate-400 hover:bg-blue-500/10"
+                                  }`}
+                                >
+                                  <Car className="w-3 h-3 shrink-0" />
+                                  <span>
+                                    {l1.isDriver
+                                      ? `Supir Pergi (${d1Pct}%)`
+                                      : "Supir Pergi?"}
+                                  </span>
+                                </button>
+                              )}
+                              {join2 && (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    handleToggleDriverForLeg(leg2.id, name)
+                                  }
+                                  className={`flex-1 px-2 py-1 rounded-lg text-[10px] font-bold transition-all flex items-center justify-center gap-1 ${
+                                    l2.isDriver
+                                      ? "bg-blue-600 text-white shadow-sm"
+                                      : "bg-[var(--bg-muted)] text-slate-500 dark:text-slate-400 hover:bg-blue-500/10"
+                                  }`}
+                                >
+                                  <Car className="w-3 h-3 shrink-0" />
+                                  <span>
+                                    {l2.isDriver
+                                      ? `Supir Pulang (${d2Pct}%)`
+                                      : "Supir Pulang?"}
+                                  </span>
+                                </button>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Multi-vehicle selectors per leg (supports cross-vehicle PP!) */}
+                          {mode !== "skip" && vehicles.length > 1 && (
+                            <div className="pt-1.5 border-t border-[var(--border-color)] space-y-1">
+                              {join1 && (
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-[10px] font-semibold text-slate-500 w-11 shrink-0">
+                                    Pergi:
+                                  </span>
+                                  <select
+                                    className="input-field py-0.5 px-1.5 text-[11px] font-semibold rounded-lg flex-1 min-w-0"
+                                    value={v1Id}
+                                    onChange={(e) => {
+                                      const nextVid = e.target.value;
+                                      handleSetVehicleForLeg(
+                                        leg1.id,
+                                        name,
+                                        nextVid,
+                                      );
+                                      // Sync return vehicle too if currently identical
+                                      if (v2Id === v1Id) {
+                                        handleSetVehicleForLeg(
+                                          leg2.id,
+                                          name,
+                                          nextVid,
+                                        );
+                                      }
+                                    }}
+                                  >
+                                    {vehicles.map((v) => (
+                                      <option key={v.id} value={v.id}>
+                                        🚗 {v.label}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </div>
+                              )}
+                              {join2 && (
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-[10px] font-semibold text-slate-500 w-11 shrink-0">
+                                    Pulang:
+                                  </span>
+                                  <select
+                                    className="input-field py-0.5 px-1.5 text-[11px] font-semibold rounded-lg flex-1 min-w-0"
+                                    value={v2Id}
+                                    onChange={(e) =>
+                                      handleSetVehicleForLeg(
+                                        leg2.id,
+                                        name,
+                                        e.target.value,
+                                      )
+                                    }
+                                  >
+                                    {vehicles.map((v) => (
+                                      <option key={v.id} value={v.id}>
+                                        🚗 {v.label}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <>
+                {/* LEGS TABS SELECTOR (When > 2 legs or 1 leg) */}
+                {legs.length > 1 && (
+                  <div className="p-3.5 rounded-2xl bg-[var(--bg-muted)] border border-[var(--border-color)] space-y-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                        Pilih Etape / Leg untuk Mengatur Peserta & Supir:
+                      </span>
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          handleCopyLegConfigToAll(
+                            activeLegTabId || legs[0]?.id,
+                          )
+                        }
+                        className="btn-ghost text-xs text-blue-600 dark:text-blue-400 font-bold flex items-center gap-1.5 py-1 px-2.5 rounded-lg border border-blue-500/20 hover:bg-blue-50 dark:hover:bg-blue-950/30"
+                        title="Salin susunan penumpang & supir dari leg ini ke seluruh leg lainnya"
+                      >
+                        <Copy className="w-3.5 h-3.5" />
+                        <span>Salin Susunan Ini ke Semua Leg</span>
+                      </button>
+                    </div>
+
+                    <div className="flex flex-wrap gap-2">
+                      {legs.map((l, idx) => {
+                        const isTabActive =
+                          (activeLegTabId || legs[0]?.id) === l.id;
+                        const legConfig = legAssignmentMap[l.id] || {};
+                        const participatingCount = participants.filter(
+                          (p) => legConfig[p]?.isParticipating ?? true,
+                        ).length;
+                        const legDriverCount = participants.filter(
+                          (p) =>
+                            (legConfig[p]?.isParticipating ?? true) &&
+                            (legConfig[p]?.isDriver ?? false),
+                        ).length;
+
+                        return (
+                          <button
+                            key={l.id}
+                            type="button"
+                            onClick={() => setActiveLegTabId(l.id)}
+                            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 border ${
+                              isTabActive
+                                ? "bg-blue-600 text-white border-blue-600 shadow"
+                                : "bg-[var(--bg-secondary)] border-[var(--border-color)] text-slate-700 dark:text-slate-300 hover:border-slate-400"
+                            }`}
+                          >
+                            <Route className="w-3.5 h-3.5" />
+                            <span>
+                              Leg {idx + 1}: {l.origin || "Asal"} ➔{" "}
+                              {l.destination || "Tujuan"}
+                            </span>
+                            <span
+                              className={`text-[10px] py-0.5 px-1.5 rounded-md font-bold ${
+                                isTabActive
+                                  ? "bg-blue-700 text-blue-100"
+                                  : "bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300"
+                              }`}
+                            >
+                              {participatingCount} orang • {legDriverCount}{" "}
+                              supir
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Breakdown Kapasitas Kendaraan untuk Leg yang Aktif */}
+                {vehicles.length > 1 && (
+                  <div className="flex flex-wrap items-center gap-2 p-3 rounded-2xl bg-[var(--bg-muted)] border border-[var(--border-color)]">
+                    <span className="text-xs font-bold text-slate-500">
+                      Distribusi Penumpang:
+                    </span>
+                    {vehicles.map((v) => {
+                      const legId = activeLegTabId || legs[0]?.id;
+                      const legConfig = legAssignmentMap[legId] || {};
+                      const count = participants.filter(
+                        (p) =>
+                          (legConfig[p]?.isParticipating ?? true) &&
+                          (legConfig[p]?.vehicleId || vehicles[0]?.id) === v.id,
+                      ).length;
+                      const driversInCar = participants.filter(
+                        (p) =>
+                          (legConfig[p]?.isParticipating ?? true) &&
+                          (legConfig[p]?.vehicleId || vehicles[0]?.id) ===
+                            v.id &&
+                          legConfig[p]?.isDriver,
+                      ).length;
+
+                      return (
+                        <span
+                          key={v.id}
+                          className="badge badge-indigo text-xs font-bold py-1 px-2.5"
+                        >
+                          🚗 {v.label}: {count} orang ({driversInCar} supir)
+                        </span>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Interactive Participant Cards for Active Leg */}
+                <div className="space-y-2">
+                  <p
+                    className="text-xs font-semibold"
+                    style={{ color: "var(--text-secondary)" }}
+                  >
+                    Susunan Peserta untuk{" "}
+                    <span className="font-bold text-blue-600 dark:text-blue-400">
+                      {legs.find(
+                        (l) => l.id === (activeLegTabId || legs[0]?.id),
+                      )?.origin || "Asal"}{" "}
+                      ➔{" "}
+                      {legs.find(
+                        (l) => l.id === (activeLegTabId || legs[0]?.id),
+                      )?.destination || "Tujuan"}
+                    </span>
+                    :
+                  </p>
+
+                  {participants.length === 0 ? (
+                    <div className="p-6 text-center rounded-2xl border border-dashed border-[var(--border-color)] text-xs text-slate-400">
+                      Belum ada peserta. Tambahkan nama peserta di kolom atas.
+                    </div>
+                  ) : (
+                    <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+                      {participants.map((name) => {
+                        const currentLegId = activeLegTabId || legs[0]?.id;
+                        const pConfig = activeLegConfig[name] || {
+                          vehicleId: vehicles[0]?.id || "",
+                          isDriver: driverMap[name] ?? false,
+                          isParticipating: true,
+                        };
+                        const isParticipating = pConfig.isParticipating ?? true;
+                        const isDriver = pConfig.isDriver ?? false;
+                        const assignedVid =
+                          pConfig.vehicleId || vehicles[0]?.id;
+
+                        return (
+                          <div
+                            key={name}
+                            className={`p-3 rounded-2xl border transition-all space-y-2 ${
+                              !isParticipating
+                                ? "opacity-50 bg-slate-100 dark:bg-slate-900 border-[var(--border-color)]"
+                                : isDriver
+                                  ? "bg-blue-600/10 border-blue-500/40 shadow-sm"
+                                  : "bg-[var(--bg-secondary)] border-[var(--border-color)] hover:border-slate-300 dark:hover:border-slate-600"
+                            }`}
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <input
+                                  type="checkbox"
+                                  checked={isParticipating}
+                                  onChange={() =>
+                                    handleToggleParticipationForLeg(
+                                      currentLegId,
+                                      name,
+                                    )
+                                  }
+                                  className="rounded text-blue-600 focus:ring-blue-500 h-4 w-4"
+                                  title="Ikut di etape/leg ini"
+                                />
+                                <span
+                                  className={`text-xs sm:text-sm font-semibold truncate ${
+                                    !isParticipating
+                                      ? "line-through text-slate-400"
+                                      : ""
+                                  }`}
+                                  style={{
+                                    color: isParticipating
+                                      ? "var(--text-primary)"
+                                      : "var(--text-muted)",
+                                  }}
+                                >
+                                  {name}
+                                </span>
+                              </div>
+
+                              <div className="flex items-center gap-1 shrink-0">
+                                {isParticipating && (
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      handleToggleDriverForLeg(
+                                        currentLegId,
+                                        name,
+                                      )
+                                    }
+                                    className={`px-2 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1 ${
+                                      isDriver
+                                        ? "bg-blue-600 text-white shadow"
+                                        : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700"
+                                    }`}
+                                    title="Toggle status supir di etape ini (Diskon maks 50% per mobil, dibagi rata jika >1 supir)"
+                                  >
+                                    <Car className="w-3.5 h-3.5" />
+                                    <span>{isDriver ? "Supir" : "Supir?"}</span>
+                                  </button>
+                                )}
+
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveParticipant(name)}
+                                  className="p-1 text-slate-400 hover:text-rose-500 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors"
+                                  title={`Hapus ${name} dari daftar trip`}
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </div>
+
+                            {isParticipating && vehicles.length > 1 && (
+                              <div className="pt-1.5 border-t border-[var(--border-color)] flex items-center justify-between gap-1.5">
+                                <span className="text-[11px] font-semibold text-slate-500 shrink-0">
+                                  Naik Mobil:
+                                </span>
+                                <select
+                                  className="input-field py-1 px-2 text-xs font-semibold rounded-lg flex-1 min-w-0"
+                                  value={assignedVid}
+                                  onChange={(e) =>
+                                    handleSetVehicleForLeg(
+                                      currentLegId,
+                                      name,
+                                      e.target.value,
+                                    )
+                                  }
+                                >
+                                  {vehicles.map((v) => (
+                                    <option key={v.id} value={v.id}>
+                                      🚗 {v.label}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
+              </>
+            )}
           </div>
 
-          {/* Navigation Step 2 */}
-          <div className="flex items-center justify-between gap-2.5 pt-2">
+          {/* Navigation Step 2 (Responsive mobile stack + Quick Save shortcut!) */}
+          <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-2.5 pt-2">
             <button
               type="button"
               onClick={() => {
                 setStepError(null);
                 setCurrentStep(1);
               }}
-              className="btn-secondary px-3.5 sm:px-5 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold flex items-center gap-1.5 sm:gap-2 shrink-0"
+              className="btn-secondary w-full sm:w-auto justify-center px-4 sm:px-5 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold flex items-center gap-1.5 sm:gap-2 shrink-0"
             >
               <ChevronLeft className="w-4 h-4" />
               <span>
@@ -1409,20 +1902,31 @@ export function CreateTripForm({
               </span>
             </button>
 
-            <button
-              type="button"
-              onClick={handleGoToStep3}
-              className="btn-primary px-4 sm:px-6 py-2.5 sm:py-3 text-xs sm:text-sm font-bold flex items-center gap-1.5 sm:gap-2 shadow-md hover:shadow-lg transition-all"
-            >
-              <span>
-                Lanjut
-                <span className="hidden sm:inline">
-                  {" "}
-                  ke Pengeluaran & Bayar
+            <div className="grid grid-cols-2 sm:flex sm:items-center gap-2 w-full sm:w-auto">
+              <button
+                type="button"
+                onClick={handleGoToStep3}
+                className="btn-secondary justify-center px-3 sm:px-5 py-2.5 sm:py-3 text-xs sm:text-sm font-bold flex items-center gap-1.5"
+              >
+                <span className="truncate">
+                  + Nota Awal
+                  <span className="hidden sm:inline"> &amp; Rekening</span>
                 </span>
-              </span>
-              <ArrowRight className="w-4 h-4" />
-            </button>
+                <ArrowRight className="w-4 h-4 shrink-0" />
+              </button>
+
+              <button
+                type="button"
+                disabled={isSubmitting}
+                onClick={() => submitTrip()}
+                className="btn-primary justify-center px-3.5 sm:px-6 py-2.5 sm:py-3 text-xs sm:text-sm font-bold flex items-center gap-1.5 shadow-md hover:shadow-lg transition-all disabled:opacity-50"
+              >
+                <CheckCircle2 className="w-4 h-4 shrink-0" />
+                <span className="truncate">
+                  {isSubmitting ? "Menyimpan..." : "Simpan Langsung"}
+                </span>
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -1743,22 +2247,35 @@ export function CreateTripForm({
                       ? "Total Dihitung Otomatis (Rp)"
                       : "Nominal (Rp)"}
                   </label>
-                  <input
-                    type="number"
-                    className={`input-field py-2 text-sm font-semibold ${
-                      isFoodStop
-                        ? "opacity-75 bg-slate-100 dark:bg-slate-800"
-                        : ""
-                    }`}
-                    placeholder={
-                      isFoodStop ? String(foodStopTotal) : "Contoh: 250000"
-                    }
-                    value={isFoodStop ? foodStopTotal || "" : expAmount}
-                    disabled={isFoodStop}
-                    onChange={(e) =>
-                      setExpAmount(e.target.value ? Number(e.target.value) : "")
-                    }
-                  />
+                  <div className="relative">
+                    <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">
+                      Rp
+                    </span>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      className={`input-field pl-9 py-2 text-sm font-semibold ${
+                        isFoodStop
+                          ? "opacity-75 bg-slate-100 dark:bg-slate-800"
+                          : ""
+                      }`}
+                      placeholder={
+                        isFoodStop
+                          ? formatThousandsInput(foodStopTotal) || "0"
+                          : "250.000"
+                      }
+                      value={
+                        isFoodStop
+                          ? formatThousandsInput(foodStopTotal)
+                          : formatThousandsInput(expAmount)
+                      }
+                      disabled={isFoodStop}
+                      onChange={(e) => {
+                        const parsed = parseThousandsInput(e.target.value);
+                        setExpAmount(parsed > 0 ? parsed : "");
+                      }}
+                    />
+                  </div>
                 </div>
               </div>
 

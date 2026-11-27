@@ -23,6 +23,7 @@ export const trips = sqliteTable("trips", {
   startDate: text("start_date"),
   endDate: text("end_date"),
   status: text("status").notNull().default("draft"),
+  ruleVersion: integer("rule_version").notNull().default(1),
   notes: text("notes"),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),

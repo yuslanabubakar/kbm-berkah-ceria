@@ -128,12 +128,21 @@ function StatsTab({ trips }: { trips: TripSummary[] }) {
       </div>
 
       <div className="glass-card rounded-3xl p-6">
-        <h3
-          className="font-semibold mb-4"
-          style={{ color: "var(--text-primary)" }}
-        >
-          Distribusi Perjalanan
-        </h3>
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+          <h3
+            className="font-semibold"
+            style={{ color: "var(--text-primary)" }}
+          >
+            Distribusi Perjalanan
+          </h3>
+          <Link
+            href="/ringkasan"
+            className="inline-flex items-center gap-1 text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline"
+          >
+            Analitik Lengkap di Ringkasan
+            <ArrowRight size={13} />
+          </Link>
+        </div>
         {trips.length === 0 ? (
           <p className="text-sm" style={{ color: "var(--text-muted)" }}>
             Belum ada data perjalanan.

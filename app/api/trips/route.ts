@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getDb } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
+import { CURRENT_TRIP_RULE_VERSION } from "@/lib/tripPricingRules";
 import {
   trips,
   tripLegs,
@@ -147,6 +148,7 @@ export async function POST(request: Request) {
       startDate: startDate ?? null,
       endDate: endDate ?? null,
       status: "ongoing",
+      ruleVersion: CURRENT_TRIP_RULE_VERSION,
       createdAt: now,
       updatedAt: now,
     });

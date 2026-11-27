@@ -55,19 +55,20 @@ describe("API: /api/expenses & /api/expenses/[expenseId]", () => {
     });
   });
 
-  test("POST /api/expenses creates expense", async () => {
+  test("POST /api/expenses creates expense and persists expenseType", async () => {
     const headers = await getAuthHeaders(TEST_USER_1);
     const req = createJsonRequest(
       "https://example.com/api/expenses",
       "POST",
       {
         tripId,
-        judul: "Makan Siang Sate",
+        judul: "Bensin Pertamax",
         amountIdr: 120000,
         paidBy: participantId,
         legId,
         shareScope: "leg",
-        catatan: "Sate Maranggi",
+        expenseType: "bbm",
+        catatan: "SPBU KM 88",
       },
       headers,
     );
@@ -77,6 +78,13 @@ describe("API: /api/expenses & /api/expenses/[expenseId]", () => {
 
     const body = await res.json();
     assert.ok(body.id);
+
+    const saved = await db
+      .select()
+      .from(expenses)
+      .where(eq(expenses.id, body.id))
+      .get();
+    assert.equal(saved?.expenseType, "bbm");
   });
 
   test("PATCH /api/expenses/[expenseId] updates expense", async () => {

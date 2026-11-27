@@ -82,6 +82,13 @@ describe("API: /api/trips & /api/trips/[tripId]", () => {
 
       const body = await res.json();
       assert.ok(body.data.tripId);
+
+      const created = await db
+        .select()
+        .from(trips)
+        .where(eq(trips.id, body.data.tripId))
+        .get();
+      assert.equal(created?.ruleVersion, 2);
     });
 
     test("creates trip with multi-legs, multi-vehicles, and initial expenses", async () => {
@@ -143,6 +150,13 @@ describe("API: /api/trips & /api/trips/[tripId]", () => {
 
       const body = await res.json();
       assert.ok(body.data.tripId);
+
+      const created = await db
+        .select()
+        .from(trips)
+        .where(eq(trips.id, body.data.tripId))
+        .get();
+      assert.equal(created?.ruleVersion, 2);
     });
   });
 
@@ -195,7 +209,7 @@ describe("API: /api/trips & /api/trips/[tripId]", () => {
       const req = createJsonRequest(
         `https://example.com/api/trips/${tripId}`,
         "PATCH",
-        { name: "Trip Baru Terupdate" },
+        { name: "Trip Baru Terupdate", ruleVersion: 2 },
         headers,
       );
 
@@ -208,6 +222,7 @@ describe("API: /api/trips & /api/trips/[tripId]", () => {
         .where(eq(trips.id, tripId))
         .get();
       assert.equal(updated?.name, "Trip Baru Terupdate");
+      assert.equal(updated?.ruleVersion, 2);
     });
   });
 

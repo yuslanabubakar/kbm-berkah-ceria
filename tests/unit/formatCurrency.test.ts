@@ -1,6 +1,10 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import { formatRupiah } from "@/lib/formatCurrency";
+import {
+  formatRupiah,
+  formatThousandsInput,
+  parseThousandsInput,
+} from "@/lib/formatCurrency";
 
 describe("formatRupiah", () => {
   test("formats regular positive integer values", () => {
@@ -20,5 +24,19 @@ describe("formatRupiah", () => {
 
   test("formats negative numbers", () => {
     assert.equal(formatRupiah(-50000), "Rp-50.000");
+  });
+});
+
+describe("formatThousandsInput & parseThousandsInput", () => {
+  test("formats positive values with dots and empty for zero/blank", () => {
+    assert.equal(formatThousandsInput(150000), "150.000");
+    assert.equal(formatThousandsInput(0), "");
+    assert.equal(formatThousandsInput(""), "");
+  });
+
+  test("parses formatted strings back to integer", () => {
+    assert.equal(parseThousandsInput("150.000"), 150000);
+    assert.equal(parseThousandsInput("Rp 2.500.000"), 2500000);
+    assert.equal(parseThousandsInput(""), 0);
   });
 });

@@ -46,6 +46,8 @@ interface Participant {
   balance_idr: number;
   total_paid: number;
   total_share: number;
+  is_driver: boolean;
+  is_single_trip: boolean;
 }
 
 interface Expense {
@@ -103,12 +105,19 @@ export async function GET(
     end_date: detail.trip.tanggalSelesai ?? null,
   };
 
-  const participantList: Participant[] = detail.balances.map((b) => ({
-    display_name: b.nama,
-    balance_idr: b.balance,
-    total_paid: b.totalPaid,
-    total_share: b.totalShare,
-  }));
+  const participantMetaMap = new Map(detail.participants.map((p) => [p.id, p]));
+
+  const participantList: Participant[] = detail.balances.map((b) => {
+    const meta = participantMetaMap.get(b.participantId);
+    return {
+      display_name: b.nama,
+      balance_idr: b.balance,
+      total_paid: b.totalPaid,
+      total_share: b.totalShare,
+      is_driver: Boolean(meta?.isDriver),
+      is_single_trip: Boolean(meta?.isSingleTrip),
+    };
+  });
 
   const expenseList: Expense[] = detail.expenses.map((e) => ({
     title: e.judul,
@@ -377,8 +386,16 @@ export async function GET(
             const pillCls =
               bal < 0 ? "pill-red" : bal > 0 ? "pill-green" : "pill-gray";
             const pillText = bal < 0 ? "Bayar" : bal > 0 ? "Terima" : "Lunas";
+            const tags = [
+              p.is_driver
+                ? ' <span style="font-size:9px;color:#1d4ed8;font-weight:700">(Supir)</span>'
+                : "",
+              p.is_single_trip
+                ? ' <span style="font-size:9px;color:#b45309;font-weight:700">(1 Arah +10%)</span>'
+                : "",
+            ].join("");
             return `<tr>
-            <td>${p.display_name}</td>
+            <td>${p.display_name}${tags}</td>
             <td class="text-right">${formatRupiah(p.total_share)}</td>
             <td class="text-right">${formatRupiah(p.total_paid)}</td>
             <td class="text-right ${cls}">${prefix} ${label}</td>
@@ -424,6 +441,27 @@ export async function GET(
           .join("")}
       </div>
     </div>
+    ${
+      detail.transfers.length > 0
+        ? `
+    <div style="margin-top:12px;padding-top:10px;border-top:1px dashed #e5e7eb;">
+      <h4 style="font-size:11px;font-weight:700;color:#2563eb;margin-bottom:6px;">Rekomendasi Transfer (${detail.transfers.length} Transaksi)</h4>
+      <div style="display:grid;gap:4px;">
+        ${detail.transfers
+          .map(
+            (t) => `
+          <div class="settle-item">
+            <span><strong>${t.fromName}</strong> → <strong>${t.toName}</strong></span>
+            <span style="font-weight:700;color:#2563eb">${formatRupiah(t.amountIdr)}</span>
+          </div>
+        `,
+          )
+          .join("")}
+      </div>
+    </div>
+    `
+        : ""
+    }
   </div>
   `
       : ""
@@ -461,7 +499,11 @@ export async function GET(
     </table>
   </div>
 
-  <div class="footer">KBM Berkah Ceria • Laporan otomatis • ${new Date().getFullYear()}</div>
+  <div class="footer">KBM Berkah Ceria • Laporan otomatis • ${
+    detail.trip.ruleVersion >= 2
+      ? "Regulasi: diskon supir maks 50%/mobil, 1 arah +10% bobot • "
+      : ""
+  }${new Date().getFullYear()}</div>
 
 </body>
 </html>`;

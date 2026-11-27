@@ -21,7 +21,8 @@ Dokumen ini menjelaskan alur kerja utama aplikasi berbagi biaya perjalanan untuk
 3. **Langkah 2: Armada & Peserta**
    - Tambah mobil konvoi (nama mobil & plat nomor).
    - Masukkan nama peserta satu per satu atau gunakan **Paste Banyak** untuk menempelkan daftar nama sekaligus.
-   - Tandai siapa saja yang bertindak sebagai supir (**🚗 Supir** mendapat diskon 50% biaya leg/kendaraan).
+   - Tandai siapa saja yang bertindak sebagai supir (**🚗 Supir** mendapat potongan maks 50% per mobil per etape: 1 supir = 50%, 2 supir = @25%, 3 supir = 50%/3, dst.).
+   - Peserta yang hanya ikut 1 arah (kepergian saja atau kepulangan saja pada perjalanan multi-etape) otomatis dikenakan **Single Trip Only Fee** (+0,1 / +10% bobot biaya otomatis).
 4. **Langkah 3: Pengeluaran Awal & Rekening**
    - Masukkan nota awal (bila sudah ada nota sebelum trip).
    - Kategori biaya (BBM, Tol, Makan, Parkir) akan terdeteksi otomatis dari judul nota.

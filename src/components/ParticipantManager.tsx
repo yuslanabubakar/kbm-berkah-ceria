@@ -254,7 +254,7 @@ export function ParticipantManager({
                   className="text-xs font-semibold"
                   style={{ color: "var(--text-primary)" }}
                 >
-                  🚗 Tandai sebagai supir (diskon 50% biaya leg)
+                  🚗 Supir default (atur peran supir per etape di tab Armada)
                 </span>
               </label>
             </div>

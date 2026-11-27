@@ -48,7 +48,7 @@ export function GenerateReportButton({
       type="button"
       onClick={handleDownload}
       disabled={isDownloading}
-      className="inline-flex items-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-semibold transition-all duration-200 hover:-translate-y-0.5 disabled:opacity-60 disabled:cursor-progress disabled:translate-y-0"
+      className="inline-flex items-center gap-1.5 sm:gap-2 rounded-xl sm:rounded-2xl px-3 py-2 sm:px-4 sm:py-2.5 text-xs sm:text-sm font-semibold transition-all duration-200 hover:-translate-y-0.5 disabled:opacity-60 disabled:cursor-progress disabled:translate-y-0"
       style={buttonStyle}
     >
       {isDownloading ? (

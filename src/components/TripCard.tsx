@@ -94,8 +94,8 @@ export function TripCard({ trip }: { trip: Trip }) {
   return (
     <>
       <article
-        className="glass-card group relative flex flex-col rounded-3xl transition-all duration-300 hover:-translate-y-1 overflow-hidden"
-        style={{ cursor: "default" }}
+        onClick={() => router.push(`/perjalanan/${trip.id}`)}
+        className="glass-card group relative flex flex-col rounded-3xl transition-all duration-300 hover:-translate-y-1 overflow-hidden cursor-pointer"
       >
         {/* Top accent line */}
         <div
@@ -140,7 +140,11 @@ export function TripCard({ trip }: { trip: Trip }) {
 
             {/* 3-dot menu (if editable) */}
             {trip.canEdit && (
-              <div className="relative shrink-0" ref={menuRef}>
+              <div
+                className="relative shrink-0"
+                ref={menuRef}
+                onClick={(e) => e.stopPropagation()}
+              >
                 <button
                   type="button"
                   aria-label="Opsi trip"
@@ -293,6 +297,7 @@ export function TripCard({ trip }: { trip: Trip }) {
           {/* CTA link */}
           <Link
             href={`/perjalanan/${trip.id}`}
+            onClick={(e) => e.stopPropagation()}
             className="mt-4 flex items-center justify-between rounded-xl px-4 py-2.5 text-xs font-semibold transition-all duration-200 group/link"
             style={{
               background: "rgba(46, 90, 172, 0.08)",

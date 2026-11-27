@@ -727,8 +727,8 @@ function ExpenseEditDialog({
           </div>
           <p className="mt-1.5 text-xs" style={{ color: "var(--text-muted)" }}>
             {values.shareScope === "leg"
-              ? "💡 Dibagi rata ke seluruh penumpang di leg ini (lintas mobil, supir diskon 50%)."
-              : "💡 Hanya ditanggung oleh penumpang di mobil terpilih (supir diskon 50%)."}
+              ? "💡 Dibagi rata ke seluruh penumpang di leg ini (diskon supir maks 50%/mobil, peserta 1 arah +10% bobot)."
+              : "💡 Hanya ditanggung oleh penumpang di mobil terpilih (diskon supir maks 50%/mobil, peserta 1 arah +10% bobot)."}
           </p>
           {errors.shareScope && (
             <p className="mt-1 text-xs text-rose-600">{errors.shareScope}</p>

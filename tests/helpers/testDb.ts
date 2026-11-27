@@ -92,6 +92,7 @@ const CREATE_TABLES_SQL = `
     start_date TEXT,
     end_date TEXT,
     status TEXT NOT NULL DEFAULT "draft",
+    rule_version INTEGER NOT NULL DEFAULT 1,
     notes TEXT,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL

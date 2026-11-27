@@ -23,8 +23,32 @@ import type {
   TripShare,
   TripPaymentAccountAttachment,
 } from "@/types/expense";
+import {
+  TRIP_RULE_VERSION_TOWNHALL_2026,
+  computeExpenseAutoWeights,
+  computeSettlementTransfers,
+  computeSingleTripParticipantIds,
+  normalizeTripRuleVersion,
+  type SettlementTransfer,
+} from "@/lib/tripPricingRules";
+
+export type { SettlementTransfer };
 
 export type TripSummary = Trip;
+
+export type ShareBreakdownItem = {
+  expenseId: string;
+  title: string;
+  legOrder: number;
+  legLabel: string;
+  expenseAmount: number;
+  shareAmount: number;
+  weight?: number;
+  totalWeight?: number;
+  isManualSplit: boolean;
+  isDriverOnExpense?: boolean;
+  isSingleTripApplied?: boolean;
+};
 
 export type BalanceRow = {
   participantId: string;
@@ -33,6 +57,7 @@ export type BalanceRow = {
   totalShare: number;
   balance: number;
   adjustments: number;
+  breakdown: ShareBreakdownItem[];
 };
 
 export type TripParticipant = {
@@ -40,6 +65,7 @@ export type TripParticipant = {
   nama: string;
   role?: string | null;
   isDriver?: boolean;
+  isSingleTrip?: boolean;
 };
 
 export type TripVehicleAssignment = {
@@ -86,18 +112,23 @@ export type TripDetail = {
     id: string;
     nama: string;
     lokasi: string;
+    originCity?: string | null;
+    destinationCity?: string | null;
     tanggalMulai: string;
     tanggalSelesai?: string;
     catatan?: string | null;
+    ruleVersion: number;
   };
   expenses: Expense[];
   balances: BalanceRow[];
+  transfers: SettlementTransfer[];
   participants: TripParticipant[];
   legs: TripLeg[];
   adjustments: BalanceAdjustment[];
   fleetVehicles: FleetVehicle[];
   hostAccounts: HostPaymentAccount[];
   paymentAttachments: TripPaymentAccountAttachment[];
+  shares: TripShare[];
   permissions: {
     isOwner: boolean;
     canEdit: boolean;
@@ -280,6 +311,7 @@ export async function fetchTripDetail(
     expensesRows,
     adjustmentsRows,
     tAccountsRows,
+    sharesRows,
   ] = await Promise.all([
     db
       .select()
@@ -334,6 +366,12 @@ export async function fetchTripDetail(
       .from(tripPaymentAccounts)
       .where(eq(tripPaymentAccounts.tripId, tripId))
       .all(),
+    db
+      .select()
+      .from(tripShares)
+      .where(eq(tripShares.tripId, tripId))
+      .orderBy(desc(tripShares.createdAt))
+      .all(),
   ]);
 
   const participantMap = new Map(participantsRows.map((p) => [p.id, p]));
@@ -342,6 +380,11 @@ export async function fetchTripDetail(
       .filter((a) => a.role === "driver")
       .map((a) => a.participantId),
   );
+  const ruleVersion = normalizeTripRuleVersion(trip.ruleVersion);
+  const singleTripParticipantIds =
+    ruleVersion >= TRIP_RULE_VERSION_TOWNHALL_2026
+      ? computeSingleTripParticipantIds(legsRows.length, assignmentsRows)
+      : new Set<string>();
 
   // Fetch expense splits
   const expenseIds = expensesRows.map((e) => e.id);
@@ -398,15 +441,18 @@ export async function fetchTripDetail(
     };
   });
 
-  // Calculate Balances
+  // Calculate Balances & Share Breakdown
   const totalPaidMap = new Map<string, number>();
   const totalShareMap = new Map<string, number>();
   const adjustmentMap = new Map<string, number>();
+  const breakdownMap = new Map<string, ShareBreakdownItem[]>();
+  const legById = new Map(legsRows.map((l) => [l.id, l]));
 
   for (const p of participantsRows) {
     totalPaidMap.set(p.id, 0);
     totalShareMap.set(p.id, 0);
     adjustmentMap.set(p.id, 0);
+    breakdownMap.set(p.id, []);
   }
 
   for (const adj of adjustmentsRows) {
@@ -419,9 +465,16 @@ export async function fetchTripDetail(
   for (const exp of expensesRows) {
     if (exp.isExcluded) continue;
 
+    const expAmount = toNumber(exp.amountIdr);
+    const legRow = legById.get(exp.legId);
+    const legOrder = legRow?.legOrder ?? 1;
+    const legLabel = legRow
+      ? formatLocation(legRow.origin, legRow.destination)
+      : "Perjalanan";
+
     // Paid by credit
     const currentPaid = totalPaidMap.get(exp.paidBy) ?? 0;
-    totalPaidMap.set(exp.paidBy, currentPaid + toNumber(exp.amountIdr));
+    totalPaidMap.set(exp.paidBy, currentPaid + expAmount);
 
     const expSplits = splitsByExpense.get(exp.id) ?? [];
     if (expSplits.length > 0) {
@@ -435,14 +488,26 @@ export async function fetchTripDetail(
         if (s.shareAmountOverride != null) {
           shareAmt = toNumber(s.shareAmountOverride);
         } else if (totalWeight > 0) {
-          shareAmt =
-            (toNumber(exp.amountIdr) * toNumber(s.shareWeight)) / totalWeight;
+          shareAmt = (expAmount * toNumber(s.shareWeight)) / totalWeight;
         }
         const currentShare = totalShareMap.get(s.participantId) ?? 0;
         totalShareMap.set(s.participantId, currentShare + shareAmt);
+
+        const list = breakdownMap.get(s.participantId);
+        if (list && shareAmt > 0) {
+          list.push({
+            expenseId: exp.id,
+            title: exp.title,
+            legOrder,
+            legLabel,
+            expenseAmount: expAmount,
+            shareAmount: shareAmt,
+            isManualSplit: true,
+          });
+        }
       }
     } else {
-      // Auto distribution: Target vehicle or leg assignments with driver discount (50% weight)
+      // Auto distribution: Target vehicle or leg assignments with rule-versioned weights
       const isVehicleScope =
         exp.shareScope === "vehicle" && Boolean(exp.vehicleId);
 
@@ -454,35 +519,49 @@ export async function fetchTripDetail(
           ? assignmentsRows.filter((a) => a.legId === exp.legId)
           : [];
 
-      const participantWeightMap = new Map<string, number>();
+      const driverIdsOnExpense = new Set(
+        matchingAssignments.length > 0
+          ? matchingAssignments
+              .filter((a) => a.role === "driver")
+              .map((a) => a.participantId)
+          : participantsRows.filter((p) => p.isDriver).map((p) => p.id),
+      );
 
-      if (matchingAssignments.length > 0) {
-        for (const a of matchingAssignments) {
-          const w =
-            a.allocationOverride != null
-              ? toNumber(a.allocationOverride)
-              : a.role === "driver"
-                ? 0.5
-                : 1.0;
-          participantWeightMap.set(a.participantId, w);
-        }
-      } else {
-        // Fallback if no vehicle assignments on this leg: distribute to all participants
-        for (const p of participantsRows) {
-          participantWeightMap.set(p.id, p.isDriver ? 0.5 : 1.0);
-        }
-      }
+      const participantWeightMap = computeExpenseAutoWeights({
+        ruleVersion,
+        matchingAssignments,
+        participants: participantsRows,
+        singleTripParticipantIds,
+      });
 
       const totalWeight = Array.from(participantWeightMap.values()).reduce(
         (sum, w) => sum + w,
         0,
       );
 
-      const expAmount = toNumber(exp.amountIdr);
       for (const [pid, w] of participantWeightMap.entries()) {
         const shareAmt = totalWeight > 0 ? (expAmount * w) / totalWeight : 0;
         const currentShare = totalShareMap.get(pid) ?? 0;
         totalShareMap.set(pid, currentShare + shareAmt);
+
+        const list = breakdownMap.get(pid);
+        if (list && shareAmt > 0) {
+          list.push({
+            expenseId: exp.id,
+            title: exp.title,
+            legOrder,
+            legLabel,
+            expenseAmount: expAmount,
+            shareAmount: shareAmt,
+            weight: w,
+            totalWeight,
+            isManualSplit: false,
+            isDriverOnExpense: driverIdsOnExpense.has(pid),
+            isSingleTripApplied:
+              ruleVersion >= TRIP_RULE_VERSION_TOWNHALL_2026 &&
+              singleTripParticipantIds.has(pid),
+          });
+        }
       }
     }
   }
@@ -499,15 +578,26 @@ export async function fetchTripDetail(
         totalShare,
         balance: totalPaid - totalShare + adj,
         adjustments: adj,
+        breakdown: breakdownMap.get(p.id) ?? [],
       };
     })
     .sort((a, b) => b.balance - a.balance);
+
+  const mappedTransfers = computeSettlementTransfers(mappedBalances);
+
+  const mappedShares: TripShare[] = sharesRows.map((s) => ({
+    id: s.id,
+    shared_with_email: s.sharedWithEmail,
+    can_edit: s.canEdit,
+    created_at: s.createdAt,
+  }));
 
   const mappedParticipants: TripParticipant[] = participantsRows.map((p) => ({
     id: p.id,
     nama: p.displayName,
     role: p.role,
     isDriver: driverParticipantIds.has(p.id),
+    isSingleTrip: singleTripParticipantIds.has(p.id),
   }));
 
   const mappedFleetVehicles: FleetVehicle[] = vehiclesRows.map((v) => ({
@@ -629,18 +719,23 @@ export async function fetchTripDetail(
       id: trip.id,
       nama: trip.name,
       lokasi: formatLocation(trip.originCity, trip.destinationCity),
+      originCity: trip.originCity ?? null,
+      destinationCity: trip.destinationCity ?? null,
       tanggalMulai: trip.startDate ?? "",
       tanggalSelesai: trip.endDate ?? undefined,
       catatan: trip.notes,
+      ruleVersion,
     },
     expenses: mappedExpenses,
     balances: mappedBalances,
+    transfers: mappedTransfers,
     participants: mappedParticipants,
     legs: mappedLegs,
     adjustments: mappedAdjustments,
     fleetVehicles: mappedFleetVehicles,
     hostAccounts: attachmentList,
     paymentAttachments: attachmentList,
+    shares: mappedShares,
     permissions: {
       isOwner,
       canEdit: isOwner || shareAllowsEdit,

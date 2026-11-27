@@ -90,6 +90,7 @@ export async function GET(
         destination_city: trip.destinationCity,
         start_date: trip.startDate,
         end_date: trip.endDate,
+        rule_version: trip.ruleVersion,
       },
       hostAccounts,
     });
@@ -121,6 +122,7 @@ const updateTripSchema = z.object({
     .regex(/^\d{4}-\d{2}-\d{2}$/)
     .nullable()
     .optional(),
+  ruleVersion: z.number().int().min(1).max(2).optional(),
 });
 
 function normalizeString(value: unknown) {
@@ -203,6 +205,8 @@ export async function PATCH(
     updateFields.startDate = parsed.data.startDate;
   if (parsed.data.endDate !== undefined)
     updateFields.endDate = parsed.data.endDate;
+  if (parsed.data.ruleVersion !== undefined)
+    updateFields.ruleVersion = parsed.data.ruleVersion;
 
   await db.update(trips).set(updateFields).where(eq(trips.id, tripId));
 

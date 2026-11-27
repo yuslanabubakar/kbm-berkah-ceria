@@ -1771,7 +1771,9 @@ export function VehicleManager({
                   }
                 >
                   <option value="passenger">Penumpang Biasa</option>
-                  <option value="driver">🚗 Supir (Diskon 50%)</option>
+                  <option value="driver">
+                    🚗 Supir (Diskon maks 50%/mobil)
+                  </option>
                 </select>
               </label>
             </div>

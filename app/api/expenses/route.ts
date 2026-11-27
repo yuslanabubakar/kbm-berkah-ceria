@@ -22,6 +22,7 @@ const expenseSchema = z
     legId: z.string().min(1),
     vehicleId: z.string().optional().nullable(),
     shareScope: z.enum(["leg", "vehicle"]),
+    expenseType: z.string().optional(),
     catatan: z.string().optional(),
     splits: z.array(splitItemSchema).optional(),
   })
@@ -83,7 +84,7 @@ export async function POST(request: Request) {
       title: parsed.data.judul,
       amountIdr,
       notes: parsed.data.catatan ?? null,
-      expenseType: hasSplits ? "makan" : "lainnya",
+      expenseType: hasSplits ? "makan" : parsed.data.expenseType || "lainnya",
       shareScope: hasSplits ? "vehicle" : parsed.data.shareScope,
       issuedAt: now,
       createdBy: currentUser.id,

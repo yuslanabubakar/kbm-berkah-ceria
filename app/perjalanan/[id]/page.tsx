@@ -43,18 +43,18 @@ export default async function PerjalananDetailPage({
     : "-";
 
   return (
-    <section className="space-y-6">
-      {/* ── Header Card ── */}
+    <section className="space-y-4 sm:space-y-6">
+      {/* ── Header Card (Compact on Mobile) ── */}
       <div
-        className="rounded-3xl p-6 md:p-8 shadow-xl"
+        className="rounded-2xl sm:rounded-3xl p-4 sm:p-6 md:p-8 shadow-xl"
         style={{
           background:
             "linear-gradient(135deg, #1e3a8a 0%, #2E5AAC 60%, #3b82f6 100%)",
         }}
       >
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="text-white">
-            <div className="flex flex-wrap items-center gap-2 text-xs text-blue-200">
+        <div className="flex flex-wrap items-start justify-between gap-3 sm:gap-4">
+          <div className="text-white min-w-0">
+            <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[11px] sm:text-xs text-blue-200">
               {detail.trip.lokasi && (
                 <span className="flex items-center gap-1">
                   <MapPin size={12} />
@@ -73,12 +73,14 @@ export default async function PerjalananDetailPage({
                 {detail.expenses.length} transaksi
               </span>
             </div>
-            <h1 className="mt-2 text-2xl font-extrabold md:text-3xl">
-              {detail.trip.nama}
-            </h1>
-            <p className="mt-1 text-2xl font-bold text-amber-300">
-              {formatRupiah(total)}
-            </p>
+            <div className="mt-1.5 sm:mt-2 flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
+              <h1 className="text-xl font-extrabold sm:text-2xl md:text-3xl leading-tight">
+                {detail.trip.nama}
+              </h1>
+              <p className="text-lg sm:text-2xl font-bold text-amber-300">
+                {formatRupiah(total)}
+              </p>
+            </div>
           </div>
 
           <div className="flex flex-wrap gap-2">

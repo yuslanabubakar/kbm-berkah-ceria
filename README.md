@@ -9,7 +9,7 @@ Aplikasi web modern untuk manajemen perjalanan konvoi dan berbagi biaya (_expens
 ### 1. 🧙 Wizard Pembuatan Perjalanan (4-Step Stepper)
 
 - **Langkah 1: Rute & Jadwal** — Mendukung multi-leg/etape rute lanjutan (misal Leg 1: Bandung ➔ Cirebon, Leg 2: Cirebon ➔ Semarang).
-- **Langkah 2: Armada & Peserta** — Multi-armada mobil (nama mobil & plat nomor), input peserta cepat, paste banyak nama sekaligus (_bulk paste_), dan penandaan supir (_diskon 50% biaya perjalanan_).
+- **Langkah 2: Armada & Peserta** — Multi-armada mobil (nama mobil & plat nomor), input peserta cepat, paste banyak nama sekaligus (_bulk paste_), dan penandaan supir (_potongan maks 50% per mobil per etape_).
 - **Langkah 3: Pengeluaran Awal & Rekening Pembayaran** — Deteksi otomatis kategori biaya (BBM, Tol, Makan, Parkir, dll.), mode tagihan makan perorangan (_Food Stop individual split_), serta pemilihan rekening tujuan transfer host.
 - **Langkah 4: Review & Simpan** — Ringkasan menyeluruh sebelum disimpan ke database dalam satu transaksi aman.
 
@@ -40,7 +40,9 @@ Aplikasi web modern untuk manajemen perjalanan konvoi dan berbagi biaya (_expens
 
 ### 5. 🧮 Settlement & Algoritma Pembagian Biaya
 
-- Bobot pembagian supir: 0.5 (diskon 50% untuk biaya etape/mobil) vs penumpang: 1.0.
+- **Aturan Pilot/Supir (Regulasi Townhall PK)**: Maksimal total potongan supir 50% per mobil per etape (`1 supir = diskon 50% / bobot 0.5`, `2 supir = @25% / bobot 0.75`, `3 supir = @0.5/3 / bobot 5/6`, dan seterusnya) vs penumpang normal `1.0`.
+- **Single Trip Only Fee**: Tambahan bobot `+0.1` (+10%) otomatis bagi peserta yang hanya ikut kepergian atau kepulangan saja pada perjalanan multi-etape (berlaku aditif termasuk jika berperan sebagai supir, dan hanya untuk biaya otomatis).
+- Perjalanan lama (historis) tetap mempertahankan versi aturan lama (`rule_version = 1`), sedangkan perjalanan baru otomatis menggunakan aturan terbaru (`rule_version = 2`).
 - Cakupan biaya fleksibel: per leg (lintas mobil) atau khusus kendaraan tertentu.
 - _Food Stop Split_: Tagihan makan dengan nominal custom per individu.
 - Penyesuaian saldo manual (_Balance Adjustments_) oleh host.

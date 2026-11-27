@@ -17,6 +17,7 @@ const expenseSchema = z
     legId: z.string().min(1),
     vehicleId: z.string().optional().nullable(),
     shareScope: z.enum(["leg", "vehicle"]),
+    expenseType: z.string().optional(),
     catatan: z.string().optional(),
   })
   .superRefine((data, ctx) => {
@@ -88,6 +89,9 @@ export async function PATCH(request: Request, { params }: Params) {
         legId: parsed.data.legId,
         vehicleId: parsed.data.vehicleId ?? null,
         shareScope: parsed.data.shareScope,
+        ...(parsed.data.expenseType
+          ? { expenseType: parsed.data.expenseType }
+          : {}),
         notes: parsed.data.catatan ?? null,
       })
       .where(eq(expenses.id, params.expenseId));

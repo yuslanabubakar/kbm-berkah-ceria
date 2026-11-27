@@ -8,6 +8,7 @@ import {
   FileText,
   Share2,
 } from "lucide-react";
+import { fetchCommunityStats } from "@/lib/tripQueries";
 
 export const runtime = "edge";
 export const dynamic = "force-dynamic";
@@ -57,7 +58,23 @@ const FEATURES = [
   },
 ];
 
-export default function PublicHomePage() {
+export default async function PublicHomePage() {
+  const stats = await fetchCommunityStats().catch(() => null);
+  const heroStats = [
+    {
+      label: "Perjalanan tercatat",
+      value: stats ? `${stats.totalTrip}` : "40+",
+    },
+    {
+      label: "Peserta unik",
+      value: stats ? `${stats.uniquePesertaCount}` : "200+",
+    },
+    {
+      label: "Armada terdaftar",
+      value: stats ? `${stats.totalVehicles}` : "50+",
+    },
+  ];
+
   return (
     <section className="space-y-16">
       {/* ── Hero ─────────────────────────────────────── */}
@@ -103,20 +120,16 @@ export default function PublicHomePage() {
               <ArrowRight size={16} />
             </Link>
             <Link
-              href="/login"
+              href="/ringkasan"
               className="inline-flex items-center gap-2 rounded-2xl border border-white/30 bg-white/10 px-7 py-3.5 text-sm font-semibold text-white backdrop-blur transition-all duration-200 hover:bg-white/20"
             >
-              Lihat Demo
+              Lihat Ringkasan
             </Link>
           </div>
 
           {/* Stats */}
           <div className="mt-10 flex flex-wrap gap-6 border-t border-white/20 pt-8">
-            {[
-              { label: "Perjalanan tercatat", value: "40+" },
-              { label: "Peserta aktif", value: "200+" },
-              { label: "Pengeluaran tercatat", value: "1.6K+" },
-            ].map((stat) => (
+            {heroStats.map((stat) => (
               <div key={stat.label}>
                 <p className="text-2xl font-extrabold text-white">
                   {stat.value}
