@@ -13,6 +13,8 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { Logo } from "@/components/Logo";
+import { GoogleLogo } from "@/components/icons/GoogleLogo";
 import { useAuth } from "@/hooks/useAuth";
 import type { Route } from "next";
 
@@ -42,8 +44,16 @@ function UserMenu() {
 
   if (!user) {
     return (
-      <a href="/api/auth/login" className="btn-primary text-xs md:text-sm">
-        Masuk dengan Google
+      <a
+        href="/api/auth/login"
+        className="btn-ghost h-9 whitespace-nowrap !px-2.5 sm:!px-3.5"
+        aria-label="Masuk dengan Google"
+        title="Masuk dengan Google"
+      >
+        <GoogleLogo size={18} />
+        <span className="hidden text-[color:var(--text-primary)] sm:inline">
+          Masuk
+        </span>
       </a>
     );
   }
@@ -60,10 +70,11 @@ function UserMenu() {
       <button
         type="button"
         onClick={() => setOpen((p) => !p)}
-        className="flex items-center gap-2 rounded-xl px-2 py-1.5 transition-all duration-200 hover:scale-[1.02]"
+        className="flex items-center gap-2 rounded-xl px-2 py-1.5 transition-all duration-200 active:translate-y-[2px]"
         style={{
-          background: "var(--bg-muted)",
-          border: "1px solid var(--border-color)",
+          background: "var(--bg-secondary)",
+          border: "2px solid var(--border-color)",
+          boxShadow: "0 2px 0 var(--ledge)",
         }}
       >
         {/* Avatar */}
@@ -77,7 +88,7 @@ function UserMenu() {
         ) : (
           <span
             className="flex h-7 w-7 items-center justify-center rounded-lg text-xs font-bold text-white"
-            style={{ background: "linear-gradient(135deg, #2E5AAC, #FF7B6A)" }}
+            style={{ background: "#2E5AAC" }}
           >
             {initials}
           </span>
@@ -100,10 +111,11 @@ function UserMenu() {
 
       {open && (
         <div
-          className="absolute right-0 top-full z-50 mt-2 w-56 animate-slide-down rounded-2xl p-1 shadow-glass"
+          className="absolute right-0 top-full z-50 mt-2 w-56 animate-slide-down rounded-2xl p-1"
           style={{
             background: "var(--bg-card)",
-            border: "1px solid var(--border-color)",
+            border: "2px solid var(--border-color)",
+            boxShadow: "0 4px 0 var(--ledge), 0 16px 32px var(--shadow-color)",
             backdropFilter: "blur(20px)",
           }}
         >
@@ -133,10 +145,10 @@ function UserMenu() {
                 window.location.href = "/api/auth/logout";
               }}
               className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium transition-colors"
-              style={{ color: "#e11d48" }}
+              style={{ color: "var(--rose-text)" }}
               onMouseEnter={(e) => {
                 (e.currentTarget as HTMLButtonElement).style.background =
-                  "rgba(225, 29, 72, 0.08)";
+                  "var(--rose-bg)";
               }}
               onMouseLeave={(e) => {
                 (e.currentTarget as HTMLButtonElement).style.background =
@@ -170,21 +182,8 @@ export function Navbar() {
       >
         <nav className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-4 py-3 md:px-6">
           {/* Logo */}
-          <Link
-            href="/"
-            className="flex items-center gap-2 text-base font-bold md:text-lg"
-            style={{ color: "var(--text-primary)" }}
-          >
-            <span
-              className="flex h-8 w-8 items-center justify-center rounded-xl text-sm font-black text-white"
-              style={{
-                background: "linear-gradient(135deg, #2E5AAC, #FF7B6A)",
-              }}
-            >
-              K
-            </span>
-            <span className="hidden sm:inline">KBM Berkah Ceria</span>
-            <span className="sm:hidden">KBM</span>
+          <Link href="/" aria-label="KBM Berkah Ceria, beranda">
+            <Logo size={36} />
           </Link>
 
           {/* Desktop nav links */}
@@ -195,12 +194,15 @@ export function Navbar() {
                 <Link
                   key={href}
                   href={href}
-                  className="rounded-xl px-3 py-2 text-sm font-medium transition-all duration-200"
+                  className="rounded-xl px-3.5 py-2 font-display text-sm font-extrabold transition-all duration-200"
                   style={{
-                    color: active ? "#2E5AAC" : "var(--text-secondary)",
-                    background: active
-                      ? "rgba(46, 90, 172, 0.10)"
-                      : "transparent",
+                    color: active
+                      ? "var(--brand-ink)"
+                      : "var(--text-secondary)",
+                    background: active ? "var(--brand-soft)" : "transparent",
+                    boxShadow: active
+                      ? "inset 0 0 0 2px var(--border-color)"
+                      : "none",
                   }}
                 >
                   {label}
@@ -218,8 +220,9 @@ export function Navbar() {
               type="button"
               className="flex h-9 w-9 items-center justify-center rounded-xl md:hidden"
               style={{
-                background: "var(--bg-muted)",
-                border: "1px solid var(--border-color)",
+                background: "var(--bg-secondary)",
+                border: "2px solid var(--border-color)",
+                boxShadow: "0 2px 0 var(--ledge)",
                 color: "var(--text-secondary)",
               }}
               onClick={() => setMobileOpen((p) => !p)}
@@ -246,7 +249,7 @@ export function Navbar() {
         style={{
           background: "var(--bg-card)",
           backdropFilter: "blur(20px)",
-          borderLeft: "1px solid var(--border-color)",
+          borderLeft: "2px solid var(--border-color)",
           boxShadow: "-8px 0 32px rgba(0,0,0,0.12)",
           transform: mobileOpen ? "translateX(0)" : "translateX(100%)",
           transition: "transform 0.25s ease-out",
@@ -260,12 +263,10 @@ export function Navbar() {
                 <Link
                   key={href}
                   href={href}
-                  className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-all duration-200"
+                  className="flex items-center gap-3 rounded-xl px-4 py-3 font-display text-sm font-extrabold transition-all duration-200"
                   style={{
-                    color: active ? "#2E5AAC" : "var(--text-primary)",
-                    background: active
-                      ? "rgba(46, 90, 172, 0.10)"
-                      : "transparent",
+                    color: active ? "var(--brand-ink)" : "var(--text-primary)",
+                    background: active ? "var(--brand-soft)" : "transparent",
                   }}
                 >
                   <Icon size={18} />

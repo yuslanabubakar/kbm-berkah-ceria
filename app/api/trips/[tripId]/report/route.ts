@@ -207,7 +207,7 @@ export async function GET(
     /* ── No-print ── */
     .no-print { margin-bottom: 20px; display: flex; justify-content: flex-end; gap: 8px; }
     .no-print button {
-      background: #2563eb; color: #fff; border: none;
+      background: #2e5aac; color: #fff; border: none;
       padding: 8px 20px; border-radius: 6px; font-size: 13px;
       cursor: pointer; font-weight: 600;
     }
@@ -217,13 +217,13 @@ export async function GET(
     /* ── Header ── */
     .report-header {
       display: flex; justify-content: space-between; align-items: flex-start;
-      border-bottom: 3px solid #2563eb; padding-bottom: 14px; margin-bottom: 20px;
+      border-bottom: 3px solid #2e5aac; padding-bottom: 14px; margin-bottom: 20px;
     }
     .report-header h1 { font-size: 20px; font-weight: 800; color: #111827; margin-bottom: 4px; }
-    .report-header .route { font-size: 13px; color: #2563eb; font-weight: 600; }
+    .report-header .route { font-size: 13px; color: #2e5aac; font-weight: 600; }
     .report-header .dates { font-size: 11px; color: #6b7280; margin-top: 2px; }
     .report-header .brand { text-align: right; font-size: 10px; color: #9ca3af; }
-    .report-header .brand strong { color: #2563eb; font-size: 11px; }
+    .report-header .brand strong { color: #2e5aac; font-size: 11px; }
 
     /* ── Stats row ── */
     .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 20px; }
@@ -233,13 +233,13 @@ export async function GET(
     }
     .stat .label { font-size: 9px; text-transform: uppercase; letter-spacing: 0.06em; color: #6b7280; font-weight: 600; }
     .stat .val { font-size: 17px; font-weight: 800; color: #111827; margin-top: 2px; }
-    .stat .val.blue { color: #2563eb; }
+    .stat .val.blue { color: #2e5aac; }
 
     /* ── Section ── */
     .section { margin-bottom: 18px; }
     .section-title {
       font-size: 11px; font-weight: 700; text-transform: uppercase;
-      letter-spacing: 0.08em; color: #2563eb; margin-bottom: 8px;
+      letter-spacing: 0.08em; color: #2e5aac; margin-bottom: 8px;
       padding-bottom: 4px; border-bottom: 1px solid #e5e7eb;
     }
 
@@ -256,8 +256,8 @@ export async function GET(
     .text-right { text-align: right; }
     .text-center { text-align: center; }
 
-    .pay { color: #dc2626; font-weight: 700; }
-    .recv { color: #059669; font-weight: 700; }
+    .pay { color: #a94d5c; font-weight: 700; }
+    .recv { color: #2f7d52; font-weight: 700; }
     .zero { color: #9ca3af; }
 
     /* ── Payment accounts ── */
@@ -273,8 +273,8 @@ export async function GET(
     /* ── Settlement grid ── */
     .settle-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
     .settle-col h4 { font-size: 11px; font-weight: 700; margin-bottom: 6px; }
-    .settle-col h4.red { color: #dc2626; }
-    .settle-col h4.green { color: #059669; }
+    .settle-col h4.red { color: #a94d5c; }
+    .settle-col h4.green { color: #2f7d52; }
     .settle-item { display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid #f3f4f6; font-size: 11.5px; }
     .settle-item:last-child { border-bottom: none; }
 
@@ -283,8 +283,8 @@ export async function GET(
       display: inline-block; font-size: 9px; font-weight: 700;
       padding: 2px 8px; border-radius: 99px; text-transform: uppercase; letter-spacing: 0.03em;
     }
-    .pill-red { background: #fef2f2; color: #dc2626; }
-    .pill-green { background: #f0fdf4; color: #059669; }
+    .pill-red { background: #fcf3f4; color: #a94d5c; }
+    .pill-green { background: #eef8f2; color: #2f7d52; }
     .pill-gray { background: #f3f4f6; color: #6b7280; }
 
     /* ── Footer ── */
@@ -445,14 +445,14 @@ export async function GET(
       detail.transfers.length > 0
         ? `
     <div style="margin-top:12px;padding-top:10px;border-top:1px dashed #e5e7eb;">
-      <h4 style="font-size:11px;font-weight:700;color:#2563eb;margin-bottom:6px;">Rekomendasi Transfer (${detail.transfers.length} Transaksi)</h4>
+      <h4 style="font-size:11px;font-weight:700;color:#2e5aac;margin-bottom:6px;">Rekomendasi Transfer (${detail.transfers.length} Transaksi)</h4>
       <div style="display:grid;gap:4px;">
         ${detail.transfers
           .map(
             (t) => `
           <div class="settle-item">
             <span><strong>${t.fromName}</strong> → <strong>${t.toName}</strong></span>
-            <span style="font-weight:700;color:#2563eb">${formatRupiah(t.amountIdr)}</span>
+            <span style="font-weight:700;color:#2e5aac">${formatRupiah(t.amountIdr)}</span>
           </div>
         `,
           )
@@ -493,7 +493,7 @@ export async function GET(
       <tfoot>
         <tr style="border-top:2px solid #e2e8f0">
           <td colspan="3" style="font-weight:800;text-align:right;padding:8px">Total</td>
-          <td class="text-right" style="font-weight:800;padding:8px;color:#2563eb">${formatRupiah(totalExpenses)}</td>
+          <td class="text-right" style="font-weight:800;padding:8px;color:#2e5aac">${formatRupiah(totalExpenses)}</td>
         </tr>
       </tfoot>
     </table>

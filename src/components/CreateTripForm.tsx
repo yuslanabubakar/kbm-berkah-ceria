@@ -45,6 +45,17 @@ import {
   validateExpenseItem,
   buildFullCreateTripPayload,
 } from "./createTripFormUtils";
+import { Select } from "@/components/ui/Select";
+import {
+  BoltIcon,
+  CalendarIcon,
+  CarIcon,
+  CategoryIcon,
+  RoundTripIcon,
+  RouteArrowIcon,
+  SteeringIcon,
+  UsersIcon,
+} from "@/components/icons/KbmIcons";
 
 type Step = 1 | 2 | 3 | 4;
 
@@ -846,7 +857,7 @@ export function CreateTripForm({
                 currentStep === 1
                   ? "bg-blue-600 text-white shadow"
                   : step1Valid
-                    ? "bg-emerald-500 text-white"
+                    ? "bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-300 dark:ring-emerald-500/30"
                     : "bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300"
               }`}
             >
@@ -881,7 +892,7 @@ export function CreateTripForm({
                 currentStep === 2
                   ? "bg-blue-600 text-white shadow"
                   : step2Valid && step1Valid
-                    ? "bg-emerald-500 text-white"
+                    ? "bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-300 dark:ring-emerald-500/30"
                     : "bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300"
               }`}
             >
@@ -916,7 +927,7 @@ export function CreateTripForm({
                 currentStep === 3
                   ? "bg-blue-600 text-white shadow"
                   : expensesList.length > 0
-                    ? "bg-emerald-500 text-white"
+                    ? "bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-300 dark:ring-emerald-500/30"
                     : "bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300"
               }`}
             >
@@ -973,7 +984,7 @@ export function CreateTripForm({
 
       {/* ─── STEP 1: RUTE & JADWAL ───────────────────────────────────────── */}
       {currentStep === 1 && (
-        <div className="glass-card rounded-3xl p-6 sm:p-8 space-y-6">
+        <div className="kbm-fade glass-card rounded-3xl p-6 sm:p-8 space-y-6">
           <div className="flex items-center gap-3 pb-4 border-b border-[var(--border-color)]">
             <div className="w-10 h-10 rounded-2xl bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center">
               <MapPin className="w-5 h-5" />
@@ -1068,7 +1079,8 @@ export function CreateTripForm({
                         : "text-slate-600 dark:text-slate-300"
                     }`}
                   >
-                    ⇄ Pulang-Pergi (PP)
+                    <RoundTripIcon size={13} className="mr-1" />
+                    Pulang-Pergi (PP)
                   </button>
                   <button
                     type="button"
@@ -1079,7 +1091,8 @@ export function CreateTripForm({
                         : "text-slate-600 dark:text-slate-300"
                     }`}
                   >
-                    ➔ Custom / Multi-Leg
+                    <RouteArrowIcon size={13} className="mr-1" />
+                    Custom / Multi-Leg
                   </button>
                 </div>
               </div>
@@ -1121,11 +1134,11 @@ export function CreateTripForm({
                   </div>
                   <div className="flex flex-wrap items-center gap-2 pt-1 text-[11px] text-slate-500 dark:text-slate-400">
                     <span className="badge badge-blue text-[10px] font-bold">
-                      Leg 1 (Pergi): {legs[0]?.origin || "Asal"} ➔{" "}
+                      Leg 1 (Pergi): {legs[0]?.origin || "Asal"} →{" "}
                       {legs[0]?.destination || "Tujuan"}
                     </span>
                     <span className="badge badge-indigo text-[10px] font-bold">
-                      Leg 2 (Pulang): {legs[1]?.origin || "Tujuan"} ➔{" "}
+                      Leg 2 (Pulang): {legs[1]?.origin || "Tujuan"} →{" "}
                       {legs[1]?.destination || "Asal"}
                     </span>
                   </div>
@@ -1206,7 +1219,7 @@ export function CreateTripForm({
 
       {/* ─── STEP 2: ARMADA & PESERTA ────────────────────────────────────── */}
       {currentStep === 2 && (
-        <div className="space-y-6">
+        <div className="kbm-fade space-y-6">
           {/* Card Multi-Kendaraan */}
           <div className="glass-card rounded-3xl p-6 sm:p-7 space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-[var(--border-color)]">
@@ -1406,7 +1419,8 @@ export function CreateTripForm({
               <div className="space-y-3">
                 <div className="flex flex-wrap items-center justify-between gap-2 p-3 rounded-2xl bg-[var(--bg-muted)] border border-[var(--border-color)] text-[11px] text-slate-500 dark:text-slate-400">
                   <span>
-                    ⚡ Mode cepat 2 Etape: atur{" "}
+                    <BoltIcon size={13} className="mr-1 text-amber-500" />
+                    Mode cepat 2 Etape: atur{" "}
                     <strong className="text-slate-700 dark:text-slate-200">
                       PP / Pergi / Pulang
                     </strong>{" "}
@@ -1570,7 +1584,7 @@ export function CreateTripForm({
                                       ? "bg-slate-500 text-white border-slate-500"
                                       : opt.id === "pp"
                                         ? "bg-blue-600 text-white border-blue-600"
-                                        : "bg-amber-500 text-white border-amber-500"
+                                        : "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-500/15 dark:text-amber-300 dark:border-amber-500/30"
                                     : "bg-[var(--bg-muted)] border-[var(--border-color)] text-slate-500 dark:text-slate-400 hover:border-slate-400"
                                 }`}
                               >
@@ -1633,7 +1647,7 @@ export function CreateTripForm({
                                   <span className="text-[10px] font-semibold text-slate-500 w-11 shrink-0">
                                     Pergi:
                                   </span>
-                                  <select
+                                  <Select
                                     className="input-field py-0.5 px-1.5 text-[11px] font-semibold rounded-lg flex-1 min-w-0"
                                     value={v1Id}
                                     onChange={(e) => {
@@ -1655,10 +1669,11 @@ export function CreateTripForm({
                                   >
                                     {vehicles.map((v) => (
                                       <option key={v.id} value={v.id}>
-                                        🚗 {v.label}
+                                        <CarIcon size={14} className="mr-1" />
+                                        {v.label}
                                       </option>
                                     ))}
-                                  </select>
+                                  </Select>
                                 </div>
                               )}
                               {join2 && (
@@ -1666,7 +1681,7 @@ export function CreateTripForm({
                                   <span className="text-[10px] font-semibold text-slate-500 w-11 shrink-0">
                                     Pulang:
                                   </span>
-                                  <select
+                                  <Select
                                     className="input-field py-0.5 px-1.5 text-[11px] font-semibold rounded-lg flex-1 min-w-0"
                                     value={v2Id}
                                     onChange={(e) =>
@@ -1679,10 +1694,11 @@ export function CreateTripForm({
                                   >
                                     {vehicles.map((v) => (
                                       <option key={v.id} value={v.id}>
-                                        🚗 {v.label}
+                                        <CarIcon size={14} className="mr-1" />
+                                        {v.label}
                                       </option>
                                     ))}
-                                  </select>
+                                  </Select>
                                 </div>
                               )}
                             </div>
@@ -1745,7 +1761,7 @@ export function CreateTripForm({
                           >
                             <Route className="w-3.5 h-3.5" />
                             <span>
-                              Leg {idx + 1}: {l.origin || "Asal"} ➔{" "}
+                              Leg {idx + 1}: {l.origin || "Asal"} →{" "}
                               {l.destination || "Tujuan"}
                             </span>
                             <span
@@ -1792,7 +1808,8 @@ export function CreateTripForm({
                           key={v.id}
                           className="badge badge-indigo text-xs font-bold py-1 px-2.5"
                         >
-                          🚗 {v.label}: {count} orang ({driversInCar} supir)
+                          <CarIcon size={14} className="mr-1" />
+                          {v.label}: {count} orang ({driversInCar} supir)
                         </span>
                       );
                     })}
@@ -1810,7 +1827,7 @@ export function CreateTripForm({
                       {legs.find(
                         (l) => l.id === (activeLegTabId || legs[0]?.id),
                       )?.origin || "Asal"}{" "}
-                      ➔{" "}
+                      →{" "}
                       {legs.find(
                         (l) => l.id === (activeLegTabId || legs[0]?.id),
                       )?.destination || "Tujuan"}
@@ -1915,7 +1932,7 @@ export function CreateTripForm({
                                 <span className="text-[11px] font-semibold text-slate-500 shrink-0">
                                   Naik Mobil:
                                 </span>
-                                <select
+                                <Select
                                   className="input-field py-1 px-2 text-xs font-semibold rounded-lg flex-1 min-w-0"
                                   value={assignedVid}
                                   onChange={(e) =>
@@ -1928,10 +1945,11 @@ export function CreateTripForm({
                                 >
                                   {vehicles.map((v) => (
                                     <option key={v.id} value={v.id}>
-                                      🚗 {v.label}
+                                      <CarIcon size={14} className="mr-1" />
+                                      {v.label}
                                     </option>
                                   ))}
-                                </select>
+                                </Select>
                               </div>
                             )}
                           </div>
@@ -1991,7 +2009,7 @@ export function CreateTripForm({
 
       {/* ─── STEP 3: PENGELUARAN & REKENING PEMBAYARAN ────────────────────── */}
       {currentStep === 3 && (
-        <div className="space-y-6">
+        <div className="kbm-fade space-y-6">
           {/* Card 1: Rekening Pembayaran Host (Minimalist & Compact) */}
           <div className="glass-card rounded-3xl p-5 sm:p-6 space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-2.5">
@@ -2010,7 +2028,7 @@ export function CreateTripForm({
                     <span
                       className={`text-[10px] font-bold py-0.5 px-2 rounded-full ${
                         selectedAccountIds.length > 0
-                          ? "bg-emerald-500 text-white"
+                          ? "bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-300 dark:ring-emerald-500/30"
                           : "bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300"
                       }`}
                     >
@@ -2035,7 +2053,7 @@ export function CreateTripForm({
                   onClick={() => setShowAccountsPicker((v) => !v)}
                   className={`text-xs px-3 py-1.5 font-bold rounded-xl transition-all flex items-center gap-1.5 border ${
                     showAccountsPicker
-                      ? "bg-emerald-600 text-white border-emerald-600 shadow"
+                      ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/30"
                       : "btn-secondary"
                   }`}
                 >
@@ -2105,7 +2123,7 @@ export function CreateTripForm({
                     <label className="block text-[11px] font-semibold mb-1 text-slate-500">
                       Jenis Saluran
                     </label>
-                    <select
+                    <Select
                       className="input-field py-1.5 text-xs"
                       value={newAccountChannel}
                       onChange={(e) =>
@@ -2120,7 +2138,7 @@ export function CreateTripForm({
                       </option>
                       <option value="cash">Tunai / Cash</option>
                       <option value="other">Lainnya / QRIS</option>
-                    </select>
+                    </Select>
                   </div>
 
                   <div>
@@ -2319,7 +2337,7 @@ export function CreateTripForm({
                     const legIndex = legs.findIndex((l) => l.id === exp.legId);
                     const legObj = legIndex >= 0 ? legs[legIndex] : legs[0];
                     const legText = legObj
-                      ? `Leg ${legIndex >= 0 ? legIndex + 1 : 1} (${legObj.origin || "Asal"} ➔ ${legObj.destination || "Tujuan"})`
+                      ? `Leg ${legIndex >= 0 ? legIndex + 1 : 1} (${legObj.origin || "Asal"} → ${legObj.destination || "Tujuan"})`
                       : "";
 
                     return (
@@ -2328,8 +2346,11 @@ export function CreateTripForm({
                         className="p-3 rounded-xl bg-[var(--bg-secondary)] border border-[var(--border-color)] flex flex-wrap items-center justify-between gap-3 hover:border-slate-300 dark:hover:border-slate-600 transition-all"
                       >
                         <div className="flex items-center gap-2.5 min-w-0">
-                          <span className="text-xl shrink-0">
-                            {exp.isFoodStop ? "🍽️" : catObj?.emoji || "📦"}
+                          <span className="channel-icon-tile shrink-0">
+                            <CategoryIcon
+                              id={exp.isFoodStop ? "makan" : catObj?.id}
+                              size={18}
+                            />
                           </span>
                           <div className="min-w-0">
                             <div className="flex items-center gap-2">
@@ -2425,7 +2446,7 @@ export function CreateTripForm({
 
       {/* ─── STEP 4: REVIEW & SIMPAN ─────────────────────────────────────── */}
       {currentStep === 4 && (
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} className="kbm-fade space-y-6">
           <div className="glass-card rounded-3xl p-6 sm:p-8 space-y-6">
             <div className="flex items-center gap-3 pb-4 border-b border-[var(--border-color)]">
               <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
@@ -2474,13 +2495,14 @@ export function CreateTripForm({
                     >
                       <Route className="w-3 h-3 text-blue-500 shrink-0" />
                       <span>
-                        Leg {i + 1}: {l.origin || "?"} ➔ {l.destination || "?"}
+                        Leg {i + 1}: {l.origin || "?"} → {l.destination || "?"}
                       </span>
                     </div>
                   ))}
                 </div>
                 <p className="text-xs text-slate-500 pt-1">
-                  📅 {startDate} {endDate ? `s/d ${endDate}` : "(1 Hari)"}
+                  <CalendarIcon size={13} className="mr-1" />
+                  {startDate} {endDate ? `s/d ${endDate}` : "(1 Hari)"}
                 </p>
               </div>
 
@@ -2567,7 +2589,7 @@ export function CreateTripForm({
                     .map((a) => (
                       <span
                         key={a.id}
-                        className="badge badge-emerald text-xs font-bold py-1 px-2.5 flex items-center gap-1.5"
+                        className="badge badge-emerald text-xs font-bold py-1 px-2.5 items-center gap-1.5"
                       >
                         <CreditCard className="w-3.5 h-3.5" />
                         <span>
@@ -2611,7 +2633,7 @@ export function CreateTripForm({
                           Leg {legIdx + 1}
                         </span>
                         <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
-                          {leg.origin || "Asal"} ➔ {leg.destination || "Tujuan"}
+                          {leg.origin || "Asal"} → {leg.destination || "Tujuan"}
                         </span>
                       </div>
 
@@ -2659,7 +2681,11 @@ export function CreateTripForm({
                                         <span>{name}</span>
                                         {isDriver && (
                                           <span className="badge badge-blue text-[9px] py-0.2 px-1 font-bold">
-                                            🚗 Supir
+                                            <SteeringIcon
+                                              size={13}
+                                              className="mr-1"
+                                            />
+                                            Supir
                                           </span>
                                         )}
                                       </div>

@@ -39,7 +39,7 @@ export function GenerateReportButton({
       }
     : {
         background: "rgba(46, 90, 172, 0.10)",
-        color: "#2E5AAC",
+        color: "var(--brand-ink)",
         border: "1px solid rgba(46, 90, 172, 0.25)",
       };
 

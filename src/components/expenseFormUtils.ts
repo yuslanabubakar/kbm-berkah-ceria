@@ -13,7 +13,6 @@ export type LegVehicleOption = {
 export type ExpenseCategory = {
   id: string;
   label: string;
-  emoji: string;
   keywords: string[];
   color: string;
 };
@@ -22,7 +21,6 @@ export const EXPENSE_CATEGORIES: ExpenseCategory[] = [
   {
     id: "bbm",
     label: "BBM / Bensin",
-    emoji: "⛽",
     keywords: [
       "bensin",
       "bbm",
@@ -33,12 +31,11 @@ export const EXPENSE_CATEGORIES: ExpenseCategory[] = [
       "spbu",
       "fuel",
     ],
-    color: "#f59e0b",
+    color: "#E9B884",
   },
   {
     id: "tol",
     label: "Tol",
-    emoji: "🛣️",
     keywords: [
       "tol",
       "toll",
@@ -48,12 +45,11 @@ export const EXPENSE_CATEGORIES: ExpenseCategory[] = [
       "tol jagorawi",
       "jalan tol",
     ],
-    color: "#6366f1",
+    color: "#9DBBEC",
   },
   {
     id: "makan",
     label: "Makan & Minum",
-    emoji: "🍽️",
     keywords: [
       "makan",
       "minum",
@@ -72,19 +68,17 @@ export const EXPENSE_CATEGORIES: ExpenseCategory[] = [
       "jajanan",
       "kopi",
     ],
-    color: "#10b981",
+    color: "#E5A5AE",
   },
   {
     id: "parkir",
     label: "Parkir",
-    emoji: "🅿️",
     keywords: ["parkir", "parking", "valet", "inap"],
-    color: "#8b5cf6",
+    color: "#BFACEB",
   },
   {
     id: "hotel",
     label: "Hotel / Penginapan",
-    emoji: "🏨",
     keywords: [
       "hotel",
       "penginapan",
@@ -96,12 +90,11 @@ export const EXPENSE_CATEGORIES: ExpenseCategory[] = [
       "hostel",
       "kamar",
     ],
-    color: "#2E5AAC",
+    color: "#8CCBC6",
   },
   {
     id: "tiket",
     label: "Tiket & Wisata",
-    emoji: "🎫",
     keywords: [
       "tiket",
       "ticket",
@@ -114,12 +107,11 @@ export const EXPENSE_CATEGORIES: ExpenseCategory[] = [
       "pantai",
       "resort",
     ],
-    color: "#ec4899",
+    color: "#E2A4C5",
   },
   {
     id: "belanja",
     label: "Belanja & Oleh-oleh",
-    emoji: "🛍️",
     keywords: [
       "belanja",
       "oleh",
@@ -129,12 +121,11 @@ export const EXPENSE_CATEGORIES: ExpenseCategory[] = [
       "pasar",
       "mall",
     ],
-    color: "#FF7B6A",
+    color: "#98CAAB",
   },
   {
     id: "transport",
     label: "Transportasi",
-    emoji: "🚗",
     keywords: [
       "sewa",
       "rental",
@@ -150,14 +141,13 @@ export const EXPENSE_CATEGORIES: ExpenseCategory[] = [
       "gojek",
       "angkot",
     ],
-    color: "#0ea5e9",
+    color: "#A9B5EC",
   },
   {
     id: "lainnya",
     label: "Lainnya",
-    emoji: "📌",
     keywords: [],
-    color: "#94a3b8",
+    color: "#BAC4D3",
   },
 ];
 

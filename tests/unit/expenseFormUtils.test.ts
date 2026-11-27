@@ -69,7 +69,7 @@ describe("expenseFormUtils", () => {
     test("returns matching category object", () => {
       const cat = getCategoryById("bbm");
       assert.equal(cat.id, "bbm");
-      assert.equal(cat.emoji, "⛽");
+      assert.equal(cat.label, "BBM / Bensin");
     });
 
     test("returns lainnya fallback for unknown category id", () => {

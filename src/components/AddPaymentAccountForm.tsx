@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { UserPaymentAccount } from "@/types/expense";
+import { Select } from "@/components/ui/Select";
 
 type PaymentChannel = "bank" | "ewallet" | "cash" | "other";
 
@@ -76,9 +77,9 @@ export function AddPaymentAccountForm({ onSuccess }: Props) {
         <div
           className="rounded-2xl p-3 text-sm"
           style={{
-            background: "rgba(225, 29, 72, 0.08)",
-            color: "#e11d48",
-            border: "1px solid rgba(225, 29, 72, 0.2)",
+            background: "var(--rose-bg)",
+            color: "var(--rose-text)",
+            border: "1.5px solid var(--rose-border)",
           }}
         >
           {error}
@@ -110,7 +111,7 @@ export function AddPaymentAccountForm({ onSuccess }: Props) {
         >
           Jenis Akun <span className="text-red-500">*</span>
         </label>
-        <select
+        <Select
           value={formData.channel}
           onChange={(e) =>
             setFormData({
@@ -124,7 +125,7 @@ export function AddPaymentAccountForm({ onSuccess }: Props) {
           <option value="ewallet">E-Wallet / QRIS</option>
           <option value="cash">Tunai</option>
           <option value="other">Lainnya</option>
-        </select>
+        </Select>
       </div>
 
       {(formData.channel === "bank" || formData.channel === "ewallet") && (

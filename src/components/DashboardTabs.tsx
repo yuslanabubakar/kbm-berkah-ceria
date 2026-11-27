@@ -16,6 +16,7 @@ import { TripShareManager } from "@/components/TripShareManager";
 import type { Trip } from "@/types/expense";
 import type { UserPaymentAccount } from "@/types/expense";
 import { formatRupiah } from "@/lib/formatCurrency";
+import { LinkIcon, MapIcon } from "@/components/icons/KbmIcons";
 
 type TripSummary = Trip & {
   isOwner: boolean;
@@ -64,18 +65,12 @@ function StatCard({
   color: string;
 }) {
   return (
-    <div
-      className="glass-card rounded-2xl p-5"
-      style={{ borderLeft: `3px solid ${color}` }}
-    >
-      <p
-        className="text-xs font-semibold uppercase tracking-wider"
-        style={{ color }}
-      >
+    <div className="glass-card rounded-2xl p-5">
+      <span className="badge badge-blue whitespace-nowrap text-[10px] uppercase tracking-wider">
         {label}
-      </p>
+      </span>
       <p
-        className="mt-1 text-2xl font-extrabold"
+        className="mt-3 font-display text-2xl font-black"
         style={{ color: "var(--text-primary)" }}
       >
         {value}
@@ -246,7 +241,7 @@ export function DashboardTabs({ trips, userAccounts }: Props) {
       <div className="animate-fade-in">
         {/* TRIPS TAB */}
         {activeTab === "trips" && (
-          <div className="space-y-5">
+          <div className="kbm-fade space-y-5">
             {/* Search & Filter */}
             <div className="flex flex-wrap gap-3">
               <input
@@ -301,7 +296,9 @@ export function DashboardTabs({ trips, userAccounts }: Props) {
                   border: "1px dashed var(--border-strong)",
                 }}
               >
-                <p className="text-4xl mb-3">🗺️</p>
+                <span className="empty-icon-tile mb-4">
+                  <MapIcon size={28} />
+                </span>
                 <p
                   className="font-semibold"
                   style={{ color: "var(--text-primary)" }}
@@ -331,12 +328,14 @@ export function DashboardTabs({ trips, userAccounts }: Props) {
 
         {/* PAYMENTS TAB */}
         {activeTab === "payments" && (
-          <DashboardPaymentSection initialAccounts={userAccounts} />
+          <div className="kbm-fade">
+            <DashboardPaymentSection initialAccounts={userAccounts} />
+          </div>
         )}
 
         {/* SHARES TAB */}
         {activeTab === "shares" && (
-          <div className="space-y-4">
+          <div className="kbm-fade space-y-4">
             {ownerTrips.length > 0 ? (
               ownerTrips.map((trip) => (
                 <TripShareManager
@@ -354,7 +353,9 @@ export function DashboardTabs({ trips, userAccounts }: Props) {
                   border: "1px dashed var(--border-strong)",
                 }}
               >
-                <p className="text-4xl mb-3">🔗</p>
+                <span className="empty-icon-tile mb-4">
+                  <LinkIcon size={28} />
+                </span>
                 <p
                   className="font-semibold"
                   style={{ color: "var(--text-primary)" }}
@@ -373,7 +374,11 @@ export function DashboardTabs({ trips, userAccounts }: Props) {
         )}
 
         {/* STATS TAB */}
-        {activeTab === "stats" && <StatsTab trips={trips} />}
+        {activeTab === "stats" && (
+          <div className="kbm-fade">
+            <StatsTab trips={trips} />
+          </div>
+        )}
       </div>
 
       {/* ── Mobile Bottom Nav ─────────── */}
@@ -381,7 +386,7 @@ export function DashboardTabs({ trips, userAccounts }: Props) {
         className="fixed bottom-0 left-0 right-0 z-40 flex md:hidden pb-safe"
         style={{
           background: "var(--navbar-bg)",
-          borderTop: "1px solid var(--border-color)",
+          borderTop: "2px solid var(--border-color)",
           backdropFilter: "blur(20px)",
         }}
       >
@@ -392,15 +397,20 @@ export function DashboardTabs({ trips, userAccounts }: Props) {
               key={id}
               type="button"
               onClick={() => setActiveTab(id)}
-              className="flex flex-1 flex-col items-center gap-1 py-3 text-[10px] font-semibold transition-colors"
-              style={{ color: active ? "#2E5AAC" : "var(--text-muted)" }}
+              className="flex flex-1 flex-col items-center gap-1 py-2.5 font-display text-[11px] font-extrabold transition-colors"
+              style={{
+                color: active ? "var(--brand-ink)" : "var(--text-muted)",
+              }}
+              aria-current={active ? "page" : undefined}
             >
-              <Icon
-                size={20}
-                strokeWidth={active ? 2.5 : 1.8}
-                className="transition-transform"
-                style={{ transform: active ? "scale(1.1)" : "scale(1)" }}
-              />
+              <span
+                className="flex h-8 w-12 items-center justify-center rounded-full transition-colors"
+                style={{
+                  background: active ? "var(--brand-soft)" : "transparent",
+                }}
+              >
+                <Icon size={20} strokeWidth={active ? 2.4 : 1.9} />
+              </span>
               {mobileLabel}
             </button>
           );

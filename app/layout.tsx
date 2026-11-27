@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import "@fontsource-variable/nunito";
+import "@fontsource-variable/nunito-sans";
 import "./globals.css";
 import { Navbar } from "@/components/Navbar";
 import { ThemeProvider } from "@/components/ThemeProvider";
@@ -8,6 +10,10 @@ export const metadata: Metadata = {
   title: "KBM Berkah Ceria",
   description: "Catat dan bagi biaya perjalanan pakai Rupiah dengan mudah",
   keywords: ["perjalanan", "split bill", "biaya bersama", "rupiah"],
+  icons: {
+    icon: [{ url: "/icon.svg", type: "image/svg+xml" }],
+    apple: [{ url: "/icon.svg" }],
+  },
   openGraph: {
     title: "KBM Berkah Ceria",
     description: "Catat dan bagi biaya perjalanan pakai Rupiah dengan mudah",

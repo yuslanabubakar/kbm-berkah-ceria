@@ -32,6 +32,15 @@ import {
   detectCategory,
   getLegShortName,
 } from "@/components/expenseFormUtils";
+import { Select } from "@/components/ui/Select";
+import {
+  BoltIcon,
+  BoxIcon,
+  CarIcon,
+  CategoryIcon,
+  LightbulbIcon,
+  UsersIcon,
+} from "@/components/icons/KbmIcons";
 
 export type LocalExpenseDraft = {
   title: string;
@@ -60,37 +69,32 @@ type FormMode = "single" | "batch";
 
 const QUICK_KINDS: Array<{
   id: QuickExpenseKind;
-  emoji: string;
   label: string;
   activeClass: string;
 }> = [
   {
     id: "bbm",
-    emoji: "⛽",
     label: "Bensin",
     activeClass:
-      "bg-amber-500/15 border-amber-500/50 text-amber-700 dark:text-amber-300",
+      "bg-blue-50 border-blue-300 text-blue-700 dark:bg-blue-500/15 dark:border-blue-400/40 dark:text-blue-200",
   },
   {
     id: "tol",
-    emoji: "🛣️",
     label: "Tol",
     activeClass:
-      "bg-indigo-500/15 border-indigo-500/50 text-indigo-700 dark:text-indigo-300",
+      "bg-blue-50 border-blue-300 text-blue-700 dark:bg-blue-500/15 dark:border-blue-400/40 dark:text-blue-200",
   },
   {
     id: "makan",
-    emoji: "🍽️",
     label: "Makan",
     activeClass:
-      "bg-emerald-500/15 border-emerald-500/50 text-emerald-700 dark:text-emerald-300",
+      "bg-blue-50 border-blue-300 text-blue-700 dark:bg-blue-500/15 dark:border-blue-400/40 dark:text-blue-200",
   },
   {
     id: "lainnya",
-    emoji: "📦",
     label: "Lainnya",
     activeClass:
-      "bg-blue-500/15 border-blue-500/50 text-blue-700 dark:text-blue-300",
+      "bg-blue-50 border-blue-300 text-blue-700 dark:bg-blue-500/15 dark:border-blue-400/40 dark:text-blue-200",
   },
 ];
 
@@ -624,7 +628,10 @@ export function ExpenseForm({
               : "text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white",
           )}
         >
-          <span>⚡ Satuan</span>
+          <span className="inline-flex items-center gap-1.5">
+            <BoltIcon size={14} />
+            Satuan
+          </span>
         </button>
         <button
           type="button"
@@ -661,7 +668,7 @@ export function ExpenseForm({
               {sortedLegs.map((leg, idx) => {
                 const active = selectedLeg?.id === leg.id;
                 const shortName = getLegShortName(idx, sortedLegs.length);
-                const routeLabel = leg.label.replace(/[\u21c4\u2192]/g, "➔");
+                const routeLabel = leg.label.replace(/[\u21c4\u2192]/g, "→");
                 return (
                   <button
                     key={leg.id}
@@ -707,7 +714,7 @@ export function ExpenseForm({
                       : "bg-[var(--bg-muted)] border-[var(--border-color)] text-slate-600 dark:text-slate-300 hover:border-slate-400",
                   )}
                 >
-                  <span className="text-sm leading-none">{item.emoji}</span>
+                  <CategoryIcon id={item.id} size={16} />
                   <span>{item.label}</span>
                 </button>
               );
@@ -778,7 +785,7 @@ export function ExpenseForm({
               </div>
 
               <div>
-                <select
+                <Select
                   value={paidById}
                   onChange={(e) => setPaidById(e.target.value)}
                   className="input-field text-sm font-semibold"
@@ -790,14 +797,14 @@ export function ExpenseForm({
                       Talangan: {p.nama}
                     </option>
                   ))}
-                </select>
+                </Select>
               </div>
             </div>
           ) : (
-            /* Food Stop Inline Section (Auto-opened when user taps "🍽️ Makan") */
+            /* Food Stop Inline Section (Auto-opened when user taps "Makan") */
             <div className="space-y-2.5 rounded-2xl p-3 bg-amber-500/5 border border-amber-500/25">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <select
+                <Select
                   value={paidById}
                   onChange={(e) => setPaidById(e.target.value)}
                   className="input-field py-1.5 text-xs font-semibold flex-1 min-w-[140px]"
@@ -808,7 +815,7 @@ export function ExpenseForm({
                       Talangan: {p.nama}
                     </option>
                   ))}
-                </select>
+                </Select>
                 {legVehicles.length > 1 && (
                   <div className="flex flex-wrap gap-1">
                     {legVehicles.map((v) => (
@@ -822,11 +829,12 @@ export function ExpenseForm({
                         className={clsx(
                           "rounded-lg px-2 py-1 text-[11px] font-bold border",
                           effectiveVehicleId === v.id
-                            ? "bg-indigo-600 text-white border-indigo-600"
+                            ? "bg-blue-600 text-white border-blue-600"
                             : "bg-[var(--bg-card)] border-[var(--border-color)] text-slate-600 dark:text-slate-300",
                         )}
                       >
-                        🚗 {v.label}
+                        <CarIcon size={14} className="mr-1" />
+                        {v.label}
                       </button>
                     ))}
                   </div>
@@ -944,7 +952,8 @@ export function ExpenseForm({
                           : "bg-[var(--bg-card)] border-[var(--border-color)] text-slate-600 dark:text-slate-300",
                       )}
                     >
-                      🌐 Semua penumpang etape ini
+                      <UsersIcon size={14} className="mr-1" />
+                      Semua penumpang etape ini
                     </button>
                     <button
                       type="button"
@@ -957,11 +966,12 @@ export function ExpenseForm({
                       className={clsx(
                         "rounded-lg px-2.5 py-1.5 text-xs font-semibold border",
                         shareScope === "vehicle"
-                          ? "bg-indigo-600 text-white border-indigo-600"
+                          ? "bg-blue-600 text-white border-blue-600"
                           : "bg-[var(--bg-card)] border-[var(--border-color)] text-slate-600 dark:text-slate-300",
                       )}
                     >
-                      🚗 Khusus mobil tertentu
+                      <CarIcon size={14} className="mr-1" />
+                      Khusus mobil tertentu
                     </button>
                   </div>
 
@@ -975,11 +985,12 @@ export function ExpenseForm({
                           className={clsx(
                             "rounded-lg px-2.5 py-1 text-xs font-bold border",
                             effectiveVehicleId === v.id
-                              ? "bg-indigo-600 text-white border-indigo-600"
+                              ? "bg-blue-600 text-white border-blue-600"
                               : "bg-[var(--bg-card)] border-[var(--border-color)] text-slate-600 dark:text-slate-300",
                           )}
                         >
-                          🚗 {v.label} ({v.assignments.length} org)
+                          <CarIcon size={14} className="mr-1" />
+                          {v.label} ({v.assignments.length} org)
                         </button>
                       ))}
                     </div>
@@ -1054,7 +1065,7 @@ export function ExpenseForm({
               <span className="text-[11px] font-semibold text-slate-500">
                 Talangan default:
               </span>
-              <select
+              <Select
                 value={batchDefaultPayer}
                 onChange={(e) => handleChangeBatchDefaultPayer(e.target.value)}
                 className="input-field py-1 px-2 text-xs font-bold w-auto min-w-[140px]"
@@ -1065,7 +1076,7 @@ export function ExpenseForm({
                     {p.nama}
                   </option>
                 ))}
-              </select>
+              </Select>
             </div>
           ) : (
             <div className="p-2.5 rounded-xl bg-[var(--bg-muted)] border border-[var(--border-color)] space-y-1.5">
@@ -1084,7 +1095,8 @@ export function ExpenseForm({
                         : "text-slate-500 dark:text-slate-400",
                     )}
                   >
-                    🌐 Lintas mobil
+                    <UsersIcon size={14} className="mr-1" />
+                    Lintas mobil
                   </button>
                   <button
                     type="button"
@@ -1092,18 +1104,20 @@ export function ExpenseForm({
                     className={clsx(
                       "px-2 py-1.5 sm:py-1 rounded-md text-[11px] font-bold transition-all text-center whitespace-nowrap",
                       batchShareScope === "vehicle"
-                        ? "bg-indigo-600 text-white shadow-sm"
+                        ? "bg-blue-600 text-white shadow-sm"
                         : "text-slate-500 dark:text-slate-400",
                     )}
                   >
-                    🚗 Per mobil
+                    <CarIcon size={14} className="mr-1" />
+                    Per mobil
                   </button>
                 </div>
               </div>
               <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                <LightbulbIcon size={13} className="mr-1 text-amber-500" />
                 {batchShareScope === "leg"
-                  ? "💡 Biaya seluruh mobil di etape ini digabung & dibagi ke semua penumpang."
-                  : "💡 Biaya tiap mobil hanya ditanggung oleh penumpang di mobil masing-masing."}
+                  ? "Biaya seluruh mobil di etape ini digabung & dibagi ke semua penumpang."
+                  : "Biaya tiap mobil hanya ditanggung oleh penumpang di mobil masing-masing."}
               </p>
             </div>
           )}
@@ -1138,9 +1152,17 @@ export function ExpenseForm({
                             className="text-xs font-extrabold truncate"
                             style={{ color: "var(--text-primary)" }}
                           >
-                            {group.vehicleId === "__other__"
-                              ? "📦 Tambahan"
-                              : `🚗 ${group.vehicleLabel}`}
+                            {group.vehicleId === "__other__" ? (
+                              <>
+                                <BoxIcon size={14} className="mr-1" />
+                                Tambahan
+                              </>
+                            ) : (
+                              <>
+                                <CarIcon size={14} className="mr-1" />
+                                {group.vehicleLabel}
+                              </>
+                            )}
                           </span>
                           {group.vehicleId !== "__other__" && (
                             <span
@@ -1162,7 +1184,7 @@ export function ExpenseForm({
                             <span className="text-[10px] text-slate-400 font-semibold">
                               Talangan:
                             </span>
-                            <select
+                            <Select
                               value={groupPayer}
                               onChange={(e) =>
                                 handleChangeVehicleBatchPayer(
@@ -1177,7 +1199,7 @@ export function ExpenseForm({
                                   {p.nama}
                                 </option>
                               ))}
-                            </select>
+                            </Select>
                           </div>
                         )}
                       </div>
@@ -1194,12 +1216,17 @@ export function ExpenseForm({
                             )}
                           >
                             <div className="flex items-center gap-1.5 flex-1 min-w-0">
-                              <span className="text-sm shrink-0">
-                                {row.kind === "tol"
-                                  ? "🛣️"
-                                  : row.kind === "bbm"
-                                    ? "⛽"
-                                    : "📦"}
+                              <span className="inline-flex shrink-0 text-[color:var(--brand-ink)]">
+                                <CategoryIcon
+                                  id={
+                                    row.kind === "tol"
+                                      ? "tol"
+                                      : row.kind === "bbm"
+                                        ? "bbm"
+                                        : "lainnya"
+                                  }
+                                  size={16}
+                                />
                               </span>
                               <input
                                 type="text"
@@ -1213,7 +1240,7 @@ export function ExpenseForm({
                               />
                               {sortedLegs.length > 1 &&
                                 row.id.startsWith("extra-") && (
-                                  <select
+                                  <Select
                                     value={row.legId}
                                     onChange={(e) =>
                                       handleUpdateBatchRow(row.id, {
@@ -1227,7 +1254,7 @@ export function ExpenseForm({
                                         {getLegShortName(i, sortedLegs.length)}
                                       </option>
                                     ))}
-                                  </select>
+                                  </Select>
                                 )}
                             </div>
 
@@ -1252,7 +1279,7 @@ export function ExpenseForm({
                                 />
                               </div>
 
-                              <select
+                              <Select
                                 value={row.paidById}
                                 onChange={(e) =>
                                   handleUpdateBatchRow(row.id, {
@@ -1266,7 +1293,7 @@ export function ExpenseForm({
                                     {p.nama}
                                   </option>
                                 ))}
-                              </select>
+                              </Select>
 
                               {row.id.startsWith("extra-") && (
                                 <button
@@ -1297,12 +1324,17 @@ export function ExpenseForm({
                   >
                     {/* Title + Leg */}
                     <div className="flex items-center gap-1.5 flex-1 min-w-0">
-                      <span className="text-sm shrink-0">
-                        {row.kind === "tol"
-                          ? "🛣️"
-                          : row.kind === "bbm"
-                            ? "⛽"
-                            : "📦"}
+                      <span className="inline-flex shrink-0 text-[color:var(--brand-ink)]">
+                        <CategoryIcon
+                          id={
+                            row.kind === "tol"
+                              ? "tol"
+                              : row.kind === "bbm"
+                                ? "bbm"
+                                : "lainnya"
+                          }
+                          size={16}
+                        />
                       </span>
                       <input
                         type="text"
@@ -1315,7 +1347,7 @@ export function ExpenseForm({
                         className="input-field py-1 px-2 text-xs font-bold flex-1 min-w-0"
                       />
                       {sortedLegs.length > 1 && row.id.startsWith("extra-") && (
-                        <select
+                        <Select
                           value={row.legId}
                           onChange={(e) =>
                             handleUpdateBatchRow(row.id, {
@@ -1329,7 +1361,7 @@ export function ExpenseForm({
                               {getLegShortName(i, sortedLegs.length)}
                             </option>
                           ))}
-                        </select>
+                        </Select>
                       )}
                     </div>
 
@@ -1353,7 +1385,7 @@ export function ExpenseForm({
                         />
                       </div>
 
-                      <select
+                      <Select
                         value={row.paidById}
                         onChange={(e) =>
                           handleUpdateBatchRow(row.id, {
@@ -1367,7 +1399,7 @@ export function ExpenseForm({
                             {p.nama}
                           </option>
                         ))}
-                      </select>
+                      </Select>
 
                       {row.id.startsWith("extra-") && (
                         <button

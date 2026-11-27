@@ -124,11 +124,9 @@ export function GenerateWhatsappButton({
         border: "1px solid rgba(255,255,255,0.35)",
       }
     : {
-        background: copied
-          ? "rgba(16, 185, 129, 0.15)"
-          : "rgba(37, 211, 102, 0.10)",
-        color: copied ? "#047857" : "#059669",
-        border: `1px solid ${copied ? "rgba(16, 185, 129, 0.4)" : "rgba(37, 211, 102, 0.3)"}`,
+        background: copied ? "var(--green-bg)" : "var(--green-bg)",
+        color: "var(--green-text)",
+        border: `1.5px solid ${copied ? "var(--green-border)" : "var(--green-border)"}`,
       };
 
   return (

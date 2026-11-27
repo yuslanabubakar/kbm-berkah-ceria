@@ -4,22 +4,13 @@ import { useState } from "react";
 import type { UserPaymentAccount } from "@/types/expense";
 import { Pencil, Trash2, Star } from "lucide-react";
 import { useToast } from "@/components/Toast";
+import { CardIcon, PaymentChannelIcon } from "@/components/icons/KbmIcons";
 
 type Props = {
   accounts: UserPaymentAccount[];
   onDelete: (accountId: string) => void;
   onEdit: (account: UserPaymentAccount) => void;
 };
-
-function getChannelEmoji(channel: string) {
-  const icons: Record<string, string> = {
-    bank: "🏦",
-    ewallet: "💳",
-    cash: "💵",
-    other: "📱",
-  };
-  return icons[channel] || "💰";
-}
 
 function getChannelLabel(channel: string) {
   const labels: Record<string, string> = {
@@ -64,7 +55,9 @@ export function PaymentAccountsList({ accounts, onDelete, onEdit }: Props) {
           border: "1px dashed var(--border-strong)",
         }}
       >
-        <p className="text-2xl mb-2">💳</p>
+        <span className="empty-icon-tile mb-3">
+          <CardIcon size={26} />
+        </span>
         <p className="text-sm" style={{ color: "var(--text-muted)" }}>
           Belum ada metode pembayaran. Tambahkan yang pertama!
         </p>
@@ -86,8 +79,8 @@ export function PaymentAccountsList({ accounts, onDelete, onEdit }: Props) {
         >
           <div className="flex items-start justify-between gap-2">
             <div className="flex items-start gap-3 flex-1 min-w-0">
-              <span className="text-xl mt-0.5">
-                {getChannelEmoji(account.channel)}
+              <span className="channel-icon-tile mt-0.5">
+                <PaymentChannelIcon channel={account.channel} size={18} />
               </span>
               <div className="flex-1 min-w-0">
                 <div className="flex flex-wrap items-center gap-1.5">
@@ -142,7 +135,10 @@ export function PaymentAccountsList({ accounts, onDelete, onEdit }: Props) {
                 type="button"
                 onClick={() => onEdit(account)}
                 className="flex h-8 w-8 items-center justify-center rounded-xl transition-all"
-                style={{ background: "var(--bg-muted)", color: "#2E5AAC" }}
+                style={{
+                  background: "var(--bg-muted)",
+                  color: "var(--brand-ink)",
+                }}
               >
                 <Pencil size={14} />
               </button>
@@ -152,8 +148,8 @@ export function PaymentAccountsList({ accounts, onDelete, onEdit }: Props) {
                 disabled={deleting === account.id}
                 className="flex h-8 w-8 items-center justify-center rounded-xl transition-all disabled:opacity-50"
                 style={{
-                  background: "rgba(225, 29, 72, 0.08)",
-                  color: "#e11d48",
+                  background: "var(--rose-bg)",
+                  color: "var(--rose-text)",
                 }}
               >
                 <Trash2 size={14} />

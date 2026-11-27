@@ -15,6 +15,12 @@ import {
   type LegVehicleOption,
 } from "@/components/expenseFormUtils";
 import clsx from "clsx";
+import { Select } from "@/components/ui/Select";
+import {
+  ChevronDownIcon,
+  FoodIcon,
+  LightbulbIcon,
+} from "@/components/icons/KbmIcons";
 
 type ExpenseListProps = {
   tripId: string;
@@ -173,8 +179,12 @@ export function ExpenseList({
                             }
                             className="badge badge-amber text-[9px] py-0.2 px-1.5 font-bold hover:underline cursor-pointer"
                           >
-                            🍽️ {expense.splits?.length} Porsi{" "}
-                            {isSplitExpanded ? "▲" : "▼"}
+                            <FoodIcon size={13} className="mr-1" />
+                            {expense.splits?.length} Porsi{" "}
+                            <ChevronDownIcon
+                              size={12}
+                              className={isSplitExpanded ? "rotate-180" : ""}
+                            />
                           </button>
                         )}
                       </div>
@@ -286,7 +296,8 @@ export function ExpenseList({
                       </span>
                       {hasSplits && (
                         <span className="badge badge-amber text-[9px] py-0 px-1 font-bold">
-                          🍽️ Makan
+                          <FoodIcon size={13} className="mr-1" />
+                          Makan
                         </span>
                       )}
                     </div>
@@ -333,9 +344,13 @@ export function ExpenseList({
                       }
                       className="text-[10px] font-bold text-amber-600 dark:text-amber-400 hover:underline"
                     >
+                      <ChevronDownIcon
+                        size={12}
+                        className={`mr-1 ${isSplitExpanded ? "rotate-180" : ""}`}
+                      />
                       {isSplitExpanded
-                        ? "▲ Sembunyikan Rincian Porsi"
-                        : `▼ Lihat Rincian ${expense.splits?.length} Orang`}
+                        ? "Sembunyikan Rincian Porsi"
+                        : `Lihat Rincian ${expense.splits?.length} Orang`}
                     </button>
 
                     {isSplitExpanded && (
@@ -619,7 +634,7 @@ function ExpenseEditDialog({
             >
               Dibayar oleh
             </label>
-            <select
+            <Select
               value={values.paidById}
               onChange={(e) =>
                 setValues((prev) => ({ ...prev, paidById: e.target.value }))
@@ -631,7 +646,7 @@ function ExpenseEditDialog({
                   {participant.nama}
                 </option>
               ))}
-            </select>
+            </Select>
             {errors.paidById && (
               <p className="mt-1 text-xs text-rose-600">{errors.paidById}</p>
             )}
@@ -644,7 +659,7 @@ function ExpenseEditDialog({
             >
               Leg & kendaraan
             </label>
-            <select
+            <Select
               value={`${values.legId}::${values.vehicleId ?? "none"}`}
               onChange={(e) => {
                 const target = legVehicleOptions.find(
@@ -668,7 +683,7 @@ function ExpenseEditDialog({
                   {option.label}
                 </option>
               ))}
-            </select>
+            </Select>
             {errors.legId && (
               <p className="mt-1 text-xs text-rose-600">{errors.legId}</p>
             )}
@@ -726,9 +741,10 @@ function ExpenseEditDialog({
             </label>
           </div>
           <p className="mt-1.5 text-xs" style={{ color: "var(--text-muted)" }}>
+            <LightbulbIcon size={13} className="mr-1 text-amber-500" />
             {values.shareScope === "leg"
-              ? "💡 Dibagi rata ke seluruh penumpang di leg ini (diskon supir maks 50%/mobil, peserta 1 arah +10% bobot)."
-              : "💡 Hanya ditanggung oleh penumpang di mobil terpilih (diskon supir maks 50%/mobil, peserta 1 arah +10% bobot)."}
+              ? "Dibagi rata ke seluruh penumpang di leg ini (diskon supir maks 50%/mobil, peserta 1 arah +10% bobot)."
+              : "Hanya ditanggung oleh penumpang di mobil terpilih (diskon supir maks 50%/mobil, peserta 1 arah +10% bobot)."}
           </p>
           {errors.shareScope && (
             <p className="mt-1 text-xs text-rose-600">{errors.shareScope}</p>

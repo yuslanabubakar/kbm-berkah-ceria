@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import type { TripParticipant } from "@/lib/tripQueries";
 import { Users, UserPlus, Check, Trash2, Shield } from "lucide-react";
 import { useToast } from "@/components/Toast";
+import { SteeringIcon } from "@/components/icons/KbmIcons";
 
 type ParticipantManagerProps = {
   tripId: string;
@@ -181,7 +182,7 @@ export function ParticipantManager({
             className="flex h-9 w-9 items-center justify-center rounded-xl"
             style={{ background: "rgba(46, 90, 172, 0.12)" }}
           >
-            <Users size={18} style={{ color: "#2E5AAC" }} />
+            <Users size={18} style={{ color: "var(--brand-ink)" }} />
           </div>
           <div>
             <h2
@@ -195,7 +196,7 @@ export function ParticipantManager({
             </p>
           </div>
         </div>
-        <span className="badge badge-blue text-xs flex items-center gap-1">
+        <span className="badge badge-blue text-xs items-center gap-1">
           <Shield size={12} />
           Host Mode
         </span>
@@ -213,7 +214,7 @@ export function ParticipantManager({
         >
           <div>
             <div className="flex items-center gap-2 mb-2">
-              <UserPlus size={16} style={{ color: "#2E5AAC" }} />
+              <UserPlus size={16} style={{ color: "var(--brand-ink)" }} />
               <h3
                 className="font-bold text-sm"
                 style={{ color: "var(--text-primary)" }}
@@ -254,7 +255,8 @@ export function ParticipantManager({
                   className="text-xs font-semibold"
                   style={{ color: "var(--text-primary)" }}
                 >
-                  🚗 Supir default (atur peran supir per etape di tab Armada)
+                  <SteeringIcon size={13} className="mr-1" />
+                  Supir default (atur peran supir per etape di tab Armada)
                 </span>
               </label>
             </div>
@@ -314,9 +316,9 @@ export function ParticipantManager({
                     disabled={savingId === row.id}
                     className="flex h-8 w-8 items-center justify-center rounded-xl transition-all disabled:opacity-50"
                     style={{
-                      background: "rgba(16, 185, 129, 0.15)",
-                      color: "#047857",
-                      border: "1px solid rgba(16, 185, 129, 0.3)",
+                      background: "var(--green-bg)",
+                      color: "var(--green-text)",
+                      border: "1.5px solid var(--green-border)",
                     }}
                     title="Simpan nama & status"
                   >
@@ -330,8 +332,8 @@ export function ParticipantManager({
                     }
                     className="flex h-8 w-8 items-center justify-center rounded-xl transition-all disabled:opacity-30"
                     style={{
-                      background: "rgba(225, 29, 72, 0.08)",
-                      color: "#e11d48",
+                      background: "var(--rose-bg)",
+                      color: "var(--rose-text)",
                     }}
                     title="Hapus peserta"
                   >

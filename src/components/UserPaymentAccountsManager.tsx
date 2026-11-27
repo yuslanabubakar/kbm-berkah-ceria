@@ -73,7 +73,7 @@ export function UserPaymentAccountsManager({ accounts, onChange }: Props) {
             className="flex h-9 w-9 items-center justify-center rounded-xl"
             style={{ background: "rgba(46, 90, 172, 0.12)" }}
           >
-            <CreditCard size={18} style={{ color: "#2E5AAC" }} />
+            <CreditCard size={18} style={{ color: "var(--brand-ink)" }} />
           </div>
           <div>
             <h2
