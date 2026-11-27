@@ -8,6 +8,7 @@ import type { TripLeg, TripParticipant } from "@/lib/tripQueries";
 import { computeDriverDiscountPerDriver } from "@/lib/tripPricingRules";
 import { useToast } from "@/components/Toast";
 import { Car, Clock, ChevronDown, ChevronUp, Plus, X } from "lucide-react";
+import { CarIcon } from "@/components/icons/KbmIcons";
 
 type LegVehicleOverviewProps = {
   tripId?: string;
@@ -28,7 +29,7 @@ function formatDateTime(value?: string | null) {
 
 function normalizeLegLabel(label?: string | null) {
   if (!label) return "Tanpa rute";
-  return label.replace(/[\u21c4\u2192]/g, "➔");
+  return label.replace(/[\u21c4\u2192]/g, "→");
 }
 
 function formatDiscountPercent(fraction: number): string {
@@ -278,7 +279,8 @@ export function LegVehicleOverview({
                               className="font-bold text-xs truncate"
                               style={{ color: "var(--text-primary)" }}
                             >
-                              🚗 {vehicle.label}
+                              <CarIcon size={14} className="mr-1" />
+                              {vehicle.label}
                             </span>
                             <div className="flex items-center gap-1.5 shrink-0">
                               <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-md bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">

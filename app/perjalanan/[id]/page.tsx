@@ -77,7 +77,7 @@ export default async function PerjalananDetailPage({
               <h1 className="text-xl font-extrabold sm:text-2xl md:text-3xl leading-tight">
                 {detail.trip.nama}
               </h1>
-              <p className="text-lg sm:text-2xl font-bold text-amber-300">
+              <p className="text-lg sm:text-2xl font-bold text-[#FFE0A3]">
                 {formatRupiah(total)}
               </p>
             </div>

@@ -3,6 +3,8 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
+import { LogoMark } from "@/components/Logo";
+import { GoogleLogo } from "@/components/icons/GoogleLogo";
 
 export const runtime = "edge";
 export const dynamic = "force-dynamic";
@@ -30,7 +32,10 @@ export default function LoginPage() {
   }
 
   return (
-    <section className="glass-card mx-auto max-w-lg space-y-6 rounded-3xl p-8 shadow-sm">
+    <section className="glass-card mx-auto max-w-lg space-y-6 rounded-3xl p-8">
+      <span className="logo-mark-shell">
+        <LogoMark size={56} />
+      </span>
       <h1
         className="text-2xl font-bold"
         style={{ color: "var(--text-primary)" }}
@@ -47,9 +52,12 @@ export default function LoginPage() {
         onClick={() => {
           window.location.href = "/api/auth/login";
         }}
-        className="btn-primary w-full justify-center py-3.5 text-base font-semibold shadow-md"
+        className="btn-ghost w-full justify-center py-3.5 text-base"
       >
-        <span>Masuk dengan Google</span>
+        <GoogleLogo size={20} />
+        <span className="text-[color:var(--text-primary)]">
+          Masuk dengan Google
+        </span>
       </button>
     </section>
   );

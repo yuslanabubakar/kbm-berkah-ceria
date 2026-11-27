@@ -2,6 +2,7 @@ import Link from "next/link";
 import { formatRupiah } from "@/lib/formatCurrency";
 import { fetchCommunityStats } from "@/lib/tripQueries";
 import { CommunityTripLedger } from "@/components/CommunityTripLedger";
+import { CategoryIcon } from "@/components/icons/KbmIcons";
 import {
   Map,
   Users,
@@ -26,12 +27,12 @@ export default async function RingkasanPage() {
         className="rounded-3xl p-6 sm:p-8 relative overflow-hidden shadow-xl"
         style={{
           background:
-            "linear-gradient(135deg, #1e3a8a 0%, #2E5AAC 50%, #3b82f6 100%)",
+            "linear-gradient(150deg, #24498f 0%, #2e5aac 50%, #4f7acb 100%)",
         }}
       >
         <div className="relative z-10 text-white space-y-3">
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-xs font-semibold">
-            <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+            <Sparkles className="w-3.5 h-3.5 text-blue-200" />
             <span>KBM Berkah Ceria Analytics</span>
           </div>
 
@@ -48,15 +49,15 @@ export default async function RingkasanPage() {
           {/* Quick Stat Badges */}
           <div className="flex flex-wrap gap-2 pt-2">
             <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-black/20 text-xs font-medium border border-white/10">
-              <Map className="w-3.5 h-3.5 text-blue-300" />
+              <Map className="w-3.5 h-3.5 text-blue-200" />
               <span>{stats.totalTrip} Perjalanan</span>
             </span>
             <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-black/20 text-xs font-medium border border-white/10">
-              <Users className="w-3.5 h-3.5 text-emerald-300" />
+              <Users className="w-3.5 h-3.5 text-blue-200" />
               <span>{stats.uniquePesertaCount} Peserta Unik</span>
             </span>
             <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-black/20 text-xs font-medium border border-white/10">
-              <Car className="w-3.5 h-3.5 text-amber-300" />
+              <Car className="w-3.5 h-3.5 text-blue-200" />
               <span>{stats.totalVehicles} Armada Mobil</span>
             </span>
           </div>
@@ -69,16 +70,15 @@ export default async function RingkasanPage() {
       {/* ── KPI Metrik Grid (4 Cards) ────────────────────────────────────── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-5">
         {/* Total Rupiah */}
-        <div
-          className="glass-card rounded-3xl p-4 sm:p-5 flex flex-col justify-between"
-          style={{ borderLeft: "4px solid #2E5AAC" }}
-        >
+        <div className="glass-card rounded-3xl p-4 sm:p-5 flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400">
+              <span className="badge badge-blue whitespace-nowrap text-[10px] uppercase tracking-wider">
                 Total Rupiah
               </span>
-              <CreditCard className="w-4 h-4 text-blue-500" />
+              <span className="tone-tile badge badge-blue">
+                <CreditCard className="w-4 h-4" />
+              </span>
             </div>
             <p
               className="mt-2 text-lg sm:text-2xl font-extrabold truncate"
@@ -93,16 +93,15 @@ export default async function RingkasanPage() {
         </div>
 
         {/* Total Perjalanan */}
-        <div
-          className="glass-card rounded-3xl p-4 sm:p-5 flex flex-col justify-between"
-          style={{ borderLeft: "4px solid #3b82f6" }}
-        >
+        <div className="glass-card rounded-3xl p-4 sm:p-5 flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">
+              <span className="badge badge-blue whitespace-nowrap text-[10px] uppercase tracking-wider">
                 Perjalanan
               </span>
-              <Map className="w-4 h-4 text-indigo-500" />
+              <span className="tone-tile badge badge-blue">
+                <Map className="w-4 h-4" />
+              </span>
             </div>
             <p
               className="mt-2 text-lg sm:text-2xl font-extrabold"
@@ -118,16 +117,15 @@ export default async function RingkasanPage() {
         </div>
 
         {/* Total Partisipasi */}
-        <div
-          className="glass-card rounded-3xl p-4 sm:p-5 flex flex-col justify-between"
-          style={{ borderLeft: "4px solid #10b981" }}
-        >
+        <div className="glass-card rounded-3xl p-4 sm:p-5 flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+              <span className="badge badge-blue whitespace-nowrap text-[10px] uppercase tracking-wider">
                 Partisipasi
               </span>
-              <Users className="w-4 h-4 text-emerald-500" />
+              <span className="tone-tile badge badge-blue">
+                <Users className="w-4 h-4" />
+              </span>
             </div>
             <p
               className="mt-2 text-lg sm:text-2xl font-extrabold"
@@ -139,22 +137,21 @@ export default async function RingkasanPage() {
               </span>
             </p>
           </div>
-          <p className="mt-2 text-[11px] text-emerald-600 dark:text-emerald-400 font-medium truncate">
+          <p className="mt-2 text-[11px] font-semibold truncate text-[color:var(--brand-ink)]">
             {stats.uniquePesertaCount} Anggota Unik
           </p>
         </div>
 
         {/* Biaya per Orang */}
-        <div
-          className="glass-card rounded-3xl p-4 sm:p-5 flex flex-col justify-between"
-          style={{ borderLeft: "4px solid #f59e0b" }}
-        >
+        <div className="glass-card rounded-3xl p-4 sm:p-5 flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">
+              <span className="badge badge-blue whitespace-nowrap text-[10px] uppercase tracking-wider">
                 Rata-rata Biaya
               </span>
-              <TrendingUp className="w-4 h-4 text-amber-500" />
+              <span className="tone-tile badge badge-blue">
+                <TrendingUp className="w-4 h-4" />
+              </span>
             </div>
             <p
               className="mt-2 text-lg sm:text-2xl font-extrabold truncate"
@@ -173,7 +170,7 @@ export default async function RingkasanPage() {
       <div className="glass-card rounded-3xl p-5 sm:p-7 space-y-5">
         <div className="flex items-center justify-between gap-3 pb-3 border-b border-[var(--border-color)]">
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-2xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+            <div className="tone-tile badge badge-blue !h-9 !w-9 !rounded-2xl">
               <PieChart className="w-4 h-4" />
             </div>
             <div>
@@ -189,7 +186,7 @@ export default async function RingkasanPage() {
             </div>
           </div>
 
-          <span className="badge badge-amber text-xs font-bold py-1 px-2.5">
+          <span className="badge badge-blue whitespace-nowrap text-xs font-bold py-1 px-2.5">
             {stats.categoryBreakdown.length} Kategori
           </span>
         </div>
@@ -201,7 +198,7 @@ export default async function RingkasanPage() {
         ) : (
           <div className="space-y-4">
             {/* Visual Multi-Segment Progress Bar */}
-            <div className="h-3 w-full rounded-full overflow-hidden flex bg-slate-100 dark:bg-slate-800">
+            <div className="h-3 w-full rounded-full overflow-hidden flex gap-[3px] bg-[var(--bg-muted)]">
               {stats.categoryBreakdown.map((cat) => (
                 <div
                   key={cat.categoryId}
@@ -209,7 +206,7 @@ export default async function RingkasanPage() {
                     width: `${cat.percentage}%`,
                     backgroundColor: cat.color,
                   }}
-                  className="h-full transition-all hover:opacity-80"
+                  className="h-full first:rounded-l-full last:rounded-r-full transition-all hover:opacity-80"
                   title={`${cat.label}: ${cat.percentage}% (${formatRupiah(cat.totalAmount)})`}
                 />
               ))}
@@ -224,12 +221,17 @@ export default async function RingkasanPage() {
                 >
                   <div className="flex items-center justify-between gap-1">
                     <span className="text-xs font-bold truncate text-slate-700 dark:text-slate-200 flex items-center gap-1.5">
-                      <span>{cat.emoji}</span>
+                      <span
+                        className="pastel-tile"
+                        style={{ "--c": cat.color } as React.CSSProperties}
+                      >
+                        <CategoryIcon id={cat.categoryId} size={14} />
+                      </span>
                       <span className="truncate">{cat.label}</span>
                     </span>
                     <span
                       className="text-[11px] font-extrabold shrink-0"
-                      style={{ color: cat.color }}
+                      style={{ color: "var(--text-secondary)" }}
                     >
                       {cat.percentage}%
                     </span>

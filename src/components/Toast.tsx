@@ -32,18 +32,18 @@ const ICONS: Record<ToastType, React.ReactNode> = {
 const STYLES: Record<ToastType, { bg: string; text: string; border: string }> =
   {
     success: {
-      bg: "rgba(16, 185, 129, 0.12)",
-      text: "#047857",
-      border: "rgba(16, 185, 129, 0.3)",
+      bg: "var(--green-bg)",
+      text: "var(--green-text)",
+      border: "var(--green-border)",
     },
     error: {
-      bg: "rgba(239, 68, 68, 0.12)",
-      text: "#dc2626",
-      border: "rgba(239, 68, 68, 0.3)",
+      bg: "var(--rose-bg)",
+      text: "var(--rose-text)",
+      border: "var(--rose-border)",
     },
     info: {
       bg: "rgba(46, 90, 172, 0.10)",
-      text: "#2E5AAC",
+      text: "var(--brand-ink)",
       border: "rgba(46, 90, 172, 0.25)",
     },
   };

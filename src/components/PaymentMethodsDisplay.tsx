@@ -4,19 +4,13 @@ import { HostPaymentAccount } from "@/types/expense";
 import { useState } from "react";
 import { Copy, Check, CreditCard } from "lucide-react";
 import { useToast } from "@/components/Toast";
+import { InfoIcon, PaymentChannelIcon } from "@/components/icons/KbmIcons";
 
 const channelLabels: Record<HostPaymentAccount["channel"], string> = {
   bank: "Bank Transfer",
   ewallet: "E-Wallet",
   cash: "Tunai",
   other: "Lainnya",
-};
-
-const channelEmoji: Record<HostPaymentAccount["channel"], string> = {
-  bank: "🏦",
-  ewallet: "💳",
-  cash: "💵",
-  other: "📱",
 };
 
 export function PaymentMethodsDisplay({
@@ -42,7 +36,7 @@ export function PaymentMethodsDisplay({
           className="flex h-9 w-9 items-center justify-center rounded-xl"
           style={{ background: "rgba(46, 90, 172, 0.12)" }}
         >
-          <CreditCard size={18} style={{ color: "#2E5AAC" }} />
+          <CreditCard size={18} style={{ color: "var(--brand-ink)" }} />
         </div>
         <div>
           <p
@@ -77,8 +71,8 @@ export function PaymentMethodsDisplay({
             >
               <div className="flex items-start justify-between">
                 <div className="flex gap-3 flex-1">
-                  <span className="text-xl mt-0.5">
-                    {channelEmoji[account.channel]}
+                  <span className="channel-icon-tile mt-0.5">
+                    <PaymentChannelIcon channel={account.channel} size={18} />
                   </span>
                   <div className="flex-1 min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
@@ -125,10 +119,12 @@ export function PaymentMethodsDisplay({
                         className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium transition-all"
                         style={{
                           color:
-                            copiedId === account.id ? "#059669" : "#2E5AAC",
+                            copiedId === account.id
+                              ? "var(--green-text)"
+                              : "var(--brand-ink)",
                           background:
                             copiedId === account.id
-                              ? "rgba(5, 150, 105, 0.10)"
+                              ? "var(--green-bg)"
                               : "rgba(46, 90, 172, 0.10)",
                         }}
                       >
@@ -145,7 +141,8 @@ export function PaymentMethodsDisplay({
                         className="mt-2 text-xs italic"
                         style={{ color: "var(--text-muted)" }}
                       >
-                        ℹ️ {account.instructions}
+                        <InfoIcon size={13} className="mr-1" />
+                        {account.instructions}
                       </p>
                     )}
                   </div>

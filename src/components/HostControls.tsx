@@ -7,6 +7,7 @@ import { id as localeId } from "date-fns/locale";
 import { formatRupiah } from "@/lib/formatCurrency";
 import type { BalanceAdjustment, TripParticipant } from "@/lib/tripQueries";
 import type { Expense } from "@/types/expense";
+import { Select } from "@/components/ui/Select";
 
 type HostControlsProps = {
   tripId: string;
@@ -208,7 +209,7 @@ export function HostControls({
                 style={{ color: "var(--text-secondary)" }}
               >
                 Pilih peserta
-                <select
+                <Select
                   value={adjustParticipantId}
                   onChange={(e) => setAdjustParticipantId(e.target.value)}
                   className="input-field mt-1"
@@ -218,7 +219,7 @@ export function HostControls({
                       {participant.nama}
                     </option>
                   ))}
-                </select>
+                </Select>
               </label>
               <label
                 className="text-xs font-semibold"
@@ -263,7 +264,7 @@ export function HostControls({
                 type="button"
                 onClick={handleAdjustmentSubmit}
                 disabled={savingAdjustment}
-                className="w-full rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow transition hover:bg-emerald-500 disabled:opacity-60"
+                className="btn-primary w-full justify-center disabled:opacity-60"
               >
                 Simpan penyesuaian
               </button>

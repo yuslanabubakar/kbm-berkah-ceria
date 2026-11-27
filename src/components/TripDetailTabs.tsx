@@ -29,6 +29,7 @@ import { LegVehicleOverview } from "./LegVehicleOverview";
 import { ParticipantManager } from "./ParticipantManager";
 import { VehicleManager } from "./VehicleManager";
 import { TripSettingsModal } from "./TripSettingsModal";
+import { SteeringIcon } from "@/components/icons/KbmIcons";
 
 type TabKey = "saldo" | "pengeluaran" | "armada" | "peserta";
 
@@ -386,9 +387,11 @@ export function TripDetailTabs({
                                   </span>
                                   {isDriver && (
                                     <span className="badge badge-blue text-[9px] font-bold py-0.2 px-1.5 shrink-0">
-                                      {isTownhallRule
-                                        ? "🚗 Supir"
-                                        : "🚗 Supir (50%)"}
+                                      <SteeringIcon
+                                        size={12}
+                                        className="mr-0.5"
+                                      />
+                                      {isTownhallRule ? "Supir" : "Supir (50%)"}
                                     </span>
                                   )}
                                   {isSingleTrip && (
@@ -495,7 +498,8 @@ export function TripDetailTabs({
                             </span>
                             {isDriver && (
                               <span className="badge badge-blue text-[9px] font-bold py-0.2 px-1">
-                                🚗 Supir
+                                <SteeringIcon size={13} className="mr-1" />
+                                Supir
                               </span>
                             )}
                             {isSingleTrip && (
@@ -646,7 +650,7 @@ export function TripDetailTabs({
                       onClick={() =>
                         handleCopyAccount(acc.accountNumber, acc.id)
                       }
-                      className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-emerald-500 hover:text-white transition-all shrink-0"
+                      className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-emerald-50 hover:text-emerald-700 dark:hover:bg-emerald-500/15 dark:hover:text-emerald-300 transition-all shrink-0"
                       title="Salin Nomor Rekening"
                     >
                       {copiedId === acc.id ? (
@@ -816,7 +820,8 @@ export function TripDetailTabs({
                     <div className="flex items-center gap-1 shrink-0">
                       {p.isDriver && (
                         <span className="badge badge-blue text-[9px] font-bold">
-                          🚗 Supir
+                          <SteeringIcon size={13} className="mr-1" />
+                          Supir
                         </span>
                       )}
                       {p.isSingleTrip && (

@@ -746,7 +746,6 @@ export async function fetchTripDetail(
 export type CategoryStat = {
   categoryId: string;
   label: string;
-  emoji: string;
   color: string;
   totalAmount: number;
   percentage: number;
@@ -780,19 +779,16 @@ export type CommunityStats = {
   tripList: CommunityTripItem[];
 };
 
-const CATEGORY_META: Record<
-  string,
-  { label: string; emoji: string; color: string }
-> = {
-  bbm: { label: "BBM / Bensin", emoji: "⛽", color: "#f59e0b" },
-  tol: { label: "Tol", emoji: "🛣️", color: "#3b82f6" },
-  makan: { label: "Makan / Kuliner", emoji: "🍽️", color: "#ef4444" },
-  parkir: { label: "Parkir", emoji: "🅿️", color: "#8b5cf6" },
-  hotel: { label: "Hotel & Penginapan", emoji: "🏨", color: "#06b6d4" },
-  tiket: { label: "Tiket & Wisata", emoji: "🎟️", color: "#ec4899" },
-  belanja: { label: "Belanja & Oleh-oleh", emoji: "🛍️", color: "#10b981" },
-  transport: { label: "Transportasi Umum", emoji: "🚕", color: "#6366f1" },
-  lainnya: { label: "Lainnya", emoji: "📦", color: "#64748b" },
+const CATEGORY_META: Record<string, { label: string; color: string }> = {
+  bbm: { label: "BBM / Bensin", color: "#E9B884" },
+  tol: { label: "Tol", color: "#9DBBEC" },
+  makan: { label: "Makan / Kuliner", color: "#E5A5AE" },
+  parkir: { label: "Parkir", color: "#BFACEB" },
+  hotel: { label: "Hotel & Penginapan", color: "#8CCBC6" },
+  tiket: { label: "Tiket & Wisata", color: "#E2A4C5" },
+  belanja: { label: "Belanja & Oleh-oleh", color: "#98CAAB" },
+  transport: { label: "Transportasi Umum", color: "#A9B5EC" },
+  lainnya: { label: "Lainnya", color: "#BAC4D3" },
 };
 
 export async function fetchCommunityStats(): Promise<CommunityStats> {
@@ -887,8 +883,7 @@ export async function fetchCommunityStats(): Promise<CommunityStats> {
     .map(([catId, data]) => {
       const meta = CATEGORY_META[catId] || {
         label: catId,
-        emoji: "📦",
-        color: "#64748b",
+        color: "#BAC4D3",
       };
       const percentage =
         totalPengeluaran > 0
@@ -897,7 +892,6 @@ export async function fetchCommunityStats(): Promise<CommunityStats> {
       return {
         categoryId: catId,
         label: meta.label,
-        emoji: meta.emoji,
         color: meta.color,
         totalAmount: data.total,
         percentage,

@@ -1,6 +1,7 @@
 "use client";
 
 import { useAuth } from "@/hooks/useAuth";
+import { GoogleLogo } from "@/components/icons/GoogleLogo";
 
 export function AuthToolbar() {
   const { user, loading } = useAuth();
@@ -26,9 +27,11 @@ export function AuthToolbar() {
       <button
         type="button"
         onClick={handleSignIn}
-        className="rounded-2xl border border-brand-blue px-4 py-2 text-sm font-semibold text-brand-blue hover:bg-brand-blue/10"
+        className="btn-ghost"
+        aria-label="Masuk dengan Google"
       >
-        Masuk dengan Google
+        <GoogleLogo size={18} />
+        <span className="text-[color:var(--text-primary)]">Masuk</span>
       </button>
     );
   }

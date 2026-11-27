@@ -6,6 +6,8 @@ import type {
   TripPaymentAccountAttachment,
   UserPaymentAccount,
 } from "@/types/expense";
+import { Select } from "@/components/ui/Select";
+import { InfoIcon } from "@/components/icons/KbmIcons";
 
 type Props = {
   tripId: string;
@@ -385,9 +387,9 @@ export function TripPaymentManager({
                 <div
                   className="rounded-2xl p-3 text-sm"
                   style={{
-                    background: "rgba(225, 29, 72, 0.08)",
-                    color: "#e11d48",
-                    border: "1px solid rgba(225, 29, 72, 0.2)",
+                    background: "var(--rose-bg)",
+                    color: "var(--rose-text)",
+                    border: "1.5px solid var(--rose-border)",
                   }}
                 >
                   {attachForm.error}
@@ -400,7 +402,7 @@ export function TripPaymentManager({
                 >
                   Pilih metode
                 </label>
-                <select
+                <Select
                   value={attachForm.paymentAccountId}
                   onChange={(event) =>
                     setAttachForm((prev) => ({
@@ -417,7 +419,7 @@ export function TripPaymentManager({
                       {account.label} · {account.accountNumber}
                     </option>
                   ))}
-                </select>
+                </Select>
                 {availableAccounts.length === 0 && (
                   <p
                     className="mt-1 text-xs"
@@ -574,7 +576,8 @@ export function TripPaymentManager({
                         className="text-xs"
                         style={{ color: "var(--text-secondary)" }}
                       >
-                        ℹ️ {attachment.instructions}
+                        <InfoIcon size={13} className="mr-1" />
+                        {attachment.instructions}
                       </p>
                     )}
                     {attachment.customLabel && (

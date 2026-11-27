@@ -13,11 +13,12 @@ export function ThemeToggle() {
       onClick={toggleTheme}
       aria-label={isDark ? "Beralih ke mode terang" : "Beralih ke mode gelap"}
       title={isDark ? "Mode Terang" : "Mode Gelap"}
-      className="relative flex h-9 w-9 items-center justify-center rounded-xl transition-all duration-200 hover:scale-110"
+      className="relative flex h-9 w-9 items-center justify-center rounded-xl transition-all duration-200 active:translate-y-[2px]"
       style={{
-        background: "var(--bg-muted)",
-        border: "1px solid var(--border-color)",
-        color: "var(--text-secondary)",
+        background: "var(--bg-secondary)",
+        border: "2px solid var(--border-color)",
+        boxShadow: "0 2px 0 var(--ledge)",
+        color: "var(--brand-ink)",
       }}
     >
       <span

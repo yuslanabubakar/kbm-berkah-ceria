@@ -47,7 +47,7 @@ function StatusBadge({ tanggalSelesai }: { tanggalSelesai?: string }) {
     return <span className="badge badge-gray">Selesai</span>;
   }
   return (
-    <span className="badge badge-emerald flex items-center gap-1">
+    <span className="badge badge-emerald items-center gap-1">
       <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse-soft" />
       Aktif
     </span>
@@ -100,7 +100,7 @@ export function TripCard({ trip }: { trip: Trip }) {
         {/* Top accent line */}
         <div
           className="h-1 w-full"
-          style={{ background: "linear-gradient(90deg, #2E5AAC, #FF7B6A)" }}
+          style={{ background: "linear-gradient(90deg, #2E5AAC, #3B82F6)" }}
         />
 
         <div className="flex flex-col flex-1 p-5">
@@ -199,11 +199,11 @@ export function TripCard({ trip }: { trip: Trip }) {
                     <button
                       type="button"
                       className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium transition-colors"
-                      style={{ color: "#e11d48" }}
+                      style={{ color: "var(--rose-text)" }}
                       onMouseEnter={(e) => {
                         (
                           e.currentTarget as HTMLButtonElement
-                        ).style.background = "rgba(225, 29, 72, 0.08)";
+                        ).style.background = "var(--rose-bg)";
                       }}
                       onMouseLeave={(e) => {
                         (
@@ -275,14 +275,14 @@ export function TripCard({ trip }: { trip: Trip }) {
             </p>
             <p
               className="mt-0.5 text-2xl font-extrabold"
-              style={{ color: "#2E5AAC" }}
+              style={{ color: "var(--brand-ink)" }}
             >
               {formatRupiah(trip.totalPengeluaran)}
             </p>
           </div>
 
           {actionMessage && (
-            <p className="mt-2 text-xs" style={{ color: "#e11d48" }}>
+            <p className="mt-2 text-xs" style={{ color: "var(--rose-text)" }}>
               {actionMessage}
             </p>
           )}
@@ -300,16 +300,16 @@ export function TripCard({ trip }: { trip: Trip }) {
             onClick={(e) => e.stopPropagation()}
             className="mt-4 flex items-center justify-between rounded-xl px-4 py-2.5 text-xs font-semibold transition-all duration-200 group/link"
             style={{
-              background: "rgba(46, 90, 172, 0.08)",
-              color: "#2E5AAC",
+              background: "var(--brand-soft)",
+              color: "var(--brand-ink)",
             }}
             onMouseEnter={(e) => {
               (e.currentTarget as HTMLAnchorElement).style.background =
-                "rgba(46, 90, 172, 0.15)";
+                "var(--bg-muted)";
             }}
             onMouseLeave={(e) => {
               (e.currentTarget as HTMLAnchorElement).style.background =
-                "rgba(46, 90, 172, 0.08)";
+                "var(--brand-soft)";
             }}
           >
             <span>Lihat Detail Trip</span>
@@ -474,7 +474,9 @@ function TripEditModal({
         {statusMessage && (
           <p
             className="mt-3 text-sm"
-            style={{ color: isSaving ? "var(--text-muted)" : "#e11d48" }}
+            style={{
+              color: isSaving ? "var(--text-muted)" : "var(--rose-text)",
+            }}
           >
             {statusMessage}
           </p>

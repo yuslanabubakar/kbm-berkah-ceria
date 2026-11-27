@@ -12,6 +12,8 @@ import type {
   TripParticipant,
   TripLegVehicle,
 } from "@/lib/tripQueries";
+import { Select } from "@/components/ui/Select";
+import { CarIcon, SteeringIcon } from "@/components/icons/KbmIcons";
 
 const EMPTY_VEHICLE = {
   label: "Minibus cadangan",
@@ -894,7 +896,8 @@ export function VehicleManager({
                           className="text-xs sm:text-sm font-bold truncate"
                           style={{ color: "var(--text-primary)" }}
                         >
-                          🚗 {vehicle.label}
+                          <CarIcon size={14} className="mr-1" />
+                          {vehicle.label}
                         </p>
                         {vehicle.plateNumber && (
                           <p className="text-[11px] font-mono text-slate-400">
@@ -1030,7 +1033,8 @@ export function VehicleManager({
                                   className="text-xs sm:text-sm font-bold"
                                   style={{ color: "var(--text-primary)" }}
                                 >
-                                  🚗 {vehicle.label}
+                                  <CarIcon size={14} className="mr-1" />
+                                  {vehicle.label}
                                 </p>
                                 {vehicle.plateNumber && (
                                   <p className="text-[10px] font-mono text-slate-400">
@@ -1228,7 +1232,8 @@ export function VehicleManager({
                           setMovingParticipantRole("passenger");
                         }}
                       >
-                        🚗 Atur Mobil
+                        <CarIcon size={14} className="mr-1" />
+                        Atur Mobil
                       </button>
                     </div>
                   );
@@ -1259,7 +1264,7 @@ export function VehicleManager({
                 <div className="grid gap-3 sm:grid-cols-2">
                   <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300">
                     Pilih Etape Tujuan
-                    <select
+                    <Select
                       className="input-field mt-1 text-xs"
                       value={bulkLegId}
                       onChange={(e) => setBulkLegId(e.target.value)}
@@ -1269,11 +1274,11 @@ export function VehicleManager({
                           Leg {leg.order} · {leg.label}
                         </option>
                       ))}
-                    </select>
+                    </Select>
                   </label>
                   <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300">
                     Pilih Kendaraan
-                    <select
+                    <Select
                       className="input-field mt-1 text-xs"
                       value={bulkVehicleId}
                       onChange={(e) => setBulkVehicleId(e.target.value)}
@@ -1290,7 +1295,7 @@ export function VehicleManager({
                             {v.label} ({v.assignments.length} orang)
                           </option>
                         ))}
-                    </select>
+                    </Select>
                   </label>
                 </div>
                 <button
@@ -1563,7 +1568,8 @@ export function VehicleManager({
               className="text-xs mb-3 font-semibold"
               style={{ color: "var(--text-primary)" }}
             >
-              🚗 Kendaraan: {scheduleContext?.vehicle.label ?? "Tanpa nama"}
+              <CarIcon size={14} className="mr-1" />
+              Kendaraan: {scheduleContext?.vehicle.label ?? "Tanpa nama"}
             </p>
             <div className="mt-4 grid gap-3 md:grid-cols-2">
               <label
@@ -1658,7 +1664,7 @@ export function VehicleManager({
               style={{ color: "var(--text-secondary)" }}
             >
               Kendaraan Trip
-              <select
+              <Select
                 className="input-field mt-1"
                 value={selectedVehicleId}
                 onChange={(event) => setSelectedVehicleId(event.target.value)}
@@ -1669,7 +1675,7 @@ export function VehicleManager({
                     {vehicle.plateNumber ? `(${vehicle.plateNumber})` : ""}
                   </option>
                 ))}
-              </select>
+              </Select>
             </label>
             <div className="mt-6 flex justify-end gap-2">
               <button
@@ -1722,7 +1728,7 @@ export function VehicleManager({
                 style={{ color: "var(--text-secondary)" }}
               >
                 Pilih Etape / Leg
-                <select
+                <Select
                   className="input-field mt-1 text-xs"
                   value={targetLegId}
                   onChange={(event) => setTargetLegId(event.target.value)}
@@ -1732,7 +1738,7 @@ export function VehicleManager({
                       Leg {leg.order} · {leg.label}
                     </option>
                   ))}
-                </select>
+                </Select>
               </label>
 
               <label
@@ -1740,7 +1746,7 @@ export function VehicleManager({
                 style={{ color: "var(--text-secondary)" }}
               >
                 Pilih Kendaraan / Mobil
-                <select
+                <Select
                   className="input-field mt-1 text-xs"
                   value={targetVehicleId}
                   onChange={(event) => setTargetVehicleId(event.target.value)}
@@ -1753,7 +1759,7 @@ export function VehicleManager({
                         {vehicle.label} ({vehicle.assignments.length} orang)
                       </option>
                     ))}
-                </select>
+                </Select>
               </label>
 
               <label
@@ -1761,7 +1767,7 @@ export function VehicleManager({
                 style={{ color: "var(--text-secondary)" }}
               >
                 Peran di Kendaraan
-                <select
+                <Select
                   className="input-field mt-1 text-xs"
                   value={movingParticipantRole}
                   onChange={(event) =>
@@ -1772,9 +1778,10 @@ export function VehicleManager({
                 >
                   <option value="passenger">Penumpang Biasa</option>
                   <option value="driver">
-                    🚗 Supir (Diskon maks 50%/mobil)
+                    <SteeringIcon size={13} className="mr-1" />
+                    Supir (Diskon maks 50%/mobil)
                   </option>
-                </select>
+                </Select>
               </label>
             </div>
 

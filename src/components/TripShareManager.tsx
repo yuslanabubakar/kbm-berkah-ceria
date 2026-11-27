@@ -84,7 +84,7 @@ export function TripShareManager({
       <div className="flex items-start justify-between gap-2">
         <div>
           <div className="flex items-center gap-1.5">
-            <Share2 size={15} style={{ color: "#2E5AAC" }} />
+            <Share2 size={15} style={{ color: "var(--brand-ink)" }} />
             <h3
               className="font-bold text-sm"
               style={{ color: "var(--text-primary)" }}
@@ -106,7 +106,7 @@ export function TripShareManager({
             background: showForm
               ? "var(--bg-muted)"
               : "rgba(46, 90, 172, 0.10)",
-            color: showForm ? "var(--text-secondary)" : "#2E5AAC",
+            color: showForm ? "var(--text-secondary)" : "var(--brand-ink)",
             border: `1px solid ${showForm ? "var(--border-color)" : "rgba(46, 90, 172, 0.25)"}`,
           }}
         >
@@ -185,8 +185,8 @@ export function TripShareManager({
                 onClick={() => handleRemove(share.id, share.shared_with_email)}
                 className="flex h-7 w-7 items-center justify-center rounded-lg transition-all"
                 style={{
-                  background: "rgba(225, 29, 72, 0.08)",
-                  color: "#e11d48",
+                  background: "var(--rose-bg)",
+                  color: "var(--rose-text)",
                 }}
               >
                 <Trash2 size={13} />

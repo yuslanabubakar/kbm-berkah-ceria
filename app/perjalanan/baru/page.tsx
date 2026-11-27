@@ -13,7 +13,7 @@ export default async function PerjalananBaruPage() {
         className="glass-card rounded-3xl p-6 sm:p-8 relative overflow-hidden"
         style={{
           background:
-            "linear-gradient(135deg, rgba(46, 90, 172, 0.15) 0%, rgba(255, 123, 106, 0.08) 100%)",
+            "linear-gradient(135deg, rgba(46, 90, 172, 0.15) 0%, rgba(157, 187, 236, 0.12) 100%)",
         }}
       >
         <p className="text-xs font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400">

@@ -70,19 +70,18 @@ export interface FullTripFormData {
 export interface ExpenseCategoryDef {
   id: string;
   label: string;
-  emoji: string;
 }
 
 export const EXPENSE_CATEGORIES: ExpenseCategoryDef[] = [
-  { id: "bbm", label: "BBM / Bahan Bakar", emoji: "⛽" },
-  { id: "tol", label: "Tol & Tarif Jalan", emoji: "🛣️" },
-  { id: "makan", label: "Makan & Konsumsi", emoji: "🍽️" },
-  { id: "parkir", label: "Parkir", emoji: "🅿️" },
-  { id: "hotel", label: "Penginapan / Hotel", emoji: "🏨" },
-  { id: "tiket", label: "Tiket Wisata", emoji: "🎟️" },
-  { id: "belanja", label: "Belanja & Oleh-oleh", emoji: "🛍️" },
-  { id: "transport", label: "Transportasi / Sewa", emoji: "🚕" },
-  { id: "lainnya", label: "Lainnya", emoji: "📦" },
+  { id: "bbm", label: "BBM / Bahan Bakar" },
+  { id: "tol", label: "Tol & Tarif Jalan" },
+  { id: "makan", label: "Makan & Konsumsi" },
+  { id: "parkir", label: "Parkir" },
+  { id: "hotel", label: "Penginapan / Hotel" },
+  { id: "tiket", label: "Tiket Wisata" },
+  { id: "belanja", label: "Belanja & Oleh-oleh" },
+  { id: "transport", label: "Transportasi / Sewa" },
+  { id: "lainnya", label: "Lainnya" },
 ];
 
 export function detectExpenseCategory(title: string): string {

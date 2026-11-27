@@ -14,6 +14,8 @@ import { format } from "date-fns";
 import { id as localeId } from "date-fns/locale";
 import { formatRupiah } from "@/lib/formatCurrency";
 import type { CommunityTripItem } from "@/lib/tripQueries";
+import { Select } from "@/components/ui/Select";
+import { CalendarIcon, CloseIcon } from "@/components/icons/KbmIcons";
 
 type Props = {
   trips: CommunityTripItem[];
@@ -94,8 +96,9 @@ export function CommunityTripLedger({ trips }: Props) {
               type="button"
               onClick={() => handleSearchChange("")}
               className="text-xs text-slate-400 hover:text-slate-600 absolute right-3 top-1/2 -translate-y-1/2"
+              aria-label="Hapus pencarian"
             >
-              ✕
+              <CloseIcon size={14} />
             </button>
           )}
         </div>
@@ -119,11 +122,11 @@ export function CommunityTripLedger({ trips }: Props) {
               onClick={() => handleStatusChange("active")}
               className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1 ${
                 statusFilter === "active"
-                  ? "bg-emerald-600 text-white shadow-sm"
+                  ? "bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-300 dark:ring-emerald-500/30"
                   : "text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700"
               }`}
             >
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
               Aktif ({activeCount})
             </button>
             <button
@@ -139,7 +142,7 @@ export function CommunityTripLedger({ trips }: Props) {
             </button>
           </div>
 
-          <select
+          <Select
             className="input-field py-1 px-2 text-xs font-semibold rounded-xl"
             value={pageSize}
             onChange={(e) => {
@@ -151,7 +154,7 @@ export function CommunityTripLedger({ trips }: Props) {
             <option value={5}>5 / hal</option>
             <option value={10}>10 / hal</option>
             <option value={20}>20 / hal</option>
-          </select>
+          </Select>
         </div>
       </div>
 
@@ -209,7 +212,7 @@ export function CommunityTripLedger({ trips }: Props) {
                               Selesai
                             </span>
                           ) : (
-                            <span className="badge badge-emerald text-[10px] py-0 px-1.5 font-bold flex items-center gap-1 shrink-0">
+                            <span className="badge badge-emerald text-[10px] py-0 px-1.5 font-bold items-center gap-1 shrink-0">
                               <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
                               Aktif
                             </span>
@@ -221,7 +224,7 @@ export function CommunityTripLedger({ trips }: Props) {
                           <span className="flex items-center gap-1 truncate max-w-[180px]">
                             <MapPin className="w-3.5 h-3.5 text-blue-500 shrink-0" />
                             <span className="truncate">
-                              {trip.originCity || "?"} ➔{" "}
+                              {trip.originCity || "?"} →{" "}
                               {trip.destinationCity || "?"}
                             </span>
                           </span>
@@ -300,13 +303,14 @@ export function CommunityTripLedger({ trips }: Props) {
                         <p className="text-[11px] text-slate-500 flex items-center gap-1 mt-0.5">
                           <MapPin className="w-3.5 h-3.5 text-blue-500 shrink-0" />
                           <span className="truncate">
-                            {trip.originCity || "?"} ➔{" "}
+                            {trip.originCity || "?"} →{" "}
                             {trip.destinationCity || "?"}
                           </span>
                         </p>
                       )}
                       <p className="text-[10px] text-slate-400 mt-0.5">
-                        📅 {dateText}
+                        <CalendarIcon size={13} className="mr-1" />
+                        {dateText}
                       </p>
                     </div>
 
