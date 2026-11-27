@@ -23,13 +23,11 @@ import {
   Smartphone,
   Banknote,
 } from "lucide-react";
-import {
-  formatRupiah,
-  formatThousandsInput,
-  parseThousandsInput,
-} from "@/lib/formatCurrency";
+import { formatRupiah } from "@/lib/formatCurrency";
 import { computeDriverDiscountPerDriver } from "@/lib/tripPricingRules";
+import type { TripLeg, TripParticipant } from "@/lib/tripQueries";
 import type { UserPaymentAccount, HostPaymentChannel } from "@/types/expense";
+import { ExpenseForm, type LocalExpenseDraft } from "./ExpenseForm";
 import {
   DEFAULT_VEHICLE_LABEL,
   DEFAULT_PARTICIPANTS,
@@ -271,6 +269,66 @@ export function CreateTripForm({
     () => expensesList.reduce((sum, exp) => sum + exp.amountIdr, 0),
     [expensesList],
   );
+
+  const step3Participants = useMemo<TripParticipant[]>(
+    () =>
+      participants.map((name) => ({
+        id: name,
+        nama: name,
+        isDriver: Boolean(driverMap[name]),
+      })),
+    [participants, driverMap],
+  );
+
+  const step3Legs = useMemo<TripLeg[]>(
+    () =>
+      legs.map((leg, idx) => ({
+        id: leg.id,
+        order: idx + 1,
+        label: `${leg.origin || "Asal"} ⇄ ${leg.destination || "Tujuan"}`,
+        vehicles: vehicles.map((v) => ({
+          id: v.id,
+          label: v.label,
+          plateNumber: v.plateNumber || null,
+          assignments: participants
+            .filter((p) => {
+              const cfg = legAssignmentMap[leg.id]?.[p];
+              return (
+                (cfg?.isParticipating ?? true) &&
+                (cfg?.vehicleId || vehicles[0]?.id) === v.id
+              );
+            })
+            .map((p) => ({
+              participantId: p,
+              participantName: p,
+              role: legAssignmentMap[leg.id]?.[p]?.isDriver
+                ? "driver"
+                : "passenger",
+            })),
+        })),
+      })),
+    [legs, vehicles, participants, legAssignmentMap],
+  );
+
+  const handleAddLocalExpenses = (drafts: LocalExpenseDraft[]) => {
+    const newItems: InitialExpenseItem[] = drafts.map((d, idx) => ({
+      id: `exp-${Date.now()}-${idx}`,
+      title: d.title,
+      amountIdr: d.amountIdr,
+      payerName: d.paidById,
+      category: d.expenseType,
+      notes: d.notes,
+      vehicleId: d.shareScope === "vehicle" ? d.vehicleId : null,
+      legId: d.legId,
+      isFoodStop: d.isFoodStop,
+      splits: d.splits?.map((s) => ({
+        participantName: s.participantId,
+        amountIdr: s.amountIdr,
+      })),
+    }));
+    setExpensesList((prev) => [...newItems, ...prev]);
+    setStepError(null);
+  };
 
   // ─── LEGS MANAGEMENT ──────────────────────────────────────────────
   const handleToggleRoundTrip = (nextRoundTrip: boolean) => {

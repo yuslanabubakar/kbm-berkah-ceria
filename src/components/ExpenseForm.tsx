@@ -42,6 +42,19 @@ import {
   UsersIcon,
 } from "@/components/icons/KbmIcons";
 
+export type LocalExpenseDraft = {
+  title: string;
+  amountIdr: number;
+  paidById: string;
+  expenseType: string;
+  notes: string;
+  legId: string;
+  vehicleId: string | null;
+  shareScope: "leg" | "vehicle";
+  isFoodStop: boolean;
+  splits?: Array<{ participantId: string; amountIdr: number }>;
+};
+
 type ExpenseFormProps = {
   tripId: string;
   participants: TripParticipant[];
@@ -49,6 +62,7 @@ type ExpenseFormProps = {
   ruleVersion?: number;
   embedded?: boolean;
   onSuccess?: () => void;
+  onSaveLocal?: (drafts: LocalExpenseDraft[]) => void;
 };
 
 type FormMode = "single" | "batch";
@@ -97,6 +111,7 @@ export function ExpenseForm({
   ruleVersion = 2,
   embedded = false,
   onSuccess,
+  onSaveLocal,
 }: ExpenseFormProps) {
   const router = useRouter();
   const showToast = useToast();
@@ -283,6 +298,32 @@ export function ExpenseForm({
     const resolvedExpenseType =
       kind === "lainnya" ? detectCategory(parse.data.judul) : kind;
 
+    if (onSaveLocal) {
+      onSaveLocal([
+        {
+          title: parse.data.judul,
+          amountIdr: parse.data.amountIdr,
+          paidById: parse.data.paidById,
+          expenseType: resolvedExpenseType,
+          notes: parse.data.catatan ?? "",
+          legId: parse.data.legId,
+          vehicleId: parse.data.vehicleId ?? null,
+          shareScope: parse.data.shareScope,
+          isFoodStop,
+          splits,
+        },
+      ]);
+      showToast(`${parse.data.judul} ditambahkan ke daftar!`, "success");
+      setAmountIdr(0);
+      setCustomTitle("");
+      setCatatan("");
+      setFoodStopAmounts({});
+      if (kind === "bbm") setKind("tol");
+      else if (kind === "tol") setKind("bbm");
+      if (!keepOpen) onSuccess?.();
+      return;
+    }
+
     setLoading(true);
     setStatus(null);
 
@@ -449,6 +490,36 @@ export function ExpenseForm({
     const tooSmall = filledBatchRows.find((r) => r.amountIdr < 1000);
     if (tooSmall) {
       setStatus(`Nominal "${tooSmall.title}" minimal Rp1.000.`);
+      return;
+    }
+
+    if (onSaveLocal) {
+      const drafts: LocalExpenseDraft[] = filledBatchRows.map((row) => {
+        const expenseType =
+          row.kind === "lainnya" ? detectCategory(row.title) : row.kind;
+        const resolvedScope =
+          hasMultiVehicle && batchShareScope === "vehicle" && row.vehicleId
+            ? "vehicle"
+            : "leg";
+        return {
+          title: row.title.trim(),
+          amountIdr: row.amountIdr,
+          paidById: row.paidById || batchDefaultPayer || defaultPaidBy,
+          expenseType,
+          notes: "",
+          legId: row.legId,
+          vehicleId: resolvedScope === "vehicle" ? row.vehicleId : null,
+          shareScope: resolvedScope,
+          isFoodStop: false,
+        };
+      });
+      onSaveLocal(drafts);
+      showToast(`${drafts.length} nota ditambahkan ke daftar!`, "success");
+      setBatchRows(
+        buildQuickBatchRows(sortedLegs, batchDefaultPayer || defaultPaidBy),
+      );
+      setCustomPayerRowIds(new Set());
+      onSuccess?.();
       return;
     }
 
@@ -952,24 +1023,34 @@ export function ExpenseForm({
             <p className="text-xs font-medium text-rose-500">{status}</p>
           )}
 
-          {/* Action Buttons: Save vs Save & Add Another */}
-          <div className="flex flex-col sm:flex-row gap-2 pt-1">
-            <button
-              type="button"
-              disabled={formDisabled}
-              onClick={() => submitSingle(true)}
-              className="btn-secondary flex-1 justify-center py-2.5 text-xs font-bold disabled:opacity-50"
-            >
-              {loading ? "Menyimpan..." : "+ Simpan & Tambah Lagi"}
-            </button>
+          {/* Action Buttons */}
+          {onSaveLocal ? (
             <button
               type="submit"
               disabled={formDisabled}
-              className="btn-primary flex-1 justify-center py-2.5 text-xs sm:text-sm font-bold disabled:opacity-50"
+              className="btn-primary w-full justify-center py-2.5 text-xs sm:text-sm font-bold disabled:opacity-50"
             >
-              {loading ? "Menyimpan..." : "Simpan Nota"}
+              + Tambahkan Nota
             </button>
-          </div>
+          ) : (
+            <div className="flex flex-col sm:flex-row gap-2 pt-1">
+              <button
+                type="button"
+                disabled={formDisabled}
+                onClick={() => submitSingle(true)}
+                className="btn-secondary flex-1 justify-center py-2.5 text-xs font-bold disabled:opacity-50"
+              >
+                {loading ? "Menyimpan..." : "+ Simpan & Tambah Lagi"}
+              </button>
+              <button
+                type="submit"
+                disabled={formDisabled}
+                className="btn-primary flex-1 justify-center py-2.5 text-xs sm:text-sm font-bold disabled:opacity-50"
+              >
+                {loading ? "Menyimpan..." : "Simpan Nota"}
+              </button>
+            </div>
+          )}
         </form>
       )}
 
@@ -1370,7 +1451,9 @@ export function ExpenseForm({
             >
               {loading
                 ? "Menyimpan..."
-                : `Simpan ${filledBatchRows.length || ""} Nota`}
+                : onSaveLocal
+                  ? `+ Tambahkan ${filledBatchRows.length || ""} Nota`
+                  : `Simpan ${filledBatchRows.length || ""} Nota`}
             </button>
           </div>
         </form>
