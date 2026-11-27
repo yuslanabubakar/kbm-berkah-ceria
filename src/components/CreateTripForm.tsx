@@ -23,13 +23,11 @@ import {
   Smartphone,
   Banknote,
 } from "lucide-react";
-import {
-  formatRupiah,
-  formatThousandsInput,
-  parseThousandsInput,
-} from "@/lib/formatCurrency";
+import { formatRupiah } from "@/lib/formatCurrency";
 import { computeDriverDiscountPerDriver } from "@/lib/tripPricingRules";
+import type { TripLeg, TripParticipant } from "@/lib/tripQueries";
 import type { UserPaymentAccount, HostPaymentChannel } from "@/types/expense";
+import { ExpenseForm, type LocalExpenseDraft } from "./ExpenseForm";
 import {
   DEFAULT_VEHICLE_LABEL,
   DEFAULT_PARTICIPANTS,
@@ -260,6 +258,66 @@ export function CreateTripForm({
     () => expensesList.reduce((sum, exp) => sum + exp.amountIdr, 0),
     [expensesList],
   );
+
+  const step3Participants = useMemo<TripParticipant[]>(
+    () =>
+      participants.map((name) => ({
+        id: name,
+        nama: name,
+        isDriver: Boolean(driverMap[name]),
+      })),
+    [participants, driverMap],
+  );
+
+  const step3Legs = useMemo<TripLeg[]>(
+    () =>
+      legs.map((leg, idx) => ({
+        id: leg.id,
+        order: idx + 1,
+        label: `${leg.origin || "Asal"} ⇄ ${leg.destination || "Tujuan"}`,
+        vehicles: vehicles.map((v) => ({
+          id: v.id,
+          label: v.label,
+          plateNumber: v.plateNumber || null,
+          assignments: participants
+            .filter((p) => {
+              const cfg = legAssignmentMap[leg.id]?.[p];
+              return (
+                (cfg?.isParticipating ?? true) &&
+                (cfg?.vehicleId || vehicles[0]?.id) === v.id
+              );
+            })
+            .map((p) => ({
+              participantId: p,
+              participantName: p,
+              role: legAssignmentMap[leg.id]?.[p]?.isDriver
+                ? "driver"
+                : "passenger",
+            })),
+        })),
+      })),
+    [legs, vehicles, participants, legAssignmentMap],
+  );
+
+  const handleAddLocalExpenses = (drafts: LocalExpenseDraft[]) => {
+    const newItems: InitialExpenseItem[] = drafts.map((d, idx) => ({
+      id: `exp-${Date.now()}-${idx}`,
+      title: d.title,
+      amountIdr: d.amountIdr,
+      payerName: d.paidById,
+      category: d.expenseType,
+      notes: d.notes,
+      vehicleId: d.shareScope === "vehicle" ? d.vehicleId : null,
+      legId: d.legId,
+      isFoodStop: d.isFoodStop,
+      splits: d.splits?.map((s) => ({
+        participantName: s.participantId,
+        amountIdr: s.amountIdr,
+      })),
+    }));
+    setExpensesList((prev) => [...newItems, ...prev]);
+    setStepError(null);
+  };
 
   // ─── LEGS MANAGEMENT ──────────────────────────────────────────────
   const handleToggleRoundTrip = (nextRoundTrip: boolean) => {
@@ -2219,251 +2277,17 @@ export function CreateTripForm({
               </div>
             </div>
 
-            {/* Input Pengeluaran Box */}
-            <div className="p-4 rounded-2xl bg-[var(--bg-muted)] border border-[var(--border-color)] space-y-4">
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div>
-                  <label
-                    className="block text-xs font-bold mb-1"
-                    style={{ color: "var(--text-secondary)" }}
-                  >
-                    Judul Pengeluaran
-                  </label>
-                  <input
-                    type="text"
-                    className="input-field py-2 text-sm"
-                    placeholder="Contoh: Bensin Pertamax / Makan Siang Resto"
-                    value={expTitle}
-                    onChange={(e) => handleTitleChange(e.target.value)}
-                  />
-                </div>
-
-                <div>
-                  <label
-                    className="block text-xs font-bold mb-1"
-                    style={{ color: "var(--text-secondary)" }}
-                  >
-                    {isFoodStop
-                      ? "Total Dihitung Otomatis (Rp)"
-                      : "Nominal (Rp)"}
-                  </label>
-                  <div className="relative">
-                    <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">
-                      Rp
-                    </span>
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      className={`input-field pl-9 py-2 text-sm font-semibold ${
-                        isFoodStop
-                          ? "opacity-75 bg-slate-100 dark:bg-slate-800"
-                          : ""
-                      }`}
-                      placeholder={
-                        isFoodStop
-                          ? formatThousandsInput(foodStopTotal) || "0"
-                          : "250.000"
-                      }
-                      value={
-                        isFoodStop
-                          ? formatThousandsInput(foodStopTotal)
-                          : formatThousandsInput(expAmount)
-                      }
-                      disabled={isFoodStop}
-                      onChange={(e) => {
-                        const parsed = parseThousandsInput(e.target.value);
-                        setExpAmount(parsed > 0 ? parsed : "");
-                      }}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                <div>
-                  <label
-                    className="block text-xs font-semibold mb-1"
-                    style={{ color: "var(--text-secondary)" }}
-                  >
-                    Dibayar Oleh
-                  </label>
-                  <select
-                    className="input-field py-2 text-xs"
-                    value={expPayer}
-                    onChange={(e) => setExpPayer(e.target.value)}
-                  >
-                    {participants.map((p) => (
-                      <option key={p} value={p}>
-                        {p}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label
-                    className="block text-xs font-semibold mb-1"
-                    style={{ color: "var(--text-secondary)" }}
-                  >
-                    Kategori Biaya
-                  </label>
-                  <select
-                    className="input-field py-2 text-xs"
-                    value={expCategory}
-                    disabled={isFoodStop}
-                    onChange={(e) => setExpCategory(e.target.value)}
-                  >
-                    {EXPENSE_CATEGORIES.map((cat) => (
-                      <option key={cat.id} value={cat.id}>
-                        {cat.emoji} {cat.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label
-                    className="block text-xs font-semibold mb-1"
-                    style={{ color: "var(--text-secondary)" }}
-                  >
-                    Etape / Rute (Leg)
-                  </label>
-                  <select
-                    className="input-field py-2 text-xs"
-                    value={expLegId || legs[0]?.id}
-                    onChange={(e) => setExpLegId(e.target.value)}
-                  >
-                    {legs.map((l, idx) => (
-                      <option key={l.id} value={l.id}>
-                        Leg {idx + 1}: {l.origin || "Asal"} ➔{" "}
-                        {l.destination || "Tujuan"}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label
-                    className="block text-xs font-semibold mb-1"
-                    style={{ color: "var(--text-secondary)" }}
-                  >
-                    Cakupan Kendaraan
-                  </label>
-                  <select
-                    className="input-field py-2 text-xs"
-                    value={expVehicleId}
-                    onChange={(e) => setExpVehicleId(e.target.value)}
-                  >
-                    <option value="all">🌐 Semua Peserta</option>
-                    {vehicles.map((v) => (
-                      <option key={v.id} value={v.id}>
-                        🚗 Khusus {v.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              {/* 🍽️ Food Stop Toggle & Individual Split Box */}
-              <div className="p-3.5 rounded-2xl border border-amber-500/30 bg-amber-500/5 space-y-3">
-                <label className="flex items-start gap-2.5 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={isFoodStop}
-                    onChange={(e) => {
-                      const checked = e.target.checked;
-                      setIsFoodStop(checked);
-                      if (checked) {
-                        setExpCategory("makan");
-                        if (!expTitle) setExpTitle("Makan & Kuliner");
-                      }
-                    }}
-                    className="mt-0.5 rounded text-amber-500 focus:ring-amber-400 h-4 w-4"
-                  />
-                  <div>
-                    <span className="text-xs font-bold text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
-                      <Utensils className="w-3.5 h-3.5 inline" />
-                      Pemberhentian Makan (Tagihan berbeda per orang)
-                    </span>
-                    <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                      Aktifkan jika tiap peserta punya porsi/nominal tagihan
-                      makan berbeda. Total dihitung otomatis dari nominal per
-                      orang.
-                    </p>
-                  </div>
-                </label>
-
-                {isFoodStop && (
-                  <div className="pt-2 border-t border-amber-500/20 space-y-2.5 animate-in fade-in duration-200">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300">
-                        Input Nominal Tagihan per Peserta:
-                      </span>
-                      <span className="text-xs font-extrabold text-amber-600 dark:text-amber-400">
-                        Total Makan: {formatRupiah(foodStopTotal)} (
-                        {
-                          expenseEligibleParticipants.filter(
-                            (p) => (foodStopAmounts[p] || 0) > 0,
-                          ).length
-                        }{" "}
-                        orang)
-                      </span>
-                    </div>
-
-                    <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 max-h-52 overflow-y-auto pr-1">
-                      {expenseEligibleParticipants.map((name) => (
-                        <div
-                          key={name}
-                          className="p-2 rounded-xl bg-[var(--bg-secondary)] border border-[var(--border-color)] flex items-center justify-between gap-2"
-                        >
-                          <span className="text-xs font-semibold truncate flex-1">
-                            {name}
-                          </span>
-                          <div className="flex items-center gap-1 shrink-0">
-                            <span className="text-[10px] text-slate-400 font-bold">
-                              Rp
-                            </span>
-                            <input
-                              type="number"
-                              placeholder="0"
-                              className="input-field py-1 px-2 text-xs font-bold text-right w-24"
-                              value={foodStopAmounts[name] || ""}
-                              onChange={(e) => {
-                                const val = e.target.value
-                                  ? Number(e.target.value)
-                                  : 0;
-                                setFoodStopAmounts((prev) => ({
-                                  ...prev,
-                                  [name]: val,
-                                }));
-                              }}
-                            />
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-1">
-                <input
-                  type="text"
-                  className="input-field py-1.5 text-xs flex-1"
-                  placeholder="Catatan tambahan (opsional, cth: nota di dompet Yuslan)"
-                  value={expNotes}
-                  onChange={(e) => setExpNotes(e.target.value)}
-                />
-
-                <button
-                  type="button"
-                  onClick={handleAddExpense}
-                  className="btn-primary w-full sm:w-auto px-5 py-2 text-xs font-bold flex items-center justify-center gap-1.5 shrink-0"
-                >
-                  <Plus className="w-4 h-4" />
-                  <span>Tambahkan Nota</span>
-                </button>
-              </div>
+            {/* Unified Quick Expense Form (Satuan + Paket Tol & Bensin) */}
+            <div className="p-3 sm:p-4 rounded-2xl bg-[var(--bg-muted)]/60 border border-[var(--border-color)]">
+              <ExpenseForm
+                key={`${legs.map((l) => `${l.id}:${l.origin}:${l.destination}`).join("|")}::${vehicles.map((v) => `${v.id}:${v.label}`).join("|")}::${participants.join(",")}`}
+                tripId="draft"
+                participants={step3Participants}
+                legs={step3Legs}
+                ruleVersion={2}
+                embedded
+                onSaveLocal={handleAddLocalExpenses}
+              />
             </div>
 
             {/* List Pengeluaran yang Sudah Dimasukkan */}
