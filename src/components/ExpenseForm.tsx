@@ -829,7 +829,7 @@ export function ExpenseForm({
                         className={clsx(
                           "rounded-lg px-2 py-1 text-[11px] font-bold border",
                           effectiveVehicleId === v.id
-                            ? "bg-indigo-600 text-white border-indigo-600"
+                            ? "bg-blue-600 text-white border-blue-600"
                             : "bg-[var(--bg-card)] border-[var(--border-color)] text-slate-600 dark:text-slate-300",
                         )}
                       >
@@ -966,7 +966,7 @@ export function ExpenseForm({
                       className={clsx(
                         "rounded-lg px-2.5 py-1.5 text-xs font-semibold border",
                         shareScope === "vehicle"
-                          ? "bg-indigo-600 text-white border-indigo-600"
+                          ? "bg-blue-600 text-white border-blue-600"
                           : "bg-[var(--bg-card)] border-[var(--border-color)] text-slate-600 dark:text-slate-300",
                       )}
                     >
@@ -985,7 +985,7 @@ export function ExpenseForm({
                           className={clsx(
                             "rounded-lg px-2.5 py-1 text-xs font-bold border",
                             effectiveVehicleId === v.id
-                              ? "bg-indigo-600 text-white border-indigo-600"
+                              ? "bg-blue-600 text-white border-blue-600"
                               : "bg-[var(--bg-card)] border-[var(--border-color)] text-slate-600 dark:text-slate-300",
                           )}
                         >
@@ -1104,7 +1104,7 @@ export function ExpenseForm({
                     className={clsx(
                       "px-2 py-1.5 sm:py-1 rounded-md text-[11px] font-bold transition-all text-center whitespace-nowrap",
                       batchShareScope === "vehicle"
-                        ? "bg-indigo-600 text-white shadow-sm"
+                        ? "bg-blue-600 text-white shadow-sm"
                         : "text-slate-500 dark:text-slate-400",
                     )}
                   >
